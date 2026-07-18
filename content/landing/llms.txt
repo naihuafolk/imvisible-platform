@@ -1,0 +1,34 @@
+# ImVisible
+
+> แพลตฟอร์ม AEO + SEO อัตโนมัติด้วย AI สำหรับตลาดไทยและต่างประเทศ ทำให้เว็บไซต์ "ถูกเห็น" ทั้งบน Google และบน AI (ChatGPT, Gemini, Perplexity) แบบครบวงจร วัดผลจริง โปร่งใสบนแดชบอร์ด
+
+ImVisible (imvisible.tech) รวม SEO (การติดอันดับผลค้นหา Google) เข้ากับ AEO — Answer Engine Optimization (การทำให้คอนเทนต์ถูก AI หยิบไปอ้างอิงในคำตอบ) ไว้ในระบบเดียว ทำงานอัตโนมัติกว่า 90% ตั้งแต่ขุดคำถามจริง ผลิตคอนเทนต์ที่ตรวจสอบข้อเท็จจริง เผยแพร่ ไปจนถึงวัดผล โดยตัวเลขทุกตัวดึงจาก API จริง (Google Search Console, DataForSEO และการตรวจ AI สด)
+
+## What ImVisible does (บริการหลัก)
+- Keyword & question mining — ขุดคำถามจริงที่ผู้คนค้นหาบน Google และถาม AI
+- AI content production — ผลิตคอนเทนต์ด้วยสูตร AEO พร้อม Fact-Check ทั้งภาษาไทยและอังกฤษ
+- Auto-publishing — เผยแพร่ขึ้นเว็บ WordPress อัตโนมัติตามจังหวะที่เหมาะสม
+- Real measurement — วัดผลอันดับ Google และ AI Citation แบบตรวจสอบย้อนแหล่งที่มาได้
+- Continuous learning loop — นำผลกลับมาปรับกลยุทธ์อัตโนมัติ วนต่อเนื่อง
+
+## Key facts (ข้อเท็จจริงสำคัญ)
+- AEO = Answer Engine Optimization: ทำให้เว็บเป็น "แหล่งอ้างอิง" ในคำตอบของ AI ต่างจาก SEO ที่เน้นอันดับลิงก์
+- รองรับสองภาษา: ไทย + อังกฤษ (hreflang + Structured Data ถูกต้อง)
+- ความโปร่งใส: ลูกค้าเห็นทุกการทำงานบนแดชบอร์ดเรียลไทม์ ไม่มีเลขปั้น
+- ระยะเวลาเห็นผล: AI Citation เห็นได้ในไม่กี่สัปดาห์ / อันดับ SEO ยั่งยืนเป็นเกม 3–6 เดือน (ไม่มีสัญญา "ติดหน้า 1 ใน 7 วัน")
+
+## Pricing (แพ็กเกจ)
+- Starter — ฿2,900/เดือน: 1 เว็บไซต์, 60 บทความ/เดือน, รายงานอันดับ + AI Citation
+- Pro — ฿9,900/เดือน (ยอดนิยม): 3 เว็บไซต์, บทความไม่จำกัด, เผยแพร่อัตโนมัติเต็มระบบ, เรียนรู้ & ปรับกลยุทธ์อัตโนมัติ
+- Enterprise / Agency — ฿29,900/เดือน: เว็บไซต์ไม่จำกัด, เข้าถึง API เต็มรูปแบบ, SLA และทีมดูแลเฉพาะ
+- ทุกแพ็กเกจทดลองฟรี 14 วัน ไม่ต้องใช้บัตรเครดิต
+
+## Links
+- หน้าแรก (ไทย): https://imvisible.tech/
+- English: https://imvisible.tech/en/
+- ราคา/แพ็กเกจ: https://imvisible.tech/#price
+- วิธีการทำงาน: https://imvisible.tech/#how
+- คำถามที่พบบ่อย (FAQ): https://imvisible.tech/#faq
+
+## Contact
+- Website: https://imvisible.tech

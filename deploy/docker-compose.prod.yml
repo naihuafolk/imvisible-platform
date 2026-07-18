@@ -17,6 +17,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ../index.html:/srv/frontend/index.html:ro
       - ../assets:/srv/frontend/assets:ro
+      - ../content/landing:/srv/landing:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on: [wordpress, api]

@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<!-- ============ SEO (ไทย + อังกฤษ) ============ -->
+<title>ImVisible — ทำให้เว็บคุณถูกเห็นทั้ง Google และ AI | AEO + SEO อัตโนมัติ</title>
+<meta name="description" content="ImVisible แพลตฟอร์ม AEO + SEO อัตโนมัติด้วย AI ดันเว็บให้ติดอันดับ Google และถูก ChatGPT, Gemini, Perplexity แนะนำ ครบวงจร วัดผลจริง โปร่งใส"/>
+<meta name="keywords" content="AEO, SEO, AI SEO, Answer Engine Optimization, รับทำ SEO, AI Search, ChatGPT SEO, Generative Engine Optimization, ImVisible"/>
+<meta name="robots" content="index, follow, max-image-preview:large"/>
+<meta name="author" content="ImVisible"/>
+<meta name="theme-color" content="#1a56ff" media="(prefers-color-scheme: light)"/>
+<meta name="theme-color" content="#0a1b3d" media="(prefers-color-scheme: dark)"/>
+<link rel="canonical" href="https://imvisible.tech/"/>
+
+<!-- hreflang: รองรับ SEO ทั้งไทยและอังกฤษ -->
+<link rel="alternate" hreflang="th" href="https://imvisible.tech/"/>
+<link rel="alternate" hreflang="en" href="https://imvisible.tech/en/"/>
+<link rel="alternate" hreflang="x-default" href="https://imvisible.tech/"/>
+<!-- llms.txt สำหรับ AI crawler (AEO) -->
+<link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt"/>
+
+<!-- Open Graph -->
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="ImVisible"/>
+<meta property="og:locale" content="th_TH"/>
+<meta property="og:locale:alternate" content="en_US"/>
+<meta property="og:url" content="https://imvisible.tech/"/>
+<meta property="og:title" content="ImVisible — ทำให้เว็บคุณถูกเห็นทั้ง Google และ AI"/>
+<meta property="og:description" content="แพลตฟอร์ม AEO + SEO อัตโนมัติด้วย AI ครบวงจร วัดผลจริง โปร่งใสบนแดชบอร์ด"/>
+<meta property="og:image" content="https://imvisible.tech/og-cover.png"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta property="og:image:alt" content="ImVisible — ทำให้เว็บคุณถูกเห็นทั้ง Google และ AI"/>
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="ImVisible — ทำให้เว็บคุณถูกเห็นทั้ง Google และ AI"/>
+<meta name="twitter:description" content="แพลตฟอร์ม AEO + SEO อัตโนมัติด้วย AI ครบวงจร วัดผลจริง โปร่งใสบนแดชบอร์ด"/>
+<meta name="twitter:image" content="https://imvisible.tech/og-cover.png"/>
+<meta name="twitter:image:alt" content="ImVisible — ทำให้เว็บคุณถูกเห็นทั้ง Google และ AI"/>
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%91%81%EF%B8%8F%3C/text%3E%3C/svg%3E"/>
+
+<style>
+  :root{
+    --paper:#ffffff;
+    --paper-2:#eef4ff;
+    --sand:#e3edff;
+    --ink:#0a1b3d;
+    --ink-soft:#3a4a6b;
+    --muted:#4f6187;
+    --line:#dce7fa;
+    --blue:#1a56ff;
+    --blue-deep:#0a2a8c;
+    --azure:#5b9bff;
+    --blue-wash:#eaf1ff;
+    --ok:#0a7350;
+    --maxw:1280px;
+    --thai:'IBM Plex Sans Thai','Sarabun','Noto Sans Thai','Leelawadee UI',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  .iv{
+    font-family:var(--thai);
+    color:var(--ink);
+    background:var(--paper);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    position:relative;
+  }
+  .iv img{max-width:100%}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(20px,5vw,64px)}
+  .rule{height:1px;background:var(--line);border:0;margin:0}
+  .eyebrow{
+    font-size:.72rem;letter-spacing:.34em;text-transform:uppercase;
+    font-weight:600;color:var(--muted);
+  }
+  .eyebrow.blue{color:var(--blue)}
+  a.iv-link{color:inherit;text-decoration:none}
+  .iv a:focus-visible,.iv button:focus-visible{
+    outline:2.5px solid var(--blue);outline-offset:3px;border-radius:2px;
+  }
+  .skip{position:absolute;left:8px;top:-60px;z-index:200;background:var(--blue);color:#fff;padding:12px 20px;border-radius:0 0 6px 6px;font-weight:700;font-size:.9rem;transition:top .2s}
+  .skip:focus{top:0}
+
+  /* faint blueprint column lines */
+  .iv::before{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+    background:linear-gradient(90deg,rgba(26,86,255,.045) 1px,transparent 1px) 0 0/ calc(100%/12) 100%;
+    mask:linear-gradient(180deg,#000,#000 55%,transparent);
+    opacity:.7;
+  }
+  .iv > *{position:relative;z-index:1}
+
+  /* ---------- MASTHEAD ---------- */
+  .ticker{
+    border-bottom:1px solid rgba(255,255,255,.14);
+    background:var(--ink);color:#eaf1ff;
+    font-size:.68rem;letter-spacing:.28em;text-transform:uppercase;font-weight:500;
+    overflow:hidden;white-space:nowrap;
+  }
+  .ticker .run{display:inline-block;padding:7px 0;animation:slide 34s linear infinite;will-change:transform}
+  .ticker .run span{padding:0 26px;opacity:.82}
+  .ticker .run span b{color:var(--azure);font-weight:600}
+  @keyframes slide{to{transform:translateX(-50%)}}
+
+  .mast{
+    display:flex;align-items:center;justify-content:space-between;gap:24px;
+    padding-top:20px;padding-bottom:20px;
+  }
+  .brand{display:flex;align-items:baseline;gap:12px}
+  .brand .logo{font-weight:800;font-size:1.5rem;letter-spacing:-.02em;display:inline-flex;align-items:center;gap:9px}
+  .brand .logo .mk{
+    width:26px;height:26px;border-radius:7px;position:relative;flex:0 0 auto;
+    background:conic-gradient(from 130deg,var(--azure),var(--blue),var(--blue-deep),var(--azure));
+    box-shadow:0 6px 16px -5px rgba(26,86,255,.7);
+  }
+  .brand .logo .mk::after{content:"";position:absolute;inset:7px;border-radius:50%;background:#fff}
+  .brand .logo .mk::before{content:"";position:absolute;inset:10px;border-radius:50%;background:var(--blue);z-index:1}
+  .brand .logo .dot{color:var(--blue)}
+  .brand .iss{
+    font-size:.66rem;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);
+    border-left:1px solid var(--line);padding-left:12px;
+  }
+  .nav{display:flex;align-items:center;gap:26px}
+  .nav a{font-size:.86rem;font-weight:500;color:var(--ink-soft);letter-spacing:.01em}
+  .nav a:hover{color:var(--blue)}
+  .btn{
+    font-family:inherit;cursor:pointer;border:0;
+    font-size:.9rem;font-weight:600;letter-spacing:.01em;
+    padding:12px 22px;border-radius:2px;transition:.25s;
+    display:inline-flex;align-items:center;gap:9px;text-decoration:none;
+  }
+  .btn-primary{background:var(--blue);color:#fff;box-shadow:0 12px 26px -12px rgba(26,86,255,.85)}
+  .btn-primary:hover{background:var(--blue-deep);transform:translateY(-1px)}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+  .btn-ghost:hover{background:var(--ink);color:#fff}
+  .nav .btn{padding:10px 18px}
+
+  /* language toggle */
+  .langtoggle{display:inline-flex;border:1px solid var(--line);border-radius:3px;overflow:hidden;background:#fff}
+  .langtoggle button{font-family:inherit;font-size:.74rem;font-weight:700;letter-spacing:.08em;padding:10px 14px;min-height:44px;background:#fff;color:var(--muted);cursor:pointer;border:0;transition:.2s;display:inline-flex;align-items:center}
+  .langtoggle button.on{background:var(--ink);color:#fff}
+  @media(max-width:860px){.nav a:not(.btn){display:none}.nav{gap:12px}}
+
+  /* ---------- HERO ---------- */
+  .hero{padding-top:clamp(40px,7vw,84px);padding-bottom:clamp(46px,7vw,90px)}
+  .hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(28px,5vw,64px);align-items:end}
+  .hero-lead .kick{display:flex;align-items:center;gap:14px;margin-bottom:26px}
+  .hero-lead .kick .num{font-size:.72rem;letter-spacing:.3em;font-weight:700;color:var(--blue)}
+  .hero-lead .kick i{flex:1;height:1px;background:var(--line);font-style:normal;max-width:120px}
+
+  h1.head{margin:0;font-weight:800;letter-spacing:-.025em;line-height:.94;font-size:clamp(2.9rem,8.2vw,6.1rem)}
+  h1.head .l1{display:block;color:var(--ink)}
+  h1.head .l3{display:block;color:var(--ink)}
+  h1.head .l3 .amp{color:var(--blue)}
+
+  /* signature word: invisible -> visible */
+  .reveal{display:inline-block;position:relative;line-height:.9;font-size:clamp(3.6rem,13vw,8.8rem);font-weight:800;letter-spacing:-.04em;margin:.04em 0 .02em}
+  .reveal .ghost{color:transparent;-webkit-text-stroke:1.5px var(--azure);text-stroke:1.5px var(--azure);opacity:.5}
+  .reveal .fill{
+    position:absolute;left:0;top:0;
+    background:linear-gradient(100deg,var(--azure),var(--blue) 55%,var(--blue-deep));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    clip-path:inset(0 100% 0 0);
+    animation:wipe 1.5s cubic-bezier(.62,.03,.2,1) .35s forwards;
+  }
+  .reveal::after{
+    content:"";position:absolute;top:-4%;height:108%;width:3px;left:0;
+    background:linear-gradient(180deg,transparent,var(--blue),transparent);
+    box-shadow:0 0 18px 4px rgba(26,86,255,.55);
+    animation:scan 1.5s cubic-bezier(.62,.03,.2,1) .35s forwards;opacity:0;
+  }
+  @keyframes wipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes scan{0%{left:0;opacity:0}8%{opacity:1}92%{opacity:1}100%{left:100%;opacity:0}}
+
+  .hero-sub{margin:20px 0 0;max-width:36ch;font-size:clamp(1rem,1.55vw,1.18rem);color:var(--ink-soft);line-height:1.62}
+  .hero-cta{display:flex;flex-wrap:wrap;gap:14px;margin-top:30px}
+  .trust{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:20px;font-size:.82rem;color:var(--muted)}
+  .trust span{display:inline-flex;align-items:center;gap:7px}
+  .trust svg{flex:0 0 auto}
+
+  /* proof panel */
+  .proof{background:#fff;border:1px solid var(--line);border-radius:4px;box-shadow:0 34px 64px -30px rgba(10,26,82,.3);overflow:hidden}
+  .proof .pf-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--paper-2)}
+  .proof .pf-top .lbl{font-size:.66rem;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);font-weight:600;display:inline-flex;align-items:center;gap:8px}
+  .proof .pf-top .lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(15,138,95,.6);animation:pulse 2.1s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(15,138,95,.55)}70%{box-shadow:0 0 0 8px rgba(15,138,95,0)}100%{box-shadow:0 0 0 0 rgba(15,138,95,0)}}
+  .dots{display:flex;gap:6px}
+  .dots i{width:9px;height:9px;border-radius:50%;background:var(--line)}
+  .dots i:first-child{background:var(--azure)}
+  .serp{padding:20px 20px 6px}
+  .serp .q{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-size:.86rem;color:var(--muted);margin-bottom:18px}
+  .serp .q svg{flex:0 0 auto}
+  .serp .rank1{display:flex;gap:12px;align-items:flex-start;padding:2px 2px 14px}
+  .badge1{flex:0 0 auto;width:34px;height:34px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.95rem}
+  .rank1 .url{font-size:.76rem;color:var(--ok);font-weight:600}
+  .rank1 .ttl{font-size:1.02rem;font-weight:700;color:#1a3fb8;line-height:1.35;margin-top:1px}
+  .rank1 .snip{font-size:.8rem;color:var(--muted);margin-top:3px;line-height:1.5}
+  .ai-block{border-top:1px solid var(--line);padding:16px 20px 18px;background:linear-gradient(180deg,var(--blue-wash),#fff)}
+  .ai-block .ttl{font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;font-weight:700;color:var(--blue-deep);margin-bottom:12px}
+  .chips{display:flex;flex-wrap:wrap;gap:9px}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid #c9d3ff;border-radius:999px;padding:7px 13px;font-size:.82rem;font-weight:600;color:var(--blue-deep)}
+  .chip .ck{color:var(--ok);font-weight:800}
+  .sov{display:flex;align-items:baseline;gap:10px;margin-top:15px;padding-top:13px;border-top:1px dashed var(--line)}
+  .sov .big{font-size:1.5rem;font-weight:800;color:var(--blue);letter-spacing:-.02em}
+  .sov .cap{font-size:.78rem;color:var(--muted)}
+  @media(max-width:900px){.hero-grid{grid-template-columns:1fr;gap:44px}.hero-sub{max-width:46ch}}
+
+  /* ---------- PLATFORM MARQUEE ---------- */
+  .platforms{border-top:1px solid rgba(255,255,255,.14);border-bottom:1px solid rgba(255,255,255,.14);background:var(--ink);color:#eaf1ff;overflow:hidden}
+  .platforms .row{display:flex;white-space:nowrap;align-items:center;animation:slide 30s linear infinite;will-change:transform}
+  .platforms .row .it{display:inline-flex;align-items:center;gap:14px;padding:20px 40px;font-size:clamp(1.1rem,2.4vw,1.7rem);font-weight:700;letter-spacing:-.01em}
+  .platforms .row .it .st{color:var(--azure);font-size:1.4em;line-height:0}
+  .platforms .row .it:nth-child(even){color:#8ea0c9;font-weight:600}
+
+  /* ---------- ANSWER-FIRST (AEO abstract) ---------- */
+  .answer{padding:clamp(44px,6vw,72px) 0}
+  .answer-in{display:grid;grid-template-columns:auto 1fr;gap:16px 26px;align-items:start;border-left:3px solid var(--blue);padding-left:clamp(18px,3vw,30px)}
+  .answer .tag{font-size:.7rem;letter-spacing:.24em;text-transform:uppercase;font-weight:700;color:var(--blue);white-space:nowrap;padding-top:8px}
+  .answer p{margin:0;grid-column:2;font-size:clamp(1.12rem,2.1vw,1.5rem);line-height:1.5;font-weight:500;color:var(--ink);letter-spacing:-.01em;max-width:44ch}
+  .answer p b{color:var(--blue);font-weight:800}
+  @media(max-width:640px){.answer-in{grid-template-columns:1fr;gap:10px}.answer p{grid-column:1}}
+
+  /* ---------- SECTION HEAD ---------- */
+  .sec-head{display:grid;grid-template-columns:auto 1fr;gap:16px 22px;align-items:baseline;margin-bottom:clamp(36px,5vw,58px)}
+  .sec-head .no{font-size:.72rem;letter-spacing:.3em;font-weight:700;color:var(--blue-deep)}
+  .sec-head h2{margin:0;grid-column:2;font-weight:800;letter-spacing:-.02em;line-height:1.04;font-size:clamp(1.8rem,4.5vw,3.05rem)}
+  .sec-head p{grid-column:2;margin:6px 0 0;color:var(--muted);max-width:54ch;font-size:1rem}
+
+  /* ---------- STATS ---------- */
+  .stats{padding:clamp(48px,7vw,90px) 0}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr)}
+  .stat{padding:8px 26px 8px 0;border-left:1px solid var(--line);padding-left:26px}
+  .stat:first-child{border-left:0;padding-left:0}
+  .stat .n{font-size:clamp(2.6rem,6vw,4.4rem);font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--blue)}
+  .stat .n small{font-size:.42em;font-weight:700;color:var(--ink)}
+  .stat .d{margin-top:12px;font-size:.9rem;color:var(--ink-soft);line-height:1.5;max-width:22ch}
+  @media(max-width:820px){.stat-grid{grid-template-columns:1fr 1fr;gap:34px 0}.stat{padding-left:22px}.stat:nth-child(odd){border-left:0;padding-left:0}}
+  @media(max-width:440px){.stat-grid{grid-template-columns:1fr}.stat{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:24px}.stat:first-child{border-top:0;padding-top:8px}}
+
+  /* ---------- HOW / PROCESS ---------- */
+  .how{background:var(--ink);color:#eaf1ff;padding:clamp(56px,8vw,110px) 0}
+  .how .sec-head h2{color:#fff}
+  .how .sec-head .no{color:var(--azure)}
+  .how .sec-head p{color:#9aa6c9}
+  .loop-tag{display:inline-flex;align-items:center;gap:9px;margin-top:18px;grid-column:2;font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;color:var(--azure);font-weight:600}
+  .loop-tag svg{animation:spin 9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .steps{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid rgba(255,255,255,.16)}
+  .step{padding:30px 20px 34px;border-right:1px solid rgba(255,255,255,.14);position:relative;transition:background .3s}
+  .step:last-child{border-right:0}
+  .step:hover{background:rgba(91,155,255,.12)}
+  .step .sn{font-size:clamp(2rem,3.4vw,2.7rem);font-weight:800;color:var(--azure);letter-spacing:-.02em;line-height:1;opacity:.9}
+  .step .sh{font-weight:700;font-size:1.05rem;margin:16px 0 8px;letter-spacing:-.01em;color:#fff}
+  .step .sp{font-size:.85rem;color:#9aa6c9;line-height:1.55}
+  .step::after{content:"→";position:absolute;right:-9px;top:34px;color:var(--azure);font-size:1rem;background:var(--ink);padding:2px 0}
+  .step:last-child::after{content:"↻"}
+  @media(max-width:1000px){.steps{grid-template-columns:1fr 1fr}.step{border-right:1px solid rgba(255,255,255,.14);border-bottom:1px solid rgba(255,255,255,.14)}.step::after{display:none}}
+  @media(max-width:560px){.steps{grid-template-columns:1fr}}
+
+  /* ---------- WHY ---------- */
+  .why{padding:clamp(48px,7vw,90px) 0}
+  .why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+  .why-card{padding:0 30px;border-left:1px solid var(--line)}
+  .why-card:first-child{border-left:0;padding-left:0}
+  .why-card .wn{display:inline-grid;place-items:center;width:44px;height:44px;border:1px solid var(--blue);color:var(--blue);border-radius:50%;font-weight:800;font-size:1rem;margin-bottom:20px}
+  .why-card h3{margin:0 0 10px;font-size:1.28rem;font-weight:800;letter-spacing:-.01em}
+  .why-card p{margin:0;color:var(--ink-soft);font-size:.95rem;line-height:1.62}
+  @media(max-width:800px){.why-grid{grid-template-columns:1fr;gap:38px}.why-card{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:30px}.why-card:first-child{border-top:0;padding-top:0}}
+
+  /* ---------- TRANSPARENCY / DASHBOARD ---------- */
+  .dash{background:var(--paper-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:clamp(52px,8vw,104px) 0}
+  .dashboard{background:#fff;border:1px solid var(--line);border-radius:5px;overflow:hidden;box-shadow:0 40px 80px -44px rgba(10,26,82,.32)}
+  .dash-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 20px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,var(--paper-2))}
+  .dash-bar .dl{font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:700;display:inline-flex;align-items:center;gap:9px}
+  .dash-bar .dl b{color:var(--ink)}
+  .dash-bar .live{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(15,138,95,.6);animation:pulse 2.1s infinite}
+  .dash-bar .src{font-size:.72rem;color:var(--muted)}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr)}
+  .kpi{padding:22px 24px;border-right:1px solid var(--line)}
+  .kpi:last-child{border-right:0}
+  .kpi .kl{font-size:.76rem;color:var(--muted);letter-spacing:.01em}
+  .kpi .kv{font-size:2rem;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-top:7px;line-height:1;font-variant-numeric:tabular-nums}
+  .kpi .kv small{font-size:.5em;color:var(--muted);font-weight:700}
+  .kpi .kt{font-size:.76rem;font-weight:700;margin-top:9px;display:inline-flex;gap:5px;align-items:center;color:var(--ok)}
+  .dash-mid{display:grid;grid-template-columns:1.35fr 1fr;border-top:1px solid var(--line)}
+  .chartbox{padding:20px 24px 24px;border-right:1px solid var(--line)}
+  .chartbox .ch-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .chartbox .ch-h .t{font-size:.82rem;font-weight:700;color:var(--ink)}
+  .chartbox .ch-h .lg{font-size:.72rem;color:var(--muted)}
+  .chartbox svg{display:block;width:100%;height:auto}
+  .log{padding:16px 22px}
+  .log .lh{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px}
+  .log .li{display:flex;gap:11px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:.85rem;color:var(--ink-soft);line-height:1.45}
+  .log .li:last-child{border-bottom:0}
+  .log .li .ic{flex:0 0 auto;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--blue-wash);margin-top:1px}
+  .log .li time{color:var(--muted);font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .dash-note{margin-top:20px;font-size:.86rem;color:var(--muted);display:flex;align-items:center;gap:9px}
+  @media(max-width:820px){.kpis{grid-template-columns:1fr 1fr}.kpi:nth-child(2){border-right:0}.kpi:nth-child(1),.kpi:nth-child(2){border-bottom:1px solid var(--line)}.dash-mid{grid-template-columns:1fr}.chartbox{border-right:0;border-bottom:1px solid var(--line)}}
+  @media(max-width:460px){.kpis{grid-template-columns:1fr}.kpi{border-right:0;border-bottom:1px solid var(--line)}.kpi:last-child{border-bottom:0}}
+
+  /* ---------- PRICING ---------- */
+  .pricing{padding:clamp(52px,8vw,104px) 0}
+  .price-grid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);background:#fff}
+  .plan{padding:34px clamp(22px,2.6vw,34px) 36px;border-left:1px solid var(--line);display:flex;flex-direction:column}
+  .plan:first-child{border-left:0}
+  .plan.feat{background:var(--blue);color:#fff;position:relative}
+  .plan.feat .flag{position:absolute;top:0;right:0;background:var(--ink);color:#fff;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;padding:6px 12px;font-weight:700}
+  .plan .pname{font-size:.76rem;letter-spacing:.24em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+  .plan.feat .pname{color:#c7d4ff}
+  .plan .amt{font-size:clamp(2rem,3.6vw,2.7rem);font-weight:800;letter-spacing:-.02em;margin:14px 0 2px;line-height:1}
+  .plan .amt small{font-size:.34em;font-weight:600;color:var(--muted)}
+  .plan.feat .amt small{color:#c7d4ff}
+  .plan .feats{list-style:none;padding:22px 0 0;margin:20px 0 26px;border-top:1px solid var(--line);flex:1}
+  .plan.feat .feats{border-top-color:rgba(255,255,255,.28)}
+  .plan .feats li{display:flex;gap:10px;font-size:.92rem;padding:7px 0;color:var(--ink-soft)}
+  .plan.feat .feats li{color:#eef1ff}
+  .plan .feats li svg{flex:0 0 auto;margin-top:3px}
+  .plan .btn{justify-content:center;width:100%}
+  .plan.feat .btn-primary{background:#fff;color:var(--blue)}
+  .plan.feat .btn-primary:hover{background:var(--ink);color:#fff}
+  @media(max-width:820px){.price-grid{grid-template-columns:1fr}.plan{border-left:0;border-top:1px solid var(--line)}.plan:first-child{border-top:0}}
+
+  /* ---------- FAQ ---------- */
+  .faq{background:var(--paper-2);border-top:1px solid var(--line);padding:clamp(52px,8vw,104px) 0}
+  .faq-list{border-top:1px solid var(--line)}
+  .qa{border-bottom:1px solid var(--line);padding:24px 0;display:grid;grid-template-columns:auto 1fr;gap:6px 20px}
+  .qa .qn{font-size:.74rem;font-weight:700;color:var(--blue);letter-spacing:.1em;padding-top:5px}
+  .qa h3{margin:0;grid-column:2;font-size:1.12rem;font-weight:800;letter-spacing:-.01em}
+  .qa p{margin:6px 0 0;grid-column:2;color:var(--ink-soft);font-size:.95rem;line-height:1.62;max-width:72ch}
+  @media(max-width:560px){.qa{grid-template-columns:1fr}.qa h3,.qa p{grid-column:1}}
+
+  /* ---------- CLOSING ---------- */
+  .closing{padding:clamp(72px,11vw,150px) 0;text-align:center;position:relative;overflow:hidden}
+  .closing .ghostword{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);font-size:clamp(5rem,22vw,20rem);font-weight:800;letter-spacing:-.05em;color:transparent;-webkit-text-stroke:1px var(--line);white-space:nowrap;pointer-events:none;z-index:0;opacity:.9}
+  .closing .cin{position:relative;z-index:1}
+  .closing h2{margin:0 auto;font-weight:800;letter-spacing:-.025em;line-height:1;max-width:16ch;font-size:clamp(2.4rem,7vw,4.9rem)}
+  .closing h2 em{font-style:normal;color:var(--blue)}
+  .closing .cbtns{display:flex;justify-content:center;flex-wrap:wrap;gap:14px;margin-top:34px}
+  .closing .ct{margin-top:18px;font-size:.84rem;color:var(--muted)}
+
+  /* ---------- FOOTER ---------- */
+  .foot{border-top:1px solid var(--line);padding:30px 0 44px}
+  .foot-in{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;font-size:.82rem;color:var(--muted)}
+  .foot-in .brand .logo{font-size:1.15rem}
+  .foot-in a{color:var(--muted)}
+  .foot-in a:hover{color:var(--blue)}
+
+  @media(prefers-reduced-motion:reduce){
+    .ticker .run,.platforms .row,.loop-tag svg,.proof .pf-top .lbl::before,.dash-bar .live{animation:none}
+    .reveal .fill{animation:none;clip-path:inset(0 0 0 0)}
+    .reveal .ghost{opacity:0}
+    .reveal::after{display:none}
+    .platforms .row{transform:none;white-space:normal;flex-wrap:wrap;justify-content:center}
+    .ticker .run{white-space:normal}
+  }
+</style>
+</head>
+<body>
+
+<div class="iv">
+
+  <a class="skip" href="#main" data-en="Skip to main content">ข้ามไปเนื้อหาหลัก</a>
+
+  <!-- ticker -->
+  <div class="ticker" aria-hidden="true">
+    <div class="run">
+      <span>THE VISIBLE ISSUE — No.01</span><span><b>AEO</b> + SEO อัตโนมัติด้วย AI</span><span>ไทย &amp; Global</span><span>Google · ChatGPT · Gemini · Perplexity</span><span>Share of Voice <b>+38%</b></span>
+      <span>THE VISIBLE ISSUE — No.01</span><span><b>AEO</b> + SEO อัตโนมัติด้วย AI</span><span>ไทย &amp; Global</span><span>Google · ChatGPT · Gemini · Perplexity</span><span>Share of Voice <b>+38%</b></span>
+    </div>
+  </div>
+
+  <!-- masthead -->
+  <header class="wrap mast">
+    <div class="brand">
+      <span class="logo"><span class="mk" aria-hidden="true"></span>ImVisible<span class="dot">.</span></span>
+      <span class="iss">imvisible.tech · 2026</span>
+    </div>
+    <nav class="nav" aria-label="หลัก">
+      <a href="#how" class="iv-link" data-en="How it works">วิธีการทำงาน</a>
+      <a href="#why" class="iv-link" data-en="Why us">ทำไมต้องเรา</a>
+      <a href="#dash" class="iv-link" data-en="Dashboard">แดชบอร์ด</a>
+      <a href="#price" class="iv-link" data-en="Pricing">ราคา</a>
+      <div class="langtoggle" role="group" aria-label="เปลี่ยนภาษา / Language">
+        <button type="button" data-l="th" class="on">TH</button>
+        <button type="button" data-l="en">EN</button>
+      </div>
+      <a href="https://app.imvisible.tech/" class="btn btn-primary" data-en="Start free — 14 days">เริ่มใช้ฟรี 14 วัน</a>
+    </nav>
+  </header>
+  <hr class="rule"/>
+
+  <main id="main">
+
+  <!-- hero -->
+  <section class="wrap hero">
+    <div class="hero-grid">
+      <div class="hero-lead">
+        <div class="kick"><span class="num" data-en="01 — Cover">01 — เปิดเล่ม</span><i></i></div>
+        <h1 class="head">
+          <span class="l1" data-en="Make your website">ทำให้เว็บคุณ</span>
+          <span class="reveal" aria-label="ถูกเห็น">
+            <span class="ghost" aria-hidden="true" data-en="visible">ถูกเห็น</span>
+            <span class="fill" aria-hidden="true" data-en="visible">ถูกเห็น</span>
+          </span>
+          <span class="l3" data-en-html="on Google <span class=&quot;amp&quot;>&amp;</span> AI">ทั้งบน Google <span class="amp">&amp;</span> AI</span>
+        </h1>
+        <p class="hero-sub" data-en="ImVisible gets your site ranked on Google and cited by AI like ChatGPT, Gemini, and Perplexity — fully automated, end to end: from mining the real questions people ask, to producing content, to measuring results.">ImVisible ดันเว็บของคุณให้ติดอันดับ Google และถูก AI อย่าง ChatGPT, Gemini, Perplexity หยิบไปแนะนำ — อัตโนมัติ ครบวงจร ตั้งแต่ขุดคำถามจริง ผลิตคอนเทนต์ ไปจนถึงวัดผล</p>
+        <div class="hero-cta">
+          <a href="https://app.imvisible.tech/" class="btn btn-primary"><span data-en="Start free — 14 days">เริ่มใช้ฟรี 14 วัน</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
+          </a>
+          <a href="#how" class="btn btn-ghost" data-en="See how it works">ดูวิธีการทำงาน</a>
+        </div>
+        <div class="trust">
+          <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0f8a5f" stroke-width="2.6"><path d="M4 12l5 5L20 6"/></svg> <span data-en="No credit card">ไม่ต้องใช้บัตรเครดิต</span></span>
+          <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0f8a5f" stroke-width="2.6"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Set up in 5 minutes">ตั้งค่าใน 5 นาที</span></span>
+        </div>
+      </div>
+
+      <!-- proof panel -->
+      <aside class="proof" aria-label="ผลลัพธ์จริง">
+        <div class="pf-top">
+          <span class="lbl">Live Result</span>
+          <span class="dots"><i></i><i></i><i></i></span>
+        </div>
+        <div class="serp">
+          <div class="q">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+            <span data-en="AEO SEO platform for business">แพลตฟอร์ม AEO SEO สำหรับธุรกิจ</span>
+          </div>
+          <div class="rank1">
+            <span class="badge1">1</span>
+            <div>
+              <div class="url">imvisible.tech</div>
+              <div class="ttl" data-en="ImVisible — get your website seen on Google and AI">ImVisible — ทำให้เว็บคุณถูกเห็นทั้ง Google และ AI</div>
+              <div class="snip" data-en="Automated AEO + SEO platform, end to end for Thai &amp; global markets — from mining questions to producing content to measuring results…">แพลตฟอร์ม AEO + SEO อัตโนมัติ ครบวงจรสำหรับตลาดไทยและต่างประเทศ ตั้งแต่ขุดคำถาม ผลิตคอนเทนต์ ถึงวัดผล…</div>
+            </div>
+          </div>
+        </div>
+        <div class="ai-block">
+          <div class="ttl" data-en="AI recommends this site">AI แนะนำเว็บนี้</div>
+          <div class="chips">
+            <span class="chip">ChatGPT <span class="ck">✓</span></span>
+            <span class="chip">Gemini <span class="ck">✓</span></span>
+            <span class="chip">Perplexity <span class="ck">✓</span></span>
+          </div>
+          <div class="sov">
+            <span class="big">+38%</span>
+            <span class="cap" data-en-html="Share of Voice in AI answers<br/>vs. before using ImVisible">Share of Voice บนคำตอบของ AI<br/>เทียบกับก่อนใช้ ImVisible</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- platform marquee -->
+  <div class="platforms" aria-label="แพลตฟอร์มที่ครอบคลุม">
+    <div class="row">
+      <span class="it">Google Search <span class="st">✦</span></span>
+      <span class="it">AI Overviews <span class="st">✦</span></span>
+      <span class="it">ChatGPT <span class="st">✦</span></span>
+      <span class="it">Gemini <span class="st">✦</span></span>
+      <span class="it">Perplexity <span class="st">✦</span></span>
+      <span class="it">Google Search <span class="st">✦</span></span>
+      <span class="it">AI Overviews <span class="st">✦</span></span>
+      <span class="it">ChatGPT <span class="st">✦</span></span>
+      <span class="it">Gemini <span class="st">✦</span></span>
+      <span class="it">Perplexity <span class="st">✦</span></span>
+    </div>
+  </div>
+
+  <!-- answer-first (AEO abstract) -->
+  <section class="wrap answer">
+    <div class="answer-in">
+      <span class="tag" data-en="In short">โดยสรุป</span>
+      <p data-en-html="<b>ImVisible</b> is an automated platform that combines <b>SEO</b> (ranking on Google) with <b>AEO</b> (getting cited by AI like ChatGPT, Gemini and Perplexity). It mines real questions, produces fact-checked content, publishes it, and measures ranking and AI citations — transparently, on a live dashboard.">
+        <b>ImVisible</b> คือแพลตฟอร์มอัตโนมัติที่รวม <b>SEO</b> (ติดอันดับ Google) เข้ากับ <b>AEO</b> (ถูก AI อย่าง ChatGPT, Gemini, Perplexity หยิบไปแนะนำ) โดยขุดคำถามจริง ผลิตคอนเทนต์ที่ตรวจสอบข้อเท็จจริง เผยแพร่ และวัดผลอันดับกับ AI Citation — อย่างโปร่งใสบนแดชบอร์ดเรียลไทม์
+      </p>
+    </div>
+  </section>
+
+  <!-- stats -->
+  <section class="wrap stats">
+    <div class="sec-head">
+      <span class="no">02</span>
+      <h2 data-en="The search game has changed">เกมการค้นหาเปลี่ยนไปแล้ว</h2>
+      <p data-en="People no longer click like they used to, and AI Search is becoming the first stop for every question — the numbers you need to see.">ผู้คนไม่ได้คลิกเหมือนเดิม และ AI Search กำลังกลายเป็นด่านแรกของทุกคำถาม — ตัวเลขที่คุณต้องเห็น</p>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="n">68<small>%</small></div><div class="d" data-en="of searches end without a click to any website">การค้นหาจบโดยไม่คลิกเข้าเว็บ</div></div>
+      <div class="stat"><div class="n">4.4<small>×</small></div><div class="d" data-en="higher conversion from AI-referred traffic">ทราฟฟิกจาก AI คอนเวิร์ตสูงกว่า</div></div>
+      <div class="stat"><div class="n">83<small>%</small></div><div class="d" data-en="of AI citations come from regularly-updated pages">Citation มาจากหน้าที่อัปเดตสม่ำเสมอ</div></div>
+      <div class="stat"><div class="n">90<small>%+</small></div><div class="d" data-en="of the work done automatically by ImVisible">งานที่ระบบ ImVisible ทำเอง</div></div>
+    </div>
+    <p style="margin-top:26px;font-size:.78rem;color:var(--muted)" data-en="* Industry figures are aggregate estimates from public SEO/AEO research, 2024–2026.">* ตัวเลขอุตสาหกรรมเป็นค่าประมาณการรวมจากงานวิจัย SEO/AEO สาธารณะ ปี 2024–2026</p>
+  </section>
+
+  <!-- how -->
+  <section class="how" id="how">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="no">03</span>
+        <h2 data-en="How it works — a loop that never stops improving">วิธีการทำงาน — วนเป็นลูป ไม่หยุดพัฒนา</h2>
+        <p data-en="One system that runs as a continuous cycle — the more it runs, the smarter it gets, the more results you see.">ระบบเดียวที่ทำงานต่อเนื่องเป็นวงจร ยิ่งใช้ยิ่งฉลาด ยิ่งเห็นผล</p>
+        <span class="loop-tag">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+          Continuous Loop
+        </span>
+      </div>
+    </div>
+    <div class="wrap">
+      <div class="steps">
+        <div class="step"><div class="sn">01</div><div class="sh" data-en="Mine real questions">ขุดคำถามจริง</div><div class="sp" data-en="Find the questions customers actually ask on Google and AI">ค้นหาคำถามที่ลูกค้าถามจริงบน Google และ AI</div></div>
+        <div class="step"><div class="sn">02</div><div class="sh" data-en="Produce with AI">ผลิตด้วย AI</div><div class="sp" data-en="Create content with an AEO formula, fact-checked">สร้างคอนเทนต์ด้วยสูตร AEO พร้อม Fact-Check</div></div>
+        <div class="step"><div class="sn">03</div><div class="sh" data-en="Auto-publish">เผยแพร่อัตโนมัติ</div><div class="sp" data-en="Publish to your site automatically at the right cadence">ปล่อยขึ้นเว็บให้เองตามจังหวะที่เหมาะสม</div></div>
+        <div class="step"><div class="sn">04</div><div class="sh" data-en="Measure for real">วัดผลจริง</div><div class="sp" data-en="Track ranking + AI citations with real, verifiable numbers">ติดตามอันดับ + AI Citation แบบเห็นตัวเลขจริง</div></div>
+        <div class="step"><div class="sn">05</div><div class="sh" data-en="Learn &amp; self-tune">เรียนรู้ &amp; ปรับเอง</div><div class="sp" data-en="Feed results back to refine strategy — looping continuously">นำผลกลับมาปรับกลยุทธ์ วนลูปต่อเนื่อง</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- why -->
+  <section class="wrap why" id="why">
+    <div class="sec-head">
+      <span class="no">04</span>
+      <h2 data-en="Why ImVisible — SEO + AEO in one system">ทำไมต้องเป็น ImVisible — รับทำ SEO + AEO ในระบบเดียว</h2>
+      <p data-en="Three reasons we're not just another SEO tool">สามเหตุผลที่ทำให้เราไม่ใช่เครื่องมือ SEO ทั่วไป</p>
+    </div>
+    <div class="why-grid">
+      <div class="why-card">
+        <span class="wn">A</span>
+        <h3 data-en="Own the open field">เจาะสนามที่ยังว่าง</h3>
+        <p data-en="AEO has almost no competition in Thailand yet — claim your place in AI answers before rivals wake up.">AEO ในตลาดไทยแทบไม่มีคู่แข่ง — เข้ายึดพื้นที่บนคำตอบของ AI ก่อนใคร ในขณะที่คู่แข่งยังไม่ตื่นตัว</p>
+      </div>
+      <div class="why-card">
+        <span class="wn">B</span>
+        <h3 data-en="Fully automated">อัตโนมัติครบวงจร</h3>
+        <p data-en="The system does 90%+ of the work — from finding questions to measuring results. Focus on your business, not on hiring a content team.">ระบบทำงานเองมากกว่า 90% ตั้งแต่หาคำถามถึงวัดผล คุณโฟกัสธุรกิจ ไม่ต้องจ้างทีมคอนเทนต์ทั้งทีม</p>
+      </div>
+      <div class="why-card">
+        <span class="wn">C</span>
+        <h3 data-en="Real, verifiable results">วัดผลของจริง</h3>
+        <p data-en="Real ranking and AI-citation reports you can verify — not vanity numbers that don't move sales.">รายงานอันดับจริงและ AI Citation ที่ตรวจสอบได้ ไม่ใช่เลขสวย ๆ ที่ไม่มีความหมายกับยอดขาย</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- transparency / dashboard -->
+  <section class="dash" id="dash">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="no">05</span>
+        <h2 data-en="Fully transparent — you see everything on your dashboard">โปร่งใสทุกขั้น — เห็นทุกอย่างบนแดชบอร์ด</h2>
+        <p data-en="Unlike black-box agencies, you watch every move in real time. Every number is pulled from real APIs — Google Search Console, DataForSEO, and live AI checks. No made-up metrics.">ต่างจากเอเจนซี่กล่องดำ — คุณเห็นทุกการเคลื่อนไหวแบบเรียลไทม์ ทุกตัวเลขดึงจาก API จริง (Google Search Console, DataForSEO, ตรวจ AI สด ๆ) ไม่มีเลขปั้น</p>
+      </div>
+
+      <div class="dashboard" role="img" aria-label="ตัวอย่างแดชบอร์ด ImVisible">
+        <div class="dash-bar">
+          <span class="dl"><span class="live" aria-hidden="true"></span> <span data-en="Client dashboard">แดชบอร์ดลูกค้า</span> · <b>imvisible.tech</b></span>
+          <span class="src" data-en="Source: Search Console · DataForSEO · AI check">ที่มา: Search Console · DataForSEO · ตรวจ AI</span>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kl" data-en="Avg. Google rank">อันดับเฉลี่ย Google</div>
+            <div class="kv">4.2</div>
+            <div class="kt">▲ <span data-en="up 6.1 in 90 days">ดีขึ้น 6.1 ใน 90 วัน</span></div>
+          </div>
+          <div class="kpi">
+            <div class="kl" data-en="AI citations">AI Citation</div>
+            <div class="kv">27</div>
+            <div class="kt">▲ <span data-en="+12 this month">+12 เดือนนี้</span></div>
+          </div>
+          <div class="kpi">
+            <div class="kl" data-en="Articles published">บทความที่เผยแพร่</div>
+            <div class="kv">143</div>
+            <div class="kt">▲ <span data-en="+38 automated">+38 อัตโนมัติ</span></div>
+          </div>
+          <div class="kpi">
+            <div class="kl" data-en="Share of Voice (AI)">Share of Voice (AI)</div>
+            <div class="kv">38<small>%</small></div>
+            <div class="kt">▲ <span data-en="+38% vs. start">+38% เทียบตอนเริ่ม</span></div>
+          </div>
+        </div>
+
+        <div class="dash-mid">
+          <div class="chartbox">
+            <div class="ch-h">
+              <span class="t" data-en="Avg. ranking — last 90 days">อันดับเฉลี่ย — 90 วันล่าสุด</span>
+              <span class="lg" data-en="lower is better">ยิ่งต่ำยิ่งดี</span>
+            </div>
+            <svg viewBox="0 0 520 150" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#1a56ff" stop-opacity="0.18"/>
+                  <stop offset="1" stop-color="#1a56ff" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <line x1="0" y1="30" x2="520" y2="30" stroke="#dce7fa" stroke-width="1"/>
+              <line x1="0" y1="70" x2="520" y2="70" stroke="#dce7fa" stroke-width="1"/>
+              <line x1="0" y1="110" x2="520" y2="110" stroke="#dce7fa" stroke-width="1"/>
+              <path d="M0,18 L74,30 L148,44 L222,58 L296,80 L370,104 L444,120 L520,130 L520,150 L0,150 Z" fill="url(#gfill)"/>
+              <path d="M0,18 L74,30 L148,44 L222,58 L296,80 L370,104 L444,120 L520,130" fill="none" stroke="#1a56ff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="520" cy="130" r="5" fill="#1a56ff"/>
+              <circle cx="520" cy="130" r="9" fill="#1a56ff" fill-opacity="0.18"/>
+            </svg>
+          </div>
+          <div class="log">
+            <div class="lh" data-en="What the system did today">วันนี้ระบบทำอะไรบ้าง</div>
+            <div class="li"><span class="ic">✎</span><span data-en="Published 3 new articles (AEO formula)">เผยแพร่บทความใหม่ 3 ชิ้น (สูตร AEO)</span> <time>09:14</time></div>
+            <div class="li"><span class="ic">↑</span><span data-en="“seo price 2026” moved #7 → #3">“ราคา seo 2026” ขยับ #7 → #3</span> <time>11:02</time></div>
+            <div class="li"><span class="ic">✦</span><span data-en="Cited by Perplexity on 2 queries">ถูก Perplexity อ้างอิง 2 คำถาม</span> <time>13:47</time></div>
+            <div class="li"><span class="ic">⟳</span><span data-en="Refreshed 5 aging pages">รีเฟรชคอนเทนต์เก่า 5 หน้า</span> <time>16:20</time></div>
+          </div>
+        </div>
+      </div>
+      <div class="dash-note">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0f8a5f" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg>
+        <span data-en="Every figure is traceable to its source — export any report anytime.">ทุกตัวเลขตรวจสอบย้อนไปถึงแหล่งที่มาได้ · ดาวน์โหลดรายงานได้ทุกเมื่อ</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- pricing -->
+  <section class="wrap pricing" id="price">
+    <div class="sec-head">
+      <span class="no">06</span>
+      <h2 data-en="Choose your plan">เลือกแพ็กเกจที่ใช่</h2>
+      <p data-en="Start small and scale up. Every plan includes a 14-day free trial — no credit card.">เริ่มเล็กแล้วขยายได้ ทุกแพ็กเกจทดลองฟรี 14 วัน ไม่ต้องใช้บัตรเครดิต</p>
+    </div>
+    <div class="price-grid">
+      <div class="plan">
+        <span class="pname">Starter</span>
+        <div class="amt">฿2,900<small>/<span data-en="mo">เดือน</span></small></div>
+        <ul class="feats">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="1 website">1 เว็บไซต์</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="60 articles / month">60 บทความ / เดือน</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Ranking + AI citation reports">รายงานอันดับ + AI Citation</span></li>
+        </ul>
+        <a href="https://app.imvisible.tech/" class="btn btn-ghost" data-en="Start free — 14 days">เริ่มใช้ฟรี 14 วัน</a>
+      </div>
+      <div class="plan feat">
+        <span class="flag" data-en="Popular">ยอดนิยม</span>
+        <span class="pname">Pro</span>
+        <div class="amt">฿9,900<small>/<span data-en="mo">เดือน</span></small></div>
+        <ul class="feats">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="3 websites">3 เว็บไซต์</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Unlimited articles">บทความไม่จำกัด</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Full auto-publishing">เผยแพร่อัตโนมัติเต็มระบบ</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Auto strategy learning &amp; tuning">เรียนรู้ &amp; ปรับกลยุทธ์อัตโนมัติ</span></li>
+        </ul>
+        <a href="https://app.imvisible.tech/" class="btn btn-primary" data-en="Start free — 14 days">เริ่มใช้ฟรี 14 วัน</a>
+      </div>
+      <div class="plan">
+        <span class="pname">Enterprise / Agency</span>
+        <div class="amt">฿29,900<small>/<span data-en="mo">เดือน</span></small></div>
+        <ul class="feats">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Unlimited websites">เว็บไซต์ไม่จำกัด</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Full API access">เข้าถึง API เต็มรูปแบบ</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="SLA &amp; dedicated team">SLA และทีมดูแลเฉพาะ</span></li>
+        </ul>
+        <a href="https://app.imvisible.tech/" class="btn btn-ghost" data-en="Contact sales">ติดต่อทีมขาย</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- faq (AEO / FAQPage) -->
+  <section class="faq" id="faq">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="no">07</span>
+        <h2 data-en="Frequently asked questions">คำถามที่พบบ่อย</h2>
+        <p data-en="Straight answers — the way AI likes to quote them.">คำตอบตรงไปตรงมา — แบบที่ AI ชอบหยิบไปตอบ</p>
+      </div>
+      <div class="faq-list">
+        <div class="qa">
+          <span class="qn">Q1</span>
+          <h3 data-en="What is AEO, and how is it different from SEO?">AEO คืออะไร ต่างจาก SEO ยังไง?</h3>
+          <p data-en="SEO gets your page ranked in Google's link results. AEO (Answer Engine Optimization) makes your content the source that AI engines like ChatGPT, Gemini and Perplexity cite in their answers. ImVisible does both at once.">SEO ทำให้หน้าเว็บติดอันดับในผลลัพธ์ลิงก์ของ Google ส่วน AEO (Answer Engine Optimization) ทำให้คอนเทนต์ของคุณกลายเป็นแหล่งที่ AI อย่าง ChatGPT, Gemini, Perplexity หยิบไปอ้างอิงในคำตอบ — ImVisible ทำทั้งสองอย่างพร้อมกัน</p>
+        </div>
+        <div class="qa">
+          <span class="qn">Q2</span>
+          <h3 data-en="Does it support both Thai and English?">รองรับทั้งภาษาไทยและอังกฤษไหม?</h3>
+          <p data-en="Yes. The platform produces and optimizes content in both Thai and English, with proper hreflang and structured data so each language ranks in its own market.">รองรับครับ ระบบผลิตและปรับแต่งคอนเทนต์ได้ทั้งภาษาไทยและอังกฤษ พร้อม hreflang และ Structured Data ที่ถูกต้อง เพื่อให้แต่ละภาษาติดอันดับในตลาดของตัวเอง</p>
+        </div>
+        <div class="qa">
+          <span class="qn">Q3</span>
+          <h3 data-en="Are the numbers real, or estimated?">ตัวเลขเป็นของจริงหรือประมาณการ?</h3>
+          <p data-en="Real. Rankings come from Google Search Console and DataForSEO; AI citations come from live checks against ChatGPT, Gemini and Perplexity. Every figure on your dashboard is traceable to its source.">ของจริงครับ อันดับดึงจาก Google Search Console และ DataForSEO ส่วน AI Citation มาจากการตรวจสด ๆ กับ ChatGPT, Gemini, Perplexity ทุกตัวเลขบนแดชบอร์ดตรวจย้อนไปถึงแหล่งที่มาได้</p>
+        </div>
+        <div class="qa">
+          <span class="qn">Q4</span>
+          <h3 data-en="How soon will I see results?">เห็นผลเร็วแค่ไหน?</h3>
+          <p data-en="AI citations can appear within weeks, but sustainable SEO/AEO ranking is a 3–6 month game built on consistent content and authority. ImVisible automates that consistency — and anyone promising 'page one in 7 days' is not being honest.">AI Citation อาจเห็นได้ในไม่กี่สัปดาห์ แต่การติดอันดับ SEO/AEO ที่ยั่งยืนเป็นเกม 3–6 เดือน ที่สร้างจากคอนเทนต์สม่ำเสมอและ authority — ImVisible ทำให้ความสม่ำเสมอนั้นอัตโนมัติ และใครที่สัญญา “ติดหน้า 1 ใน 7 วัน” คือไม่ได้พูดความจริง</p>
+        </div>
+        <div class="qa">
+          <span class="qn">Q5</span>
+          <h3 data-en="Do I need my own website?">ต้องมีเว็บไซต์ของตัวเองไหม?</h3>
+          <p data-en="Yes — ImVisible connects to your WordPress site to publish and optimize automatically. No site yet? Our team can set one up for you during onboarding.">ต้องมีครับ ImVisible เชื่อมกับเว็บ WordPress ของคุณเพื่อเผยแพร่และปรับแต่งอัตโนมัติ ยังไม่มีเว็บ? ทีมงานตั้งให้ได้ตอนเริ่มใช้งาน</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- closing -->
+  <section class="wrap closing" id="start">
+    <span class="ghostword" aria-hidden="true">VISIBLE</span>
+    <div class="cin">
+      <div class="eyebrow blue" style="margin-bottom:22px" data-en="Back cover — 08">ปิดเล่ม — 08</div>
+      <h2 data-en-html="Make your website <em>&ldquo;visible&rdquo;</em> — starting today">ทำให้เว็บคุณ <em>“ถูกเห็น”</em> เริ่มวันนี้</h2>
+      <div class="cbtns">
+        <a href="https://app.imvisible.tech/" class="btn btn-primary"><span data-en="Start free — 14 days">เริ่มใช้ฟรี 14 วัน</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
+        </a>
+        <a href="#how" class="btn btn-ghost" data-en="See how it works">ดูวิธีการทำงาน</a>
+      </div>
+      <div class="ct" data-en="No credit card · Set up in 5 minutes">ไม่ต้องใช้บัตรเครดิต · ตั้งค่าใน 5 นาที</div>
+    </div>
+  </section>
+
+  </main>
+
+  <!-- footer -->
+  <footer class="foot">
+    <div class="wrap foot-in">
+      <div class="brand">
+        <span class="logo"><span class="mk" aria-hidden="true"></span>ImVisible<span class="dot">.</span></span>
+      </div>
+      <div>© 2026 ImVisible · <a href="https://imvisible.tech" class="iv-link">imvisible.tech</a> · <a href="/en/" class="iv-link">EN</a> · <span data-en="Updated 19 Jul 2026">อัปเดตล่าสุด 19 ก.ค. 2026</span></div>
+    </div>
+  </footer>
+
+</div>
+
+<!-- ============ JSON-LD Structured Data (SEO + AEO) ============ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://imvisible.tech/#org",
+  "name": "ImVisible",
+  "url": "https://imvisible.tech/",
+  "logo": { "@type": "ImageObject", "url": "https://imvisible.tech/og-cover.png" },
+  "description": "แพลตฟอร์ม AEO + SEO อัตโนมัติด้วย AI ทำให้เว็บถูกเห็นทั้งบน Google และ AI",
+  "areaServed": ["TH", "Worldwide"],
+  "knowsLanguage": ["th", "en"],
+  "contactPoint": { "@type": "ContactPoint", "contactType": "sales", "url": "https://imvisible.tech/#price", "availableLanguage": ["th", "en"] },
+  "sameAs": []
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": "https://imvisible.tech/#website",
+  "name": "ImVisible",
+  "url": "https://imvisible.tech/",
+  "publisher": { "@id": "https://imvisible.tech/#org" },
+  "inLanguage": ["th", "en"],
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": { "@type": "EntryPoint", "urlTemplate": "https://imvisible.tech/?s={search_term_string}" },
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "@id": "https://imvisible.tech/#webpage",
+  "url": "https://imvisible.tech/",
+  "name": "ImVisible — ทำให้เว็บคุณถูกเห็นทั้ง Google และ AI",
+  "description": "แพลตฟอร์ม AEO + SEO อัตโนมัติด้วย AI ครบวงจร วัดผลจริง โปร่งใสบนแดชบอร์ด",
+  "isPartOf": { "@id": "https://imvisible.tech/#website" },
+  "about": { "@id": "https://imvisible.tech/#org" },
+  "inLanguage": "th",
+  "datePublished": "2026-07-19",
+  "dateModified": "2026-07-19",
+  "primaryImageOfPage": { "@type": "ImageObject", "url": "https://imvisible.tech/og-cover.png" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Service",
+  "serviceType": "AEO & SEO Automation",
+  "provider": { "@type": "Organization", "name": "ImVisible", "url": "https://imvisible.tech/" },
+  "areaServed": ["TH", "Worldwide"],
+  "description": "บริการทำ SEO และ AEO อัตโนมัติด้วย AI ครบวงจร วัดผลจริง โปร่งใสบนแดชบอร์ด",
+  "offers": [
+    { "@type": "Offer", "name": "Starter", "price": "2900", "priceCurrency": "THB" },
+    { "@type": "Offer", "name": "Pro", "price": "9900", "priceCurrency": "THB" },
+    { "@type": "Offer", "name": "Enterprise / Agency", "price": "29900", "priceCurrency": "THB" }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "AEO คืออะไร ต่างจาก SEO ยังไง?", "acceptedAnswer": { "@type": "Answer", "text": "SEO ทำให้หน้าเว็บติดอันดับในผลลัพธ์ลิงก์ของ Google ส่วน AEO (Answer Engine Optimization) ทำให้คอนเทนต์ของคุณกลายเป็นแหล่งที่ AI อย่าง ChatGPT, Gemini, Perplexity หยิบไปอ้างอิงในคำตอบ ImVisible ทำทั้งสองอย่างพร้อมกัน" } },
+    { "@type": "Question", "name": "รองรับทั้งภาษาไทยและอังกฤษไหม?", "acceptedAnswer": { "@type": "Answer", "text": "รองรับ ระบบผลิตและปรับแต่งคอนเทนต์ได้ทั้งภาษาไทยและอังกฤษ พร้อม hreflang และ Structured Data ที่ถูกต้อง เพื่อให้แต่ละภาษาติดอันดับในตลาดของตัวเอง" } },
+    { "@type": "Question", "name": "ตัวเลขเป็นของจริงหรือประมาณการ?", "acceptedAnswer": { "@type": "Answer", "text": "ของจริง อันดับดึงจาก Google Search Console และ DataForSEO ส่วน AI Citation มาจากการตรวจสดกับ ChatGPT, Gemini, Perplexity ทุกตัวเลขบนแดชบอร์ดตรวจย้อนไปถึงแหล่งที่มาได้" } },
+    { "@type": "Question", "name": "เห็นผลเร็วแค่ไหน?", "acceptedAnswer": { "@type": "Answer", "text": "AI Citation อาจเห็นได้ในไม่กี่สัปดาห์ แต่การติดอันดับ SEO/AEO ที่ยั่งยืนเป็นเกม 3 ถึง 6 เดือน ที่สร้างจากคอนเทนต์สม่ำเสมอและ authority ImVisible ทำให้ความสม่ำเสมอนั้นอัตโนมัติ" } },
+    { "@type": "Question", "name": "ต้องมีเว็บไซต์ของตัวเองไหม?", "acceptedAnswer": { "@type": "Answer", "text": "ต้องมี ImVisible เชื่อมกับเว็บ WordPress ของคุณเพื่อเผยแพร่และปรับแต่งอัตโนมัติ ยังไม่มีเว็บ ทีมงานตั้งให้ได้ตอนเริ่มใช้งาน" } }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "หน้าแรก", "item": "https://imvisible.tech/" }
+  ]
+}
+</script>
+
+<!-- ============ Bilingual TH/EN toggle ============ -->
+<script>
+(function(){
+  var root = document.documentElement;
+  var els = Array.prototype.slice.call(document.querySelectorAll('[data-en]'));
+  var elsH = Array.prototype.slice.call(document.querySelectorAll('[data-en-html]'));
+  els.forEach(function(el){ el.setAttribute('data-th', el.textContent); });
+  elsH.forEach(function(el){ el.setAttribute('data-th-html', el.innerHTML); });
+  function apply(l){
+    root.lang = l;
+    els.forEach(function(el){ el.textContent = l === 'en' ? el.getAttribute('data-en') : el.getAttribute('data-th'); });
+    elsH.forEach(function(el){ el.innerHTML = l === 'en' ? el.getAttribute('data-en-html') : el.getAttribute('data-th-html'); });
+    var rev = document.querySelector('.reveal');
+    if (rev) rev.setAttribute('aria-label', l === 'en' ? 'visible' : 'ถูกเห็น');
+    Array.prototype.forEach.call(document.querySelectorAll('.langtoggle button'), function(b){
+      b.classList.toggle('on', b.getAttribute('data-l') === l);
+    });
+    try { localStorage.setItem('iv_lang', l); } catch(e){}
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.langtoggle button'), function(b){
+    b.addEventListener('click', function(){ apply(b.getAttribute('data-l')); });
+  });
+  var saved = null;
+  try { saved = localStorage.getItem('iv_lang'); } catch(e){}
+  if (saved === 'en') apply('en');
+})();
+</script>
+
+</body>
+</html>

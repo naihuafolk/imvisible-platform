@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://imvisible.tech/</loc>
+    <xhtml:link rel="alternate" hreflang="th" href="https://imvisible.tech/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://imvisible.tech/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://imvisible.tech/"/>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://imvisible.tech/en/</loc>
+    <xhtml:link rel="alternate" hreflang="th" href="https://imvisible.tech/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://imvisible.tech/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://imvisible.tech/"/>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <!--
+    หมายเหตุ: เมื่อขึ้น WordPress แล้ว ให้ Rank Math สร้าง sitemap อัตโนมัติ
+    (จะรวมหน้า บริการ/ราคา/บทความ ทั้งหมดพร้อม hreflang ให้เอง)
+    ไฟล์นี้ใช้เป็น sitemap ตั้งต้นก่อนติดตั้ง WordPress
+  -->
+</urlset>
