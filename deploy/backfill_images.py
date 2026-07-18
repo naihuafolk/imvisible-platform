@@ -81,6 +81,7 @@ def load_env():
                 if key in keys and val and not cfg.get(key):
                     cfg[key] = val
     cfg.setdefault("ARK_BASE_URL", "https://ark.ap-southeast.bytepluses.com/api/v3")
+    cfg.setdefault("ARK_IMAGE_MODEL", "dola-seedream-5-0-pro-260628")
     return cfg
 
 
@@ -99,7 +100,7 @@ def ark_image(cfg, prompt):
     url = cfg["ARK_BASE_URL"].rstrip("/") + "/images/generations"
     headers = {"Authorization": "Bearer " + cfg["ARK_API_KEY"], "Content-Type": "application/json"}
     payload = {"model": cfg["ARK_IMAGE_MODEL"], "prompt": prompt,
-               "size": "1024x576", "response_format": "url", "watermark": False}
+               "size": "2K", "output_format": "png", "watermark": False}
     data = http_json("POST", url, headers, payload)
     items = data.get("data") or []
     if not items:
@@ -130,7 +131,7 @@ class WP:
     def upload_media(self, img_bytes, filename, alt):
         req = urllib.request.Request(self.base + "/media", data=img_bytes, method="POST")
         req.add_header("Authorization", self.auth)
-        req.add_header("Content-Type", "image/jpeg")
+        req.add_header("Content-Type", "image/png")
         req.add_header("Content-Disposition", 'attachment; filename="%s"' % filename)
         with urllib.request.urlopen(req, timeout=120) as r:
             media = json.loads(r.read().decode())
@@ -175,7 +176,7 @@ def main():
             print("  • สร้างรูป:", slug, "…", end=" ", flush=True)
             img_url = ark_image(cfg, prompt)
             img = download(img_url)
-            mid = wp.upload_media(img, slug + "-cover.jpg", title)
+            mid = wp.upload_media(img, slug + "-cover.png", title)
             wp.set_featured(post["id"], mid)
             print("✓ ตั้งรูปปกแล้ว (media id=%s)" % mid)
             done += 1
