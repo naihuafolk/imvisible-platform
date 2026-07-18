@@ -60,8 +60,8 @@
     }).join('');
 
     return '<div class="brand">' +
-        '<div class="logo">R</div>' +
-        '<div><div class="name">Rank<span>Pilot</span> AI</div>' +
+        '<div class="logo">I</div>' +
+        '<div><div class="name">Im<span>Visible</span></div>' +
         '<div class="tag">AEO + SEO · อัตโนมัติด้วย AI</div></div>' +
       '</div>' +
       '<nav class="nav">' + navHtml + '</nav>' +
@@ -95,7 +95,7 @@
 
   function renderTopbar(route) {
     return '<button class="icon-btn mobile-nav-btn" id="mNav" aria-label="เมนู">☰</button>' +
-      '<div class="crumbs">RankPilot AI <span class="soft">/</span> <b>' + (TITLES[route] || '') + '</b></div>' +
+      '<div class="crumbs">ImVisible <span class="soft">/</span> <b>' + (TITLES[route] || '') + '</b></div>' +
       '<span class="spacer"></span>' +
       projectSelector() +
       modePill() +

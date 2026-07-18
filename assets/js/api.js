@@ -10,8 +10,8 @@
   function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
   var api = RP.api = {
-    base: (ls(LS_BASE) || 'http://localhost:8000').replace(/\/+$/, ''),
-    live: ls(LS_LIVE) === '1',
+    base: (ls(LS_BASE) || (location.protocol === 'file:' ? 'http://localhost:8000' : location.origin)).replace(/\/+$/, ''),
+    live: (ls(LS_LIVE) !== null) ? (ls(LS_LIVE) === '1') : (location.protocol !== 'file:'),
     token: ls('rp-token') || '',
 
     setBase: function (u) { api.base = (u || '').trim().replace(/\/+$/, ''); save(LS_BASE, api.base); },

@@ -25,10 +25,10 @@
     function render() {
       el.innerHTML =
         '<div class="auth-card">' +
-        '<div class="auth-brand"><div class="logo">R</div><div class="name">Rank<span>Pilot</span> AI</div></div>' +
+        '<div class="auth-brand"><div class="logo">I</div><div class="name">Im<span>Visible</span></div></div>' +
         '<div class="auth-tabs"><button data-m="login" class="' + (mode === 'login' ? 'on' : '') + '">เข้าสู่ระบบ</button>' +
         '<button data-m="signup" class="' + (mode === 'signup' ? 'on' : '') + '">สมัครใช้งาน</button></div>' +
-        '<h2>' + (mode === 'login' ? 'ยินดีต้อนรับกลับมา 👋' : 'เริ่มใช้ RankPilot AI') + '</h2>' +
+        '<h2>' + (mode === 'login' ? 'ยินดีต้อนรับกลับมา 👋' : 'เริ่มใช้ ImVisible') + '</h2>' +
         '<div class="sub">' + (mode === 'login' ? 'เข้าสู่ระบบเพื่อจัดการโปรเจ็ค AEO + SEO ของคุณ' : 'สมัครเพื่อดันเว็บให้ติดทั้ง Google และ AI Search') + '</div>' +
         (mode === 'signup' ? field('ชื่อ / บริษัท', 'text', 'au_name', 'เช่น คลินิกความงาม ABC') : '') +
         field('อีเมล', 'email', 'au_email', 'you@example.com') +
@@ -42,7 +42,7 @@
         b.onclick = function () { mode = b.getAttribute('data-m'); render(); };
       });
       el.querySelector('#au_submit').onclick = submit;
-      el.querySelector('#au_demo').onclick = function () { finish('demo@rankpilot.ai'); };
+      el.querySelector('#au_demo').onclick = function () { finish('demo@imvisible.tech'); };
       var pass = el.querySelector('#au_pass');
       pass.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
     }
@@ -81,7 +81,7 @@
   RP.showOnboarding = function () {
     var step = 0;
     var STEPS = [
-      { ic: '🎉', h: 'ยินดีต้อนรับสู่ RankPilot AI', p: 'แพลตฟอร์มที่ดันเว็บของคุณให้ "ติดคำตอบ" ทั้งบน Google และ AI Search อัตโนมัติ มาตั้งค่า 3 ขั้นง่าย ๆ กัน', body: welcomeBody },
+      { ic: '🎉', h: 'ยินดีต้อนรับสู่ ImVisible', p: 'แพลตฟอร์มที่ดันเว็บของคุณให้ "ติดคำตอบ" ทั้งบน Google และ AI Search อัตโนมัติ มาตั้งค่า 3 ขั้นง่าย ๆ กัน', body: welcomeBody },
       { ic: '🔌', h: 'ขั้นที่ 1 — เชื่อมต่อ', p: 'เชื่อม API ที่จำเป็นก่อนระบบจะวัดผลได้จริง (ตั้งภายหลังในหน้าการตั้งค่าได้)', body: connectBody },
       { ic: '🗂️', h: 'ขั้นที่ 2 — โปรเจ็คแรกของคุณ', p: 'ใส่เว็บ/ธุรกิจที่อยากดัน — หรือใช้โปรเจ็คตัวอย่างเพื่อดูระบบก่อน', body: projectBody },
       { ic: '✅', h: 'พร้อมแล้ว!', p: 'ตั้งค่าเรียบร้อย เข้าสู่แดชบอร์ดเพื่อเริ่มวงจร AEO + SEO อัตโนมัติได้เลย', body: doneBody }

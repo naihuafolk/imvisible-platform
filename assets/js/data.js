@@ -9,7 +9,7 @@
   RP.data = {
     /* ---- เอกสาร/แบรนด์ ---- */
     meta: {
-      product: 'RankPilot AI',
+      product: 'ImVisible',
       tagline: 'แพลตฟอร์ม AEO + SEO เฉพาะทาง อัตโนมัติด้วย AI — ให้แบรนด์ "ติดคำตอบ" ทั้งบน Google และ AI Search',
       version: '1.0',
       docDate: '18 กรกฎาคม 2569',
