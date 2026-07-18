@@ -1,0 +1,2 @@
+# สำหรับทดสอบ (CI/local) — ใช้ sqlite แทน Postgres
+aiosqlite==0.20.0

@@ -1,0 +1,24 @@
+# Caddy = reverse proxy + Auto-HTTPS (ขอ SSL Let's Encrypt ให้อัตโนมัติ)
+# ใช้ตัวแปร DOMAIN / APP_DOMAIN จาก environment (ตั้งใน docker-compose.prod.yml)
+
+# เว็บคอนเทนต์ (WordPress) → imvisible.tech
+{$DOMAIN}, www.{$DOMAIN} {
+    encode gzip
+    reverse_proxy wordpress:80
+}
+
+# แดชบอร์ด/แพลตฟอร์ม ImVisible → app.imvisible.tech (เสิร์ฟ frontend + proxy /api ให้ same-origin)
+{$APP_DOMAIN} {
+    encode gzip
+    handle /api/* {
+        reverse_proxy api:8000
+    }
+    handle /health {
+        reverse_proxy api:8000
+    }
+    handle {
+        root * /srv/frontend
+        try_files {path} /index.html
+        file_server
+    }
+}

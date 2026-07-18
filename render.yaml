@@ -1,0 +1,55 @@
+# RankPilot AI — Render Blueprint (deploy backend + worker + beat + redis + postgres)
+# วิธีใช้: push repo ขึ้น GitHub แล้วที่ Render กด "New +" > "Blueprint" ชี้มาที่ repo นี้
+# หมายเหตุ: API keys (ANTHROPIC_API_KEY, DATAFORSEO_LOGIN, ...) ตั้งในหน้า Dashboard ของแต่ละ service
+databases:
+  - name: rankpilot-db
+    plan: free
+    databaseName: rankpilot
+    user: rankpilot
+
+services:
+  - type: redis
+    name: rankpilot-redis
+    plan: free
+    ipAllowList: []          # ให้เฉพาะ service ภายในเข้าถึง
+
+  - type: web
+    name: rankpilot-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: rankpilot-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: redis, name: rankpilot-redis, property: connectionString }
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: "*"
+
+  - type: worker
+    name: rankpilot-worker
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: celery -A app.worker.celery_app worker -l info
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: rankpilot-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: redis, name: rankpilot-redis, property: connectionString }
+
+  - type: worker
+    name: rankpilot-beat
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: celery -A app.worker.celery_app beat -l info
+    plan: free
+    envVars:
+      - key: REDIS_URL
+        fromService: { type: redis, name: rankpilot-redis, property: connectionString }

@@ -1,0 +1,78 @@
+"""
+โมเดลฐานข้อมูล (SQLAlchemy 2.0) — เก็บผลจริงของแต่ละโปรเจ็ค
+ตาม stack หน้า 7: PostgreSQL + Vector DB (pgvector)
+คอลัมน์ embedding ใช้ pgvector สำหรับวิเคราะห์คลัสเตอร์ (M6)
+"""
+from datetime import datetime
+
+from sqlalchemy import String, Integer, Float, Boolean, DateTime, ForeignKey, Text, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    password_hash: Mapped[str] = mapped_column(String(255))
+    plan: Mapped[str] = mapped_column(String(50), default="SaaS — Pro")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Project(Base):
+    __tablename__ = "projects"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    domain: Mapped[str] = mapped_column(String(255), index=True)
+    country: Mapped[str] = mapped_column(String(50), default="ไทย")
+    language: Mapped[str] = mapped_column(String(50), default="th")
+    mode: Mapped[str] = mapped_column(String(20), default="approve")   # approve | auto
+    freshness_days: Mapped[int] = mapped_column(Integer, default=120)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    articles: Mapped[list["Article"]] = relationship(back_populates="project")
+
+
+class Article(Base):
+    __tablename__ = "articles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    title: Mapped[str] = mapped_column(String(500))
+    cluster: Mapped[str] = mapped_column(String(200), default="")
+    fmt: Mapped[str] = mapped_column(String(50), default="บทความยาว")
+    html: Mapped[str] = mapped_column(Text, default="")
+    words: Mapped[int] = mapped_column(Integer, default=0)
+    aeo_score: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(20), default="draft")   # draft|factcheck|ready|scheduled|published
+    url: Mapped[str] = mapped_column(String(500), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    project: Mapped["Project"] = relationship(back_populates="articles")
+
+
+class RankSnapshot(Base):
+    """ผลตรวจอันดับรายวัน (จาก SERP API) — ตัวเลขจริง ตรวจสอบได้"""
+    __tablename__ = "rank_snapshots"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    keyword: Mapped[str] = mapped_column(String(300), index=True)
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    on_page1: Mapped[bool] = mapped_column(Boolean, default=False)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CitationSnapshot(Base):
+    """ผล Prompt Sampling รายสัปดาห์ (ค่าประมาณเชิงสถิติ)"""
+    __tablename__ = "citation_snapshots"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    engine: Mapped[str] = mapped_column(String(30))
+    sov_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
+    answered: Mapped[int] = mapped_column(Integer, default=0)
+    cited: Mapped[int] = mapped_column(Integer, default=0)
+    sampled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

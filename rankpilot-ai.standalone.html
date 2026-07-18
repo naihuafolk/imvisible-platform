@@ -1,0 +1,3486 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RankPilot AI — แดชบอร์ด AEO + SEO อัตโนมัติ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Prompt:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   RankPilot AI — Design System
+   AEO + SEO Automation Platform (Thai-first)
+   Faithful to Project Concept PDF v1.0
+   ============================================================ */
+
+:root {
+  /* Brand */
+  --brand-500: #6366f1;
+  --brand-600: #5b52e5;
+  --brand-700: #4f46e5;
+  --brand-800: #4338ca;
+  --brand-900: #3730a3;
+  --purple-700: #6d28d9;
+  --purple-600: #7c3aed;
+  --grad-start: #5b6ef5;
+  --grad-end: #17b978;
+
+  /* Semantic */
+  --green-500: #16a34a;
+  --green-600: #15803d;
+  --green-bg: #dcfce7;
+  --green-text: #15803d;
+  --red-500: #dc2626;
+  --red-bg: #fee2e2;
+  --red-text: #b91c1c;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  --amber-bg: #fef3c7;
+  --amber-text: #b45309;
+  --blue-bg: #dbeafe;
+  --blue-text: #1d4ed8;
+  --purple-bg: #ede9fe;
+  --purple-text: #6d28d9;
+  --gold-bg: #fdf0c8;
+  --gold-text: #92600a;
+
+  /* Neutrals (light) */
+  --navy: #1e2749;
+  --navy-2: #22284a;
+  --bg: #f4f5fb;
+  --surface: #ffffff;
+  --surface-2: #faf9ff;
+  --row-alt: #f6f4fc;
+  --border: #e6e6f0;
+  --border-2: #eceaf6;
+  --text: #1f2340;
+  --text-muted: #6b7091;
+  --text-soft: #8a8fad;
+  --link: #2563eb;
+
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 1px 2px rgba(30, 39, 73, .06);
+  --shadow: 0 6px 24px rgba(50, 50, 93, .07), 0 2px 8px rgba(30, 39, 73, .04);
+  --shadow-lg: 0 18px 50px rgba(50, 50, 93, .14), 0 8px 20px rgba(30, 39, 73, .07);
+  --sidebar-w: 264px;
+  --font: 'Sarabun', 'Prompt', 'IBM Plex Sans Thai', 'Noto Sans Thai',
+          'Leelawadee UI', 'Segoe UI', Tahoma, system-ui, -apple-system, sans-serif;
+}
+
+[data-theme="dark"] {
+  --navy: #0e1330;
+  --navy-2: #12173a;
+  --bg: #0b0e22;
+  --surface: #141834;
+  --surface-2: #171c3d;
+  --row-alt: #191e41;
+  --border: #262b52;
+  --border-2: #2a2f5a;
+  --text: #e7e8f5;
+  --text-muted: #a3a8cc;
+  --text-soft: #7b81aa;
+  --green-bg: #113524;
+  --red-bg: #3a1620;
+  --amber-bg: #3a2a0c;
+  --blue-bg: #14284f;
+  --purple-bg: #241a4a;
+  --gold-bg: #3a2f12;
+  --gold-text: #f4d585;
+  --shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, .5);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { font-family: inherit; cursor: pointer; }
+::selection { background: rgba(99,102,241,.22); }
+
+/* ---------- Layout ---------- */
+.app { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: var(--sidebar-w);
+  flex: 0 0 var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+}
+.brand {
+  display: flex; align-items: center; gap: 11px;
+  padding: 20px 20px 16px;
+}
+.brand .logo {
+  width: 38px; height: 38px; border-radius: 11px;
+  background: linear-gradient(135deg, var(--grad-start), var(--grad-end));
+  display: grid; place-items: center;
+  color: #fff; font-weight: 800; font-size: 18px;
+  box-shadow: 0 6px 16px rgba(91,110,245,.35);
+}
+.brand .name { font-weight: 800; font-size: 17px; letter-spacing: .2px; }
+.brand .name span { color: var(--brand-700); }
+.brand .tag { font-size: 11px; color: var(--text-soft); margin-top: -2px; }
+
+.nav { padding: 6px 12px; overflow-y: auto; flex: 1; }
+.nav-section {
+  font-size: 11px; font-weight: 700; letter-spacing: .8px;
+  color: var(--text-soft); text-transform: uppercase;
+  padding: 14px 12px 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 12px; border-radius: 10px;
+  color: var(--text-muted); font-weight: 600; font-size: 14px;
+  cursor: pointer; border: none; background: none; width: 100%; text-align: right;
+  flex-direction: row-reverse; justify-content: flex-end;
+  transition: background .12s, color .12s;
+}
+.nav-item .ico { font-size: 17px; width: 22px; text-align: center; flex: 0 0 22px; }
+.nav-item .lbl { flex: 1; text-align: left; }
+.nav-item .code {
+  font-size: 10px; font-weight: 800; color: var(--text-soft);
+  background: var(--bg); border-radius: 6px; padding: 1px 6px;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--text); }
+.nav-item.active {
+  background: linear-gradient(135deg, rgba(99,102,241,.14), rgba(23,185,120,.10));
+  color: var(--brand-700); font-weight: 700;
+}
+[data-theme="dark"] .nav-item.active { color: #c3c1ff; }
+.nav-item.active .code { color: var(--brand-700); background: rgba(99,102,241,.16); }
+
+.sidebar-foot {
+  padding: 14px 16px; border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--text-soft);
+}
+.sidebar-foot b { color: var(--text-muted); }
+
+/* ---------- Main ---------- */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.topbar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 26px; background: var(--surface);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 30;
+}
+.topbar .crumbs { font-size: 13px; color: var(--text-soft); }
+.topbar .crumbs b { color: var(--text); font-weight: 700; }
+.topbar .spacer { flex: 1; }
+.topbar .mode-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 700; padding: 6px 12px;
+  border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text-muted);
+}
+.topbar .mode-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber-500); }
+.icon-btn {
+  width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface); display: grid; place-items: center; font-size: 17px;
+  color: var(--text-muted);
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+
+.content { padding: 26px; max-width: 1360px; width: 100%; margin: 0 auto; }
+.mobile-nav-btn { display: none; }
+
+/* ---------- Page header ---------- */
+.page-head { margin-bottom: 20px; }
+.page-head .eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 800; letter-spacing: .4px;
+  color: var(--brand-700); text-transform: uppercase; margin-bottom: 4px;
+}
+.page-head h1 { font-size: 25px; font-weight: 800; margin: 0 0 4px; letter-spacing: .2px; }
+.page-head p { margin: 0; color: var(--text-muted); font-size: 14.5px; max-width: 820px; }
+.accent-bar { height: 4px; width: 60px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--grad-start), var(--grad-end)); margin: 12px 0 0; }
+
+/* ---------- Cards ---------- */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm);
+}
+.card-pad { padding: 20px 22px; }
+.card-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 22px; border-bottom: 1px solid var(--border);
+}
+.card-head h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.card-head .sub { font-size: 12.5px; color: var(--text-soft); font-weight: 500; }
+.card-head .spacer { flex: 1; }
+
+.grid { display: grid; gap: 18px; }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.mb { margin-bottom: 18px; }
+.mb-l { margin-bottom: 26px; }
+
+/* ---------- KPI / stat tiles ---------- */
+.kpi {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px; position: relative; overflow: hidden;
+}
+.kpi::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: linear-gradient(var(--grad-start), var(--grad-end));
+}
+.kpi .k-label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+.kpi .k-value { font-size: 32px; font-weight: 800; line-height: 1.1; margin: 6px 0 2px; letter-spacing: -.5px; }
+.kpi .k-value.pos { color: var(--green-600); }
+.kpi .k-value.brand { color: var(--purple-700); }
+.kpi .k-foot { font-size: 12px; color: var(--text-soft); display: flex; align-items: center; gap: 6px; }
+.kpi .trend-up { color: var(--green-600); font-weight: 700; }
+.kpi .trend-down { color: var(--red-text); font-weight: 700; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  font-weight: 700; font-size: 14px; padding: 9px 16px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  transition: transform .05s, box-shadow .12s, background .12s;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--brand-700); border-color: var(--brand-700); color: #fff; }
+.btn-primary:hover { background: var(--brand-800); }
+.btn-green { background: var(--green-500); border-color: var(--green-500); color: #fff; }
+.btn-green:hover { background: var(--green-600); }
+.btn-ghost { background: transparent; }
+.btn-sm { padding: 6px 11px; font-size: 12.5px; border-radius: 8px; }
+.btn-block { width: 100%; }
+
+/* ---------- Badges / chips ---------- */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+  background: var(--bg); color: var(--text-muted);
+}
+.badge.green { background: var(--green-bg); color: var(--green-text); }
+.badge.red { background: var(--red-bg); color: var(--red-text); }
+.badge.amber { background: var(--amber-bg); color: var(--amber-text); }
+.badge.blue { background: var(--blue-bg); color: var(--blue-text); }
+.badge.purple { background: var(--purple-bg); color: var(--purple-text); }
+.badge.gold { background: var(--gold-bg); color: var(--gold-text); }
+.badge.dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .85; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted);
+}
+.chip.on { background: var(--brand-700); border-color: var(--brand-700); color: #fff; }
+.chip.lock { cursor: default; }
+
+/* ---------- Tables ---------- */
+.tbl-wrap { overflow-x: auto; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.tbl thead th {
+  background: var(--navy); color: #eef; text-align: left;
+  font-weight: 700; font-size: 12.5px; padding: 12px 16px; white-space: nowrap;
+}
+table.tbl thead th:first-child { border-top-left-radius: 10px; }
+table.tbl thead th:last-child { border-top-right-radius: 10px; }
+table.tbl tbody td { padding: 13px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.tbl tbody tr:nth-child(even) { background: var(--row-alt); }
+table.tbl tbody tr:hover { background: var(--surface-2); }
+table.tbl .num { font-variant-numeric: tabular-nums; font-weight: 700; }
+table.tbl .muted { color: var(--text-soft); }
+.tbl-title { font-weight: 700; color: var(--text); }
+.tbl-title a { color: var(--link); font-weight: 700; }
+.tbl-sub { font-size: 12px; color: var(--text-soft); display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+
+/* rank medal */
+.rank-cell { display: flex; align-items: center; gap: 8px; }
+.rank-medal {
+  display: inline-flex; align-items: center; gap: 5px; font-weight: 800; font-size: 13px;
+  background: var(--gold-bg); color: var(--gold-text); padding: 4px 9px; border-radius: 999px;
+}
+.rank-num {
+  display: inline-grid; place-items: center; min-width: 30px; height: 26px;
+  border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border);
+  font-weight: 800; font-size: 13px; color: var(--text-muted); padding: 0 6px;
+}
+
+/* trend */
+.trend { font-weight: 700; font-size: 12.5px; display: inline-flex; align-items: center; gap: 3px; padding: 3px 9px; border-radius: 999px; }
+.trend.up { background: var(--green-bg); color: var(--green-text); }
+.trend.down { background: var(--red-bg); color: var(--red-text); }
+.trend.same { background: var(--bg); color: var(--text-soft); }
+
+/* history / link button in tables */
+.link-btn {
+  display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12.5px;
+  color: var(--brand-700); background: none; border: none; padding: 4px 6px; border-radius: 8px;
+}
+.link-btn:hover { background: var(--surface-2); text-decoration: none; }
+
+/* ---------- Search / inputs ---------- */
+.field {
+  display: flex; align-items: center; gap: 10px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px; padding: 3px 6px 3px 14px;
+}
+.field:focus-within { border-color: var(--brand-500); box-shadow: 0 0 0 3px rgba(99,102,241,.14); }
+.field .ico { color: var(--text-soft); font-size: 17px; }
+.field input {
+  flex: 1; border: none; outline: none; background: none; color: var(--text);
+  font-size: 15px; font-family: inherit; padding: 9px 0;
+}
+.select, .input {
+  border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px;
+  background: var(--surface); color: var(--text); font-family: inherit; font-size: 14px;
+}
+
+/* ---------- Progress ---------- */
+.bar { height: 8px; border-radius: 999px; background: var(--bg); overflow: hidden; }
+.bar > span { display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--grad-start), var(--grad-end)); }
+.bar.green > span { background: var(--green-500); }
+.bar.amber > span { background: var(--amber-500); }
+.bar.thin { height: 6px; }
+
+.ring { --p: 0; --sz: 92px; width: var(--sz); height: var(--sz); border-radius: 50%;
+  background: conic-gradient(var(--brand-600) calc(var(--p)*1%), var(--bg) 0);
+  display: grid; place-items: center; position: relative; }
+.ring::before { content: ""; position: absolute; inset: 10px; background: var(--surface); border-radius: 50%; }
+.ring .ring-val { position: relative; font-weight: 800; font-size: 20px; }
+
+/* ---------- Loop stepper ---------- */
+.loop { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+.loop .step {
+  flex: 1; min-width: 130px; border: 1px solid var(--border); border-radius: 12px;
+  padding: 13px 14px; background: var(--surface-2); position: relative;
+}
+.loop .step .n { font-size: 11px; font-weight: 800; color: var(--brand-700); letter-spacing: .5px; }
+.loop .step .t { font-weight: 800; font-size: 14px; margin: 3px 0; }
+.loop .step .d { font-size: 12px; color: var(--text-muted); }
+.loop .arrow { align-self: center; color: var(--text-soft); font-size: 18px; }
+
+/* ---------- Split panels ---------- */
+.panel { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.panel-head { padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 800; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.panel-body { padding: 14px 16px; }
+.list-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--border); }
+.list-row:last-child { border-bottom: none; }
+.list-row .grow { flex: 1; min-width: 0; }
+.list-row .t { font-weight: 700; font-size: 14px; }
+.list-row .s { font-size: 12px; color: var(--text-soft); }
+
+/* intent columns (M1) */
+.intent-col { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--surface); }
+.intent-head { padding: 14px 16px; display: flex; align-items: center; gap: 10px; color: #fff; }
+.intent-head.rec { background: linear-gradient(120deg, #6d28d9, #8b5cf6); }
+.intent-head.prob { background: linear-gradient(120deg, #0f766e, #14b8a6); }
+.intent-head .ic { font-size: 20px; }
+.intent-head .h { font-weight: 800; font-size: 15px; }
+.intent-head .c { font-size: 12px; opacity: .9; }
+.intent-head .count { margin-left: auto; background: rgba(255,255,255,.22); border-radius: 999px; padding: 2px 10px; font-weight: 800; font-size: 13px; }
+.kw-row { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+.kw-row:last-child { border-bottom: none; }
+.kw-row .kw { flex: 1; min-width: 0; }
+.kw-row .kw .txt { font-weight: 600; font-size: 14px; }
+.kw-row .kw .meta { font-size: 11.5px; color: var(--text-soft); display: flex; gap: 10px; margin-top: 2px; flex-wrap: wrap; }
+.score-pill { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+.score-pill.hi { background: var(--green-bg); color: var(--green-text); }
+.score-pill.mid { background: var(--amber-bg); color: var(--amber-text); }
+.score-pill.low { background: var(--red-bg); color: var(--red-text); }
+
+/* page1 status */
+.p1 { font-size: 11.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; }
+.p1.yes { background: var(--green-bg); color: var(--green-text); }
+.p1.no { background: var(--bg); color: var(--text-soft); }
+
+/* ---------- Modal ---------- */
+.modal-back {
+  position: fixed; inset: 0; background: rgba(15,18,40,.55); backdrop-filter: blur(3px);
+  display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 100;
+  opacity: 0; pointer-events: none; transition: opacity .16s;
+}
+.modal-back.open { opacity: 1; pointer-events: auto; }
+.modal {
+  background: var(--surface); border-radius: 18px; max-width: 720px; width: 100%;
+  box-shadow: var(--shadow-lg); transform: translateY(10px); transition: transform .16s;
+  max-height: calc(100vh - 80px); overflow: auto;
+}
+.modal-back.open .modal { transform: translateY(0); }
+.modal-head { display: flex; align-items: center; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+.modal-head h3 { margin: 0; font-size: 17px; font-weight: 800; }
+.modal-head .sub { font-size: 12.5px; color: var(--text-soft); }
+.modal-body { padding: 20px 22px; }
+.modal-close { margin-left: auto; }
+
+/* verify banner */
+.verify-banner {
+  display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 14px;
+  background: linear-gradient(120deg, rgba(22,163,74,.12), rgba(23,185,120,.06));
+  border: 1px solid rgba(22,163,74,.3);
+}
+.verify-banner .big { font-size: 26px; }
+.verify-banner .t { font-weight: 800; color: var(--green-600); }
+.verify-banner .s { font-size: 12.5px; color: var(--text-muted); }
+
+/* ---------- Sparkline / mini-chart ---------- */
+.spark { display: block; }
+.chart-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-muted); }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+/* bars chart */
+.vbars { display: flex; align-items: flex-end; gap: 10px; height: 160px; padding-top: 10px; }
+.vbars .col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.vbars .col .bar-v { width: 60%; max-width: 44px; border-radius: 8px 8px 0 0;
+  background: linear-gradient(var(--grad-start), var(--grad-end)); position: relative; min-height: 4px; }
+.vbars .col .cap { font-size: 11.5px; color: var(--text-soft); }
+.vbars .col .val { font-size: 12px; font-weight: 800; }
+
+/* ---------- Utility ---------- */
+.row { display: flex; align-items: center; gap: 12px; }
+.wrap { flex-wrap: wrap; }
+.between { justify-content: space-between; }
+.gap-s { gap: 8px; }
+.muted { color: var(--text-muted); }
+.soft { color: var(--text-soft); }
+.small { font-size: 12.5px; }
+.b { font-weight: 700; }
+.bb { font-weight: 800; }
+.center { text-align: center; }
+.right { text-align: right; }
+.nowrap { white-space: nowrap; }
+.hint {
+  font-size: 12.5px; color: var(--text-muted); background: var(--surface-2);
+  border: 1px dashed var(--border); border-radius: 10px; padding: 10px 14px;
+}
+.note-box {
+  border-left: 4px solid var(--brand-600); background: var(--purple-bg);
+  border-radius: 8px; padding: 13px 16px; font-size: 13.5px; color: var(--text);
+}
+.warn-box {
+  border-left: 4px solid var(--red-500); background: var(--red-bg);
+  border-radius: 8px; padding: 13px 16px; font-size: 13.5px;
+}
+.ok-box {
+  border-left: 4px solid var(--green-500); background: var(--green-bg);
+  border-radius: 8px; padding: 13px 16px; font-size: 13.5px;
+}
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+.tag-list { display: flex; gap: 7px; flex-wrap: wrap; }
+
+/* fade-in */
+.view { animation: fade .22s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* toast */
+.toast-wrap { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.toast { background: var(--navy); color: #fff; padding: 11px 18px; border-radius: 12px; font-size: 13.5px; font-weight: 600; box-shadow: var(--shadow-lg); animation: fade .2s; }
+.toast .ok { color: #7ee2a8; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1080px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 860px) {
+  .sidebar { position: fixed; left: 0; top: 0; transform: translateX(-102%); transition: transform .2s; box-shadow: var(--shadow-lg); }
+  .sidebar.open { transform: none; }
+  .mobile-nav-btn { display: grid; }
+  .content { padding: 18px; }
+  .grid-2 { grid-template-columns: 1fr; }
+  .intent-wrap { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 620px) {
+  .grid-4, .grid-3 { grid-template-columns: 1fr; }
+  .topbar { padding: 12px 16px; }
+}
+.scrim { display: none; }
+.scrim.show { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 39; }
+
+/* ---------- Auth (login/signup) ---------- */
+.auth-screen {
+  position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 24px;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(99,102,241,.28), transparent 60%),
+    radial-gradient(900px 500px at 110% 110%, rgba(23,185,120,.22), transparent 55%),
+    var(--bg);
+  overflow: auto;
+}
+.auth-card {
+  width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; box-shadow: var(--shadow-lg); padding: 30px 30px 26px; animation: fade .3s ease;
+}
+.auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.auth-brand .logo {
+  width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: #fff;
+  font-weight: 800; font-size: 20px; background: linear-gradient(135deg, var(--grad-start), var(--grad-end));
+  box-shadow: 0 8px 20px rgba(91,110,245,.4);
+}
+.auth-brand .name { font-weight: 800; font-size: 19px; }
+.auth-brand .name span { color: var(--brand-700); }
+.auth-card h2 { margin: 6px 0 2px; font-size: 20px; font-weight: 800; }
+.auth-card .sub { color: var(--text-muted); font-size: 13.5px; margin-bottom: 18px; }
+.auth-field { margin-bottom: 12px; }
+.auth-field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; }
+.auth-field input {
+  width: 100%; border: 1px solid var(--border); border-radius: 11px; padding: 11px 13px;
+  background: var(--surface-2); color: var(--text); font-family: inherit; font-size: 15px;
+}
+.auth-field input:focus { outline: none; border-color: var(--brand-500); box-shadow: 0 0 0 3px rgba(99,102,241,.14); }
+.auth-tabs { display: flex; gap: 6px; background: var(--bg); border-radius: 12px; padding: 4px; margin-bottom: 18px; }
+.auth-tabs button { flex: 1; border: none; background: none; padding: 8px; border-radius: 9px; font-weight: 700; font-size: 13.5px; color: var(--text-muted); cursor: pointer; }
+.auth-tabs button.on { background: var(--surface); color: var(--brand-700); box-shadow: var(--shadow-sm); }
+.auth-foot { text-align: center; margin-top: 14px; font-size: 12px; color: var(--text-soft); }
+.auth-or { text-align: center; color: var(--text-soft); font-size: 12px; margin: 12px 0; position: relative; }
+.auth-or::before, .auth-or::after { content: ""; position: absolute; top: 50%; width: 38%; height: 1px; background: var(--border); }
+.auth-or::before { left: 0; } .auth-or::after { right: 0; }
+
+/* ---------- Onboarding overlay ---------- */
+.onb-overlay {
+  position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; padding: 24px;
+  background: rgba(15,18,40,.6); backdrop-filter: blur(4px); overflow: auto;
+}
+.onb-card {
+  width: 100%; max-width: 560px; background: var(--surface); border-radius: 20px;
+  box-shadow: var(--shadow-lg); overflow: hidden; animation: fade .25s ease;
+}
+.onb-hero { padding: 26px 28px 18px; background: linear-gradient(135deg, rgba(99,102,241,.14), rgba(23,185,120,.10)); }
+.onb-hero .step-dots { display: flex; gap: 7px; margin-bottom: 14px; }
+.onb-hero .step-dots i { width: 26px; height: 5px; border-radius: 3px; background: var(--border); }
+.onb-hero .step-dots i.on { background: linear-gradient(90deg, var(--grad-start), var(--grad-end)); }
+.onb-hero .ic { font-size: 34px; }
+.onb-hero h2 { margin: 8px 0 4px; font-size: 22px; font-weight: 800; }
+.onb-hero p { margin: 0; color: var(--text-muted); font-size: 14px; }
+.onb-body { padding: 20px 28px; }
+.onb-foot { display: flex; align-items: center; gap: 10px; padding: 16px 28px; border-top: 1px solid var(--border); }
+.onb-foot .spacer { flex: 1; }
+.onb-feature { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px dashed var(--border); }
+.onb-feature:last-child { border-bottom: none; }
+.onb-feature .fi { font-size: 20px; width: 26px; text-align: center; }
+.onb-feature .ft { font-weight: 700; font-size: 14px; }
+.onb-feature .fs { font-size: 12.5px; color: var(--text-soft); }
+
+/* ---------- User chip (sidebar) ---------- */
+.user-chip { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); margin-bottom: 8px; }
+.user-chip .ua { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 14px; background: linear-gradient(135deg, var(--grad-start), var(--grad-end)); flex: 0 0 34px; }
+.user-chip .uinfo { flex: 1; min-width: 0; }
+.user-chip .un { font-weight: 700; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-chip .ur { font-size: 11px; color: var(--text-soft); }
+
+/* ---------- Getting-started checklist ---------- */
+.gs-list { display: grid; gap: 2px; }
+.gs-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.gs-row .gk { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; flex: 0 0 22px; }
+.gs-row .gk.done { background: var(--green-bg); color: var(--green-text); }
+.gs-row .gk.todo { background: var(--bg); color: var(--text-soft); border: 1px dashed var(--border); }
+.gs-row .gt { flex: 1; font-size: 13.5px; }
+.gs-row.done .gt { color: var(--text-muted); }
+
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="scrim" id="scrim"></div>
+  <main class="main">
+    <header class="topbar" id="topbar"></header>
+    <section class="content" id="content"></section>
+  </main>
+</div>
+<script>
+/* assets/js/helpers.js */
+/* ============================================================
+   RankPilot AI — Shared helpers
+   Global namespace: window.RP = { data, views, ui, fmt, ... }
+   All view modules read RP.data and use RP.ui.* helpers.
+   Load order: helpers.js -> data.js -> views/*.js -> app.js
+   ============================================================ */
+window.RP = window.RP || { data: {}, views: {}, ui: {} };
+
+(function (RP) {
+  'use strict';
+
+  /* ---- number / text formatting ---- */
+  RP.fmt = {
+    n: function (v) {
+      if (v === null || v === undefined || v === '') return '—';
+      return Number(v).toLocaleString('en-US');
+    },
+    pct: function (v, d) { return (d != null ? Number(v).toFixed(d) : v) + '%'; },
+    baht: function (v) { return '฿' + Number(v).toLocaleString('en-US'); },
+    clamp: function (v, a, b) { return Math.max(a, Math.min(b, v)); }
+  };
+
+  /* ---- html escape ---- */
+  RP.esc = function (s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+
+  /* ---- component builders (return HTML strings) ---- */
+  var ui = RP.ui;
+
+  ui.pageHead = function (o) {
+    return '<div class="page-head">' +
+      (o.eyebrow ? '<div class="eyebrow">' + RP.esc(o.eyebrow) + '</div>' : '') +
+      '<h1>' + RP.esc(o.title) + '</h1>' +
+      (o.desc ? '<p>' + o.desc + '</p>' : '') +
+      '<div class="accent-bar"></div></div>';
+  };
+
+  ui.kpi = function (o) {
+    var cls = o.tone === 'pos' ? 'pos' : (o.tone === 'brand' ? 'brand' : '');
+    return '<div class="kpi"><div class="k-label">' + RP.esc(o.label) + '</div>' +
+      '<div class="k-value ' + cls + '">' + o.value + '</div>' +
+      (o.foot ? '<div class="k-foot">' + o.foot + '</div>' : '') + '</div>';
+  };
+
+  ui.badge = function (text, tone, dot) {
+    return '<span class="badge ' + (tone || '') + (dot ? ' dot' : '') + '">' + text + '</span>';
+  };
+
+  ui.card = function (o) {
+    var head = '';
+    if (o.title) {
+      head = '<div class="card-head"><h3>' + RP.esc(o.title) + '</h3>' +
+        (o.sub ? '<span class="sub">' + RP.esc(o.sub) + '</span>' : '') +
+        '<span class="spacer"></span>' + (o.action || '') + '</div>';
+    }
+    return '<div class="card ' + (o.cls || '') + '">' + head +
+      '<div class="' + (o.flush ? '' : 'card-pad') + '">' + (o.body || '') + '</div></div>';
+  };
+
+  ui.bar = function (pct, tone) {
+    return '<div class="bar ' + (tone || '') + '"><span style="width:' +
+      RP.fmt.clamp(pct, 0, 100) + '%"></span></div>';
+  };
+
+  ui.trend = function (dir, txt) {
+    if (dir === 'up') return '<span class="trend up">▲ ' + RP.esc(txt) + '</span>';
+    if (dir === 'down') return '<span class="trend down">▼ ' + RP.esc(txt) + '</span>';
+    return '<span class="trend same">– ' + RP.esc(txt) + '</span>';
+  };
+
+  ui.scorePill = function (score) {
+    var c = score >= 70 ? 'hi' : (score >= 45 ? 'mid' : 'low');
+    return '<span class="score-pill ' + c + '">' + score + '</span>';
+  };
+
+  // opportunity score -> difficulty label
+  ui.diffLabel = function (kd) {
+    if (kd <= 30) return { t: 'แข่งขันต่ำ', c: 'green' };
+    if (kd <= 55) return { t: 'แข่งขันกลาง', c: 'amber' };
+    return { t: 'แข่งขันสูง', c: 'red' };
+  };
+
+  /* ---- sparkline (inline svg) ---- */
+  ui.spark = function (values, opts) {
+    opts = opts || {};
+    var w = opts.w || 120, h = opts.h || 34, pad = 3;
+    var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+    var span = (max - min) || 1;
+    var step = (w - pad * 2) / (values.length - 1);
+    var pts = values.map(function (v, i) {
+      var x = pad + i * step;
+      var y = h - pad - ((v - min) / span) * (h - pad * 2);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    });
+    var color = opts.color || 'var(--brand-600)';
+    var last = pts[pts.length - 1].split(',');
+    return '<svg class="spark" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' +
+      '<polyline fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="' + pts.join(' ') + '"/>' +
+      '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="2.6" fill="' + color + '"/></svg>';
+  };
+
+  /* ---- vertical bar chart ---- */
+  ui.vbars = function (items) { // items: [{cap, val, max, label}]
+    var max = Math.max.apply(null, items.map(function (i) { return i.max || i.val; }));
+    return '<div class="vbars">' + items.map(function (i) {
+      var pct = (i.val / (max || 1)) * 100;
+      return '<div class="col"><div class="val">' + (i.label || i.val) + '</div>' +
+        '<div class="bar-v" style="height:' + RP.fmt.clamp(pct, 2, 100) + '%"></div>' +
+        '<div class="cap">' + RP.esc(i.cap) + '</div></div>';
+    }).join('') + '</div>';
+  };
+
+  /* ---- modal ---- */
+  var modalEl = null;
+  ui.modal = function (o) {
+    ui.closeModal();
+    modalEl = document.createElement('div');
+    modalEl.className = 'modal-back';
+    modalEl.innerHTML =
+      '<div class="modal" style="max-width:' + (o.width || 720) + 'px" role="dialog" aria-modal="true">' +
+      '<div class="modal-head"><div><h3>' + o.title + '</h3>' +
+      (o.sub ? '<div class="sub">' + o.sub + '</div>' : '') + '</div>' +
+      '<button class="icon-btn modal-close" aria-label="ปิด">✕</button></div>' +
+      '<div class="modal-body">' + o.body + '</div></div>';
+    document.body.appendChild(modalEl);
+    modalEl.querySelector('.modal-close').onclick = ui.closeModal;
+    modalEl.onclick = function (e) { if (e.target === modalEl) ui.closeModal(); };
+    requestAnimationFrame(function () { modalEl.classList.add('open'); });
+    document.addEventListener('keydown', escClose);
+  };
+  function escClose(e) { if (e.key === 'Escape') ui.closeModal(); }
+  ui.closeModal = function () {
+    if (!modalEl) return;
+    var el = modalEl; modalEl = null;
+    el.classList.remove('open');
+    document.removeEventListener('keydown', escClose);
+    setTimeout(function () { el.remove(); }, 180);
+  };
+
+  /* ---- toast ---- */
+  ui.toast = function (msg, ms) {
+    var wrap = document.querySelector('.toast-wrap');
+    if (!wrap) { wrap = document.createElement('div'); wrap.className = 'toast-wrap'; document.body.appendChild(wrap); }
+    var t = document.createElement('div'); t.className = 'toast'; t.innerHTML = msg;
+    wrap.appendChild(t);
+    setTimeout(function () { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(function () { t.remove(); }, 320); }, ms || 2400);
+  };
+
+  /* ---- small helpers ---- */
+  RP.by = function (arr, key, val) { return arr.filter(function (x) { return x[key] === val; }); };
+  RP.sum = function (arr, f) { return arr.reduce(function (a, x) { return a + f(x); }, 0); };
+
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/data.js */
+/* ============================================================
+   RankPilot AI — Central mock dataset (single source of truth)
+   ทุก view อ่านจาก RP.data.<key> ตาม schema นี้
+   *** อ้างอิงเนื้อหาจากเอกสารโครงการ (PDF) v1.0 เท่านั้น ***
+   ============================================================ */
+(function (RP) {
+  'use strict';
+
+  RP.data = {
+    /* ---- เอกสาร/แบรนด์ ---- */
+    meta: {
+      product: 'RankPilot AI',
+      tagline: 'แพลตฟอร์ม AEO + SEO เฉพาะทาง อัตโนมัติด้วย AI — ให้แบรนด์ "ติดคำตอบ" ทั้งบน Google และ AI Search',
+      version: '1.0',
+      docDate: '18 กรกฎาคม 2569',
+      channels: ['Google Search', 'AI Overviews / AI Mode', 'ChatGPT', 'Gemini', 'Perplexity'],
+      autoLevel: 92 // % งานที่ระบบทำเองได้ (90–95%)
+    },
+
+    /* ---- โปรเจ็ค (รองรับหลายโปรเจ็ค) ---- */
+    project: {
+      current: 'abc',
+      list: [
+        { id: 'abc', name: 'เว็บคลินิกความงาม ABC', domain: 'abc-beautyclinic.com', mode: 'approve',
+          country: 'ไทย', lang: 'ภาษาไทย', plan: 'Pro', status: 'active', created: '2 เดือนก่อน',
+          keywords: 312, clusters: 6, competitors: ['competitor-a.com', 'clinic-b.co.th'],
+          brandTerms: ['ABC Clinic', 'คลินิกความงาม ABC', 'abc-beautyclinic.com'],
+          promptSet: 48, freshnessDays: 120, authors: 2,
+          health: { gsc: true, serp: true, ai: true, publish: true } },
+        { id: 'derma', name: 'เดอร์มา สกินแคร์', domain: 'dermaskin.co', mode: 'auto',
+          country: 'ไทย', lang: 'ภาษาไทย', plan: 'Pro', status: 'active', created: '5 สัปดาห์ก่อน',
+          keywords: 174, clusters: 4, competitors: ['skinstore.co.th'],
+          brandTerms: ['Derma Skincare', 'เดอร์มา', 'dermaskin.co'],
+          promptSet: 30, freshnessDays: 90, authors: 1,
+          health: { gsc: true, serp: true, ai: true, publish: true } },
+        { id: 'wellness', name: 'เวลเนส เซ็นเตอร์ BKK', domain: 'wellnessbkk.com', mode: 'approve',
+          country: 'ไทย', lang: 'ภาษาไทย', plan: 'Pro', status: 'setup', created: '3 วันก่อน',
+          keywords: 40, clusters: 1, competitors: [],
+          brandTerms: ['Wellness BKK', 'wellnessbkk.com'],
+          promptSet: 12, freshnessDays: 120, authors: 0,
+          health: { gsc: true, serp: true, ai: false, publish: false } }
+      ]
+    },
+
+    /* ---- บัญชี & การเชื่อมต่อ (ระดับบัญชี ใช้ร่วมทุกโปรเจ็ค) ---- */
+    account: {
+      owner: 'sengmakisus@gmail.com',
+      plan: 'SaaS — Pro',
+      projectQuota: 3,
+      billingCycle: 'รายเดือน · ต่ออายุ 1 ส.ค.',
+      whiteLabel: true,
+      team: [
+        { name: 'คุณเจ้าของบัญชี', email: 'sengmakisus@gmail.com', role: 'เจ้าของ (Owner)' },
+        { name: 'ทีมคอนเทนต์', email: 'content@abc-clinic.com', role: 'บรรณาธิการ (Editor)' },
+        { name: 'ลูกค้า ABC', email: 'view@abc-clinic.com', role: 'ดูอย่างเดียว (Viewer)' }
+      ],
+      // การเชื่อมต่อที่ลูกค้าต้องตั้งค่า — required=true คือจำเป็นก่อนวัดผลจริง
+      integrations: [
+        { id: 'llm', name: 'LLM API — ผลิต & วิเคราะห์คอนเทนต์', provider: 'Anthropic Claude · OpenAI · Google Gemini', powers: 'M2 ผลิตบทความ + M6 วิเคราะห์ (Multi-Model คุมต้นทุน)', connected: true, detail: 'เชื่อม 3 โมเดล', required: true },
+        { id: 'serp', name: 'SERP API — อันดับ Google', provider: 'DataForSEO / SerpAPI', powers: 'M5 ติดตามอันดับจริงรายวัน + M1 ขุดคำถาม', connected: true, detail: 'DataForSEO', required: true },
+        { id: 'gsc', name: 'Google Search Console', provider: 'OAuth + ยืนยันโดเมน', powers: 'คลิก/Impressions/อันดับ ตัวเลขจริงจาก Google', connected: true, detail: 'ยืนยันโดเมนแล้ว', required: true },
+        { id: 'aiapi', name: 'API วัด AI Citation (Prompt Sampling)', provider: 'OpenAI · Google · Perplexity', powers: 'M5 ยิงคำถามไปที่ AI แล้ววัด Citation / Share of Voice', connected: true, detail: '3 เอนจิน', required: true },
+        { id: 'wp', name: 'WordPress REST API', provider: 'Application Password', powers: 'M4 เผยแพร่บทความอัตโนมัติ', connected: true, detail: 'abc-beautyclinic.com', required: true },
+        { id: 'webflow', name: 'Webflow API', provider: 'Site API Token', powers: 'M4 เผยแพร่ไปเว็บ Webflow', connected: false, detail: 'ยังไม่เชื่อม', required: false },
+        { id: 'indexnow', name: 'IndexNow', provider: 'Bing / Yandex', powers: 'แจ้ง Index ทันทีที่เผยแพร่', connected: true, detail: 'พร้อมใช้', required: false },
+        { id: 'ga4', name: 'Google Analytics 4', provider: 'Measurement API', powers: 'วัด Conversion / ROI (Lead/ยอดขาย)', connected: false, detail: 'ยังไม่เชื่อม (แนะนำ)', required: false },
+        { id: 'notify', name: 'LINE Notify + Email', provider: 'LINE / SMTP', powers: 'แจ้งเตือน + ส่งรายงานสรุปรายสัปดาห์', connected: true, detail: 'LINE + อีเมล', required: false }
+      ]
+    },
+
+    /* ---- ขั้นตอนตั้งค่าก่อนวัดผลจริง (Onboarding) ---- */
+    onboarding: [
+      { t: 'สร้างโปรเจ็ค + ใส่โดเมน/ประเทศ/ภาษา', done: true },
+      { t: 'เชื่อม LLM API (Claude/GPT/Gemini)', done: true },
+      { t: 'เชื่อม SERP API (อันดับ Google)', done: true },
+      { t: 'ยืนยันโดเมนกับ Google Search Console', done: true },
+      { t: 'เชื่อม API วัด AI Citation (ChatGPT/Gemini/Perplexity)', done: true },
+      { t: 'เชื่อมปลายทางเผยแพร่ (WordPress/Webflow)', done: true },
+      { t: 'ใส่คีย์เวิร์ด/คู่แข่ง/ชื่อแบรนด์ + ชุดคำถาม Prompt Sampling', done: true },
+      { t: 'เชื่อม GA4 เพื่อวัด Conversion/ROI', done: false },
+      { t: 'ตั้งโหมดเผยแพร่ + ปฏิทินคอนเทนต์', done: true }
+    ],
+
+    /* ---- KPI แดชบอร์ดหลัก (ตรงกับ Wireframe หน้า 6) ---- */
+    kpis: [
+      { label: 'บทความที่เผยแพร่แล้ว', value: '128', tone: '', foot: '<span class="trend-up">▲ +14</span> ใน 30 วัน' },
+      { label: 'คีย์เวิร์ดติดหน้า 1 Google', value: '41', tone: 'brand', foot: 'จาก 312 คีย์เวิร์ดที่ติดตาม' },
+      { label: 'AI Citation Share of Voice', value: '23%', tone: 'brand', foot: 'ChatGPT · Gemini · Perplexity' },
+      { label: 'ทราฟฟิก 90 วันล่าสุด', value: '+186%', tone: 'pos', foot: 'Organic + AI Referral' }
+    ],
+
+    /* ---- สถิติอ้างอิง (หน้า 2) ---- */
+    facts: [
+      { v: '52%', d: 'ของผู้ใหญ่สหรัฐฯ ใช้ LLM อย่าง ChatGPT/Gemini แล้ว' },
+      { v: '~68%', d: 'ของการค้นหาบน Google จบแบบไม่คลิกเข้าเว็บ (ต้นปี 2026)' },
+      { v: '4.4 เท่า', d: 'ทราฟฟิกจาก AI Search มีมูลค่าคอนเวอร์ชันสูงกว่า Organic ปกติ' },
+      { v: '83%', d: 'ของ Citation เชิงพาณิชย์มาจากหน้าที่อัปเดตภายใน 12 เดือน' }
+    ],
+
+    /* ---- ปัจจัยที่ทำให้คอนเทนต์ถูก AI หยิบไปตอบ (หน้า 2.1) ---- */
+    aeoFactors: [
+      { t: 'ตอบตรงคำถามทันที (Answer-First)', d: 'เปิดแต่ละหัวข้อด้วยคำตอบสั้น 40–60 คำ ที่จบในตัวเอง ก่อนลงรายละเอียด' },
+      { t: 'โครงสร้างหัวข้อชัดเจน', d: 'ลำดับ H2 → H3 → H4 เป็นระบบ ให้ Citation Lift สูงกว่าคอนเทนต์ไร้โครงสร้างถึง ~2.8 เท่า' },
+      { t: 'Schema Markup', d: 'FAQPage, HowTo, Article, Author ที่ตรงกับเนื้อหาจริงบนหน้า' },
+      { t: 'ความสดใหม่ (Freshness)', d: 'หน้าที่อัปเดตภายใน 6 เดือนครองการอ้างอิง — หน้าที่ไม่รีเฟรชเสี่ยงหลุดจาก Citation ~3 เท่า' },
+      { t: 'ข้อมูลต้นฉบับ (Original Data)', d: 'สถิติ/ผลสำรวจ/ข้อมูลที่เราทำเอง ได้ Citation ที่คอนเทนต์รีไรต์ทั่วไปไม่มีวันได้' },
+      { t: 'Topical Authority', d: 'ครอบคลุมคำถามทั้งคลัสเตอร์ของหัวข้อ ไม่ใช่เขียนหน้าเดียวโดด ๆ' },
+      { t: 'E-E-A-T', d: 'แสดงประสบการณ์ ความเชี่ยวชาญ ตัวตนผู้เขียน และแหล่งอ้างอิงที่ตรวจสอบได้' }
+    ],
+
+    /* ---- AI Growth Loop (หน้า 3–4) ---- */
+    loop: [
+      { n: '1. DISCOVER', t: 'ขุดโอกาส', d: 'ขุดคำถาม/คีย์เวิร์ดเฉพาะทาง' },
+      { n: '2. CREATE', t: 'ผลิตคอนเทนต์', d: 'AI ผลิตคอนเทนต์คุณภาพ E-E-A-T' },
+      { n: '3. OPTIMIZE', t: 'ติดโครงสร้าง', d: 'ใส่โครงสร้าง AEO + Schema' },
+      { n: '4. PUBLISH', t: 'เผยแพร่', d: 'เผยแพร่ + แจ้ง Index อัตโนมัติ' },
+      { n: '5. MEASURE', t: 'วัดผล', d: 'วัดอันดับ + AI Citation' },
+      { n: '6. LEARN', t: 'เรียนรู้', d: 'AI ปรับกลยุทธ์ → วนกลับข้อ 1' }
+    ],
+
+    /* ---- คลัสเตอร์ (ตารางแดชบอร์ด — แถวแรก 3 ตรงกับ Wireframe) ---- */
+    clusters: [
+      { id: 'laser', name: 'เลเซอร์หน้าใส', articles: 32, total: 40, avgRank: 4.2, cited: ['ChatGPT', 'Gemini'], status: 'loop', sov: 31, kd: 42, traffic90: 214 },
+      { id: 'filler', name: 'ฟิลเลอร์', articles: 18, total: 35, avgRank: 8.7, cited: ['Perplexity'], status: 'producing', sov: 17, kd: 55, traffic90: 96 },
+      { id: 'cosmetic-review', name: 'รีวิวเครื่องสำอาง', articles: 5, total: 50, avgRank: null, cited: [], status: 'approve', pending: 12, sov: 0, kd: 38, traffic90: 12 },
+      { id: 'sunscreen', name: 'ครีมกันแดด', articles: 27, total: 45, avgRank: 5.6, cited: ['ChatGPT', 'Perplexity'], status: 'loop', sov: 24, kd: 47, traffic90: 158 },
+      { id: 'skincare', name: 'ดูแลผิว / สกินแคร์', articles: 34, total: 48, avgRank: 6.1, cited: ['ChatGPT', 'Gemini', 'Perplexity'], status: 'loop', sov: 28, kd: 51, traffic90: 173 },
+      { id: 'botox', name: 'โบท็อกซ์', articles: 12, total: 30, avgRank: 9.3, cited: [], status: 'producing', sov: 6, kd: 58, traffic90: 41 }
+    ],
+
+    /* ---- M1 — Question & Keyword Intelligence (หน้า 4) ----
+       ขุดคำถามจริงจากหลายแหล่ง → จัดกลุ่ม Topic Cluster (Pillar + Cluster)
+       → ประเมินความยาก/โอกาส → ชี้เป้าคำถามที่ AI ยังตอบได้ไม่ดี/ไม่มีแหล่งไทย */
+    m1: {
+      sources: ['Google People Also Ask', 'Google Suggest', 'Pantip', 'Reddit', 'คอมเมนต์โซเชียล', 'Prompt Mining (จำลองการถาม AI)'],
+      questionTemplates: [
+        '{kw} คืออะไร',
+        '{kw} ราคาเท่าไหร่ 2026',
+        '{kw} ยี่ห้อไหนดี',
+        '{kw} ทำที่ไหนดี',
+        'ข้อดีข้อเสียของ {kw}',
+        '{kw} อันตรายไหม เจ็บไหม',
+        '{kw} เหมาะกับใคร',
+        '{kw} เตรียมตัวก่อนทำยังไง',
+        '{kw} อยู่ได้นานแค่ไหน',
+        'รีวิว {kw} จากคนใช้จริง',
+        '{kw} ต่างจากทางเลือกอื่นยังไง',
+        '{kw} ดูแลหลังทำยังไง'
+      ]
+    },
+    seedExamples: ['ครีมกันแดด', 'เลเซอร์หน้าใส', 'ฟิลเลอร์ริมฝีปาก', 'ร้อยไหม', 'โบท็อกซ์'],
+
+    /* ---- M2 — โรงงานคอนเทนต์ (หน้า 4–5) ---- */
+    m2: {
+      formats: ['บทความยาว', 'หน้าเปรียบเทียบ', 'หน้า "X คืออะไร"', 'รีวิว', 'Listicle', 'Programmatic'],
+      queue: [
+        { title: 'เลเซอร์หน้าใสยี่ห้อไหนดี 2026 เปรียบเทียบ 8 รุ่นยอดนิยม', cluster: 'เลเซอร์หน้าใส', format: 'หน้าเปรียบเทียบ', words: 1680, aeo: 96, fact: 'pass', plag: 2, status: 'ready', author: 'พญ. ธิดา (ผิวหนัง)' },
+        { title: 'ฟิลเลอร์ริมฝีปากอยู่ได้นานแค่ไหน? สรุปจากงานวิจัย', cluster: 'ฟิลเลอร์', format: 'บทความยาว', words: 1420, aeo: 91, fact: 'pass', plag: 1, status: 'ready', author: 'พญ. ธิดา (ผิวหนัง)' },
+        { title: 'ครีมกันแดดหน้าไม่วอก สำหรับผิวมัน ต้องดูอะไรบ้าง', cluster: 'ครีมกันแดด', format: 'บทความยาว', words: 1540, aeo: 94, fact: 'pass', plag: 3, status: 'scheduled', author: 'ภก. วิทย์ (เภสัชกร)' },
+        { title: 'โบท็อกซ์กรามเจ็บไหม? รวมทุกคำถามก่อนตัดสินใจ', cluster: 'โบท็อกซ์', format: 'หน้า "X คืออะไร"', words: 1290, aeo: 78, fact: 'review', plag: 5, status: 'factcheck', author: 'พญ. ธิดา (ผิวหนัง)' },
+        { title: 'รีวิวสกินแคร์ลดสิว 2026 ที่คนผิวแพ้ง่ายใช้จริง', cluster: 'ดูแลผิว / สกินแคร์', format: 'รีวิว', words: 1610, aeo: 88, fact: 'pass', plag: 2, status: 'draft', author: 'ภก. วิทย์ (เภสัชกร)' },
+        { title: 'ตารางเปรียบเทียบราคาเลเซอร์แต่ละชนิด (Programmatic)', cluster: 'เลเซอร์หน้าใส', format: 'Programmatic', words: 720, aeo: 84, fact: 'pass', plag: 0, status: 'draft', author: 'ระบบ (ข้อมูลจริง)' }
+      ],
+      aeoChecklist: [
+        { t: 'คำตอบสั้น 40–60 คำ ต้นบทความ (Answer-First)', on: true },
+        { t: 'โครงสร้าง H2 → H3 → H4 เป็นระบบ', on: true },
+        { t: 'มีส่วน FAQ ตรงกับ People Also Ask', on: true },
+        { t: 'ตาราง/ข้อมูลเปรียบเทียบ', on: true },
+        { t: 'ผูก Author Persona + แหล่งอ้างอิงจริง (E-E-A-T)', on: true },
+        { t: 'AI Fact-Check ข้ามแหล่ง', on: true },
+        { t: 'ตรวจความซ้ำ (Plagiarism) < 5%', on: true }
+      ]
+    },
+
+    /* ---- M3 — AEO Optimizer (หน้า 5) ---- */
+    m3: {
+      schema: [
+        { t: 'FAQPage', pages: 112, total: 128, pct: 88 },
+        { t: 'Article', pages: 128, total: 128, pct: 100 },
+        { t: 'HowTo', pages: 46, total: 128, pct: 36 },
+        { t: 'Author', pages: 128, total: 128, pct: 100 },
+        { t: 'Organization', pages: 128, total: 128, pct: 100 },
+        { t: 'Product', pages: 61, total: 128, pct: 48 }
+      ],
+      llmsTxt: { status: 'ok', updated: 'วันนี้ 09:12', entries: 128 },
+      sitemap: { status: 'ok', urls: 134, submitted: true },
+      internalLinks: { total: 892, orphan: 3, avgPerPage: 7 },
+      freshness: [
+        { title: 'เลเซอร์หน้าใสราคาเท่าไหร่ 2026', age: '5 เดือน 20 วัน', due: 'ใกล้ครบ 6 เดือน', act: 'คิวรีเฟรช' },
+        { title: 'ฟิลเลอร์ปากราคาเท่าไหร่', age: '5 เดือน 12 วัน', due: 'ใกล้ครบ 6 เดือน', act: 'คิวรีเฟรช' },
+        { title: 'ครีมกันแดดยี่ห้อไหนดี 2025', age: '5 เดือน 4 วัน', due: 'อัปเดตปี พ.ศ.', act: 'คิวรีเฟรช' },
+        { title: 'โบท็อกซ์กรามราคา', age: '4 เดือน 28 วัน', due: 'เฝ้าระวัง', act: 'ติดตาม' }
+      ],
+      audit: [
+        { t: 'ความเร็ว (LCP)', val: '1.9s', ok: true },
+        { t: 'Core Web Vitals', val: 'ผ่าน 124/128', ok: true },
+        { t: 'Mobile-friendly', val: '100%', ok: true },
+        { t: 'Index Coverage', val: '128/134', ok: false }
+      ]
+    },
+
+    /* ---- M4 — Auto Publisher (หน้า 5) ---- */
+    m4: {
+      mode: 'approve', // 'auto' | 'approve'
+      targets: [
+        { name: 'abc-beautyclinic.com', type: 'WordPress REST API', status: 'เชื่อมต่อแล้ว', ok: true },
+        { name: 'blog.abc-beautyclinic.com', type: 'Webflow API', status: 'เชื่อมต่อแล้ว', ok: true },
+        { name: 'IndexNow', type: 'Bing / Yandex', status: 'พร้อม Ping', ok: true }
+      ],
+      calendar: [
+        { date: 'จ. 20 ก.ค.', title: 'ครีมกันแดดหน้าไม่วอก สำหรับผิวมัน', cluster: 'ครีมกันแดด', time: '09:00' },
+        { date: 'อ. 21 ก.ค.', title: 'เลเซอร์หน้าใส vs IPL ต่างกันยังไง', cluster: 'เลเซอร์หน้าใส', time: '09:00' },
+        { date: 'พ. 22 ก.ค.', title: 'ฟิลเลอร์ใต้ตา อันตรายไหม', cluster: 'ฟิลเลอร์', time: '10:30' },
+        { date: 'พฤ. 23 ก.ค.', title: 'รีวิวเซรั่มวิตซีลดจุดด่างดำ', cluster: 'ดูแลผิว / สกินแคร์', time: '09:00' }
+      ],
+      approval: [
+        { title: 'รีวิวรองพื้นคุมมันสำหรับผิวผสม 2026', cluster: 'รีวิวเครื่องสำอาง', words: 1490, aeo: 90 },
+        { title: 'มาสคาร่ากันน้ำ ตัวไหนไม่เป็นแพนด้า', cluster: 'รีวิวเครื่องสำอาง', words: 1230, aeo: 86 },
+        { title: 'ลิปแมตต์ติดทน ยี่ห้อไหนดี', cluster: 'รีวิวเครื่องสำอาง', words: 1180, aeo: 88 }
+      ],
+      pendingCount: 12,
+      indexPings: [
+        { url: '/laser-price-2026', ts: '09:41', ok: true },
+        { url: '/filler-lips-guide', ts: '09:41', ok: true },
+        { url: '/sunscreen-oily-skin', ts: '08:03', ok: true }
+      ]
+    },
+
+    /* ---- M5 — AI Visibility & Rank Tracker (หน้า 5) ---- */
+    m5: {
+      seo: {
+        keywordsTracked: 312, page1: 41, page1Prev: 33, top3: 12,
+        avgPosition: 11.4, avgPositionPrev: 14.8,
+        clicks90: [820, 910, 1040, 1180, 1360, 1520, 1690, 1880, 2110, 2340, 2610, 2980],
+        impressions90: [42, 46, 51, 58, 64, 71, 79, 88, 97, 108, 121, 138]
+      },
+      citation: {
+        sov: 23, sovPrev: 18,
+        engines: [
+          { name: 'ChatGPT', us: 27, comp: 41, none: 32 },
+          { name: 'Gemini', us: 21, comp: 47, none: 32 },
+          { name: 'Perplexity', us: 19, comp: 44, none: 37 }
+        ],
+        sovTrend: [11, 13, 14, 16, 17, 18, 19, 21, 22, 23],
+        competitors: [
+          { name: 'เว็บเรา (ABC)', sov: 23, us: true },
+          { name: 'คู่แข่ง A', sov: 34 },
+          { name: 'คู่แข่ง B', sov: 19 },
+          { name: 'Pantip', sov: 15 },
+          { name: 'อื่น ๆ', sov: 9 }
+        ]
+      },
+      prompts: [
+        { q: 'เลเซอร์หน้าใสยี่ห้อไหนดี', chatgpt: true, gemini: true, perplexity: false, pos: 2 },
+        { q: 'ฟิลเลอร์ริมฝีปากอยู่ได้นานแค่ไหน', chatgpt: true, gemini: false, perplexity: true, pos: 1 },
+        { q: 'ครีมกันแดดหน้าไม่วอก แนะนำ', chatgpt: true, gemini: true, perplexity: true, pos: 1 },
+        { q: 'โบท็อกซ์กรามเจ็บไหม', chatgpt: false, gemini: false, perplexity: false, pos: null },
+        { q: 'เลเซอร์หน้าใสราคาเท่าไหร่', chatgpt: true, gemini: false, perplexity: false, pos: 3 },
+        { q: 'สกินแคร์ลดสิวผิวแพ้ง่าย', chatgpt: false, gemini: true, perplexity: true, pos: 2 }
+      ]
+    },
+
+    /* ---- M6 — Learning Loop (หน้า 5) ---- */
+    m6: {
+      insights: [
+        { t: 'ความยาวที่ได้ Citation สูงสุด', v: '1,400–1,800 คำ', note: 'บทความสั้นกว่า 900 คำ ถูกอ้างอิงน้อยลง ~3 เท่า' },
+        { t: 'มี FAQ Schema', v: 'เพิ่มโอกาส Citation +38%', note: 'AI ชอบหยิบส่วน FAQ ที่ตอบตรงคำถาม' },
+        { t: 'เปิดด้วย Answer-First 40–60 คำ', v: 'Citation Lift ~2.6 เท่า', note: 'สอดคล้องกับปัจจัยหน้า 2 ของโครงการ' },
+        { t: 'อัปเดตภายใน 90 วัน', v: 'ครองการอ้างอิงต่อเนื่อง', note: 'Freshness Engine จึงสำคัญมาก' }
+      ],
+      actions: [
+        { t: 'ปรับเทมเพลต "หน้าเปรียบเทียบ" ให้ใส่ตารางสรุปด้านบนสุด', when: 'ใช้กับคิวรอบถัดไปแล้ว', ok: true },
+        { t: 'เพิ่มน้ำหนักคลัสเตอร์ "ครีมกันแดด" (Citation กำลังมา)', when: 'ปรับลำดับคิวอัตโนมัติ', ok: true },
+        { t: 'ลดความถี่คลัสเตอร์ "โบท็อกซ์" (แข่งสูง ยังไม่ติด)', when: 'รอผลอีก 2 สัปดาห์', ok: false }
+      ],
+      weeklyReport: {
+        published: 14, newPage1: 8, citationsGained: 11, refreshed: 6,
+        humanHours: 1.6,
+        sentTo: 'อีเมล + LINE Notify'
+      }
+    },
+
+    /* ---- Roadmap (หน้า 9) ---- */
+    roadmap: [
+      { phase: 'เฟส 1 — MVP', scope: 'M1 ขุดคำถาม + M2 โรงงานคอนเทนต์ + เผยแพร่เข้า WordPress + ติดตามอันดับพื้นฐาน', weeks: '4–6 สัปดาห์', progress: 100 },
+      { phase: 'เฟส 2 — AEO Core', scope: 'M3 Schema/llms.txt/Internal Link อัตโนมัติ + M5 Prompt Sampling วัด AI Citation', weeks: '4 สัปดาห์', progress: 72 },
+      { phase: 'เฟส 3 — Full Auto', scope: 'M6 Learning Loop + Freshness Engine + โหมดอัตโนมัติ 100% + แจ้งเตือน LINE', weeks: '4–5 สัปดาห์', progress: 30 },
+      { phase: 'เฟส 4 — Scale', scope: 'Multi-Project, ระบบลูกค้า/สิทธิ์, รายงาน White-Label, เปิด SaaS', weeks: '4–6 สัปดาห์', progress: 8 }
+    ],
+
+    /* ---- KPI เป้าหมาย 6 เดือน (หน้า 9.1) ---- */
+    kpiTargets: [
+      { kpi: 'จำนวนคีย์เวิร์ดติดหน้า 1 Google', target: '30–60 คีย์เวิร์ด', current: 41, curTxt: '41', pct: 82 },
+      { kpi: '% คำถามเป้าหมายที่ AI อ้างอิงเรา (Citation SoV)', target: '15–25%', current: 23, curTxt: '23%', pct: 92 },
+      { kpi: 'ทราฟฟิก Organic + AI Referral', target: 'เติบโต 3–5 เท่า', current: 2.86, curTxt: '2.86 เท่า', pct: 71 },
+      { kpi: 'ต้นทุนต่อบทความที่ติดหน้า 1', target: '< 500 บาท/บทความ', current: 372, curTxt: '฿372', pct: 100 },
+      { kpi: 'สัดส่วนงานที่ระบบทำเอง', target: '≥ 90%', current: 92, curTxt: '92%', pct: 100 }
+    ],
+
+    /* ---- สถาปัตยกรรม/เทคโนโลยี (หน้า 7) ---- */
+    stack: [
+      { part: 'Frontend', tech: 'Next.js + Tailwind CSS', note: 'แดชบอร์ด + กราฟเรียลไทม์' },
+      { part: 'Backend API', tech: 'Python (FastAPI)', note: 'เหมาะกับงาน AI/Data pipeline' },
+      { part: 'ฐานข้อมูล', tech: 'PostgreSQL + Vector DB (pgvector)', note: 'เก็บคอนเทนต์ + Embedding วิเคราะห์คลัสเตอร์' },
+      { part: 'คิวงานอัตโนมัติ', tech: 'Redis + Celery', note: 'คิวผลิต/เผยแพร่/วัดผล ทำงาน 24 ชม.' },
+      { part: 'AI Engine', tech: 'LLM API (Claude, GPT, Gemini) แบบ Multi-Model', note: 'ใช้โมเดลแพงเฉพาะงานเขียน โมเดลถูกสำหรับคัดกรอง — คุมต้นทุน' },
+      { part: 'ข้อมูลคีย์เวิร์ด/อันดับ', tech: 'SERP API (DataForSEO / SerpAPI) + Google Search Console API', note: 'เสถียรและถูกต้องตามเงื่อนไขบริการ' },
+      { part: 'วัด AI Citation', tech: 'API ของ ChatGPT/Gemini/Perplexity ยิงชุดคำถามตามรอบ', note: 'Prompt Sampling รายสัปดาห์ต่อโปรเจ็ค' },
+      { part: 'เผยแพร่', tech: 'WordPress REST API / Webflow API / IndexNow', note: 'รองรับหลายเว็บต่อบัญชี' }
+    ],
+
+    /* ---- โมเดลธุรกิจ (หน้า 8) ---- */
+    pricing: [
+      { plan: 'ใช้เอง (เฟสแรก)', detail: 'ดันเว็บ/ธุรกิจของเราเองให้ติดอันดับ+Citation เพื่อสร้าง Case Study จริง', price: '—' },
+      { plan: 'Agency Service', detail: 'รับทำ AEO+SEO ให้ลูกค้ารายเดือน โดยใช้แพลตฟอร์มเป็นเครื่องยนต์หลังบ้าน', price: '15,000–50,000 บาท/เดือน/ลูกค้า' },
+      { plan: 'SaaS — Starter', detail: '1 เว็บ, 60 บทความ/เดือน, ติดตาม 100 คีย์เวิร์ด, วัด AI Citation รายสัปดาห์', price: '2,900–4,900 บาท/เดือน' },
+      { plan: 'SaaS — Pro', detail: '3 เว็บ, ไม่จำกัดบทความ, Freshness Engine, รายงาน White-Label', price: '9,900–14,900 บาท/เดือน' },
+      { plan: 'SaaS — Enterprise', detail: 'ไม่จำกัดเว็บ, API, ทีม Onboarding, SLA', price: 'เริ่ม 29,900 บาท/เดือน' }
+    ],
+
+    /* ---- ต้นทุน/โปรเจ็ค/เดือน (หน้า 7.1) ---- */
+    costs: [
+      { item: 'LLM API (ผลิต+รีเฟรช ~40 บทความ/เดือน + วิเคราะห์)', est: '1,000–2,500 บาท' },
+      { item: 'SERP API + ติดตามอันดับรายวัน (~300 คีย์เวิร์ด)', est: '700–1,500 บาท' },
+      { item: 'Prompt Sampling วัด AI Citation (รายสัปดาห์)', est: '300–800 บาท' },
+      { item: 'Server/Infra เฉลี่ยต่อโปรเจ็ค', est: '300–600 บาท' }
+    ],
+    costTotal: '~2,300–5,400 บาท/โปรเจ็ค/เดือน',
+
+    /* ---- กลยุทธ์ที่ทำให้ "เห็นผลจริง" (หน้า 5) ---- */
+    strategies: [
+      { t: 'เจาะ Niche ทีละคลัสเตอร์ ไม่หว่าน', d: 'AI ให้น้ำหนัก Topical Authority — เว็บที่ตอบครบทั้งหัวข้อ 30–50 หน้าในเรื่องเดียว ชนะเว็บใหญ่ที่เขียนกระจัดกระจาย เหมาะกับการเริ่มจากศูนย์' },
+      { t: 'ยึดคำถามภาษาไทยที่ยังไม่มีใครตอบดี ๆ', d: 'สนามภาษาไทยมีคู่แข่งด้าน AEO น้อยมาก การเป็น "แหล่งอ้างอิงภาษาไทยที่ดีที่สุด" ทำได้เร็วกว่าภาษาอังกฤษหลายเท่า' },
+      { t: 'สร้างข้อมูลต้นฉบับ (Original Data)', d: 'ระบบรวบรวมสถิติ/ทำโพล/สรุปตัวเลขจากข้อมูลสาธารณะเป็น "รายงานต้นฉบับ" — คอนเทนต์แบบนี้ถูก AI อ้างอิงมากที่สุดและคู่แข่งลอกยาก' },
+      { t: 'Freshness เป็นระบบ ไม่ใช่แคมเปญ', d: 'คู่แข่งส่วนใหญ่เขียนแล้วทิ้ง — Freshness Engine ที่รีเฟรชอัตโนมัติทำให้เราครองพื้นที่ระยะยาวโดยไม่ต้องเพิ่มแรงคน' },
+      { t: 'สร้างตัวตนนอกเว็บ (Off-Page Signals)', d: 'AI มักดึงคำตอบจากแหล่งชุมชน (Pantip, Reddit, Wikipedia, YouTube) — ระบบช่วยแนะนำ/เตรียมเนื้อหาสำหรับช่องทางเหล่านี้ให้สอดคล้องกับคลัสเตอร์ที่กำลังดัน' },
+      { t: 'วัดผลที่ Conversion ไม่ใช่แค่อันดับ', d: 'ทราฟฟิกจาก AI Search คอนเวิร์ตสูงกว่าปกติ ~4.4 เท่า — แดชบอร์ดผูกกับเป้าหมายธุรกิจ (Lead/ยอดขาย) เพื่อพิสูจน์ ROI ชัดเจน' }
+    ],
+    strategyNote: 'กรอบเวลาที่ควรคาดหวัง (ตามจริง): คีย์เวิร์ดแข่งขันต่ำเริ่มเห็นการติดอันดับ/Citation ได้ใน 4–8 สัปดาห์, คลัสเตอร์เต็มรูปแบบเห็นผลชัดเจนใน 3–6 เดือน — แพลตฟอร์มไหนที่สัญญาว่า "ติดหน้า 1 ใน 7 วัน" คือสัญญาที่ไม่จริง',
+
+    /* ---- ความเสี่ยง (หน้า 10) ---- */
+    risks: [
+      { t: 'นโยบายคุณภาพของ Google', d: 'Google แบน "คอนเทนต์ไร้คุณค่าที่ผลิตจำนวนมากเพื่อปั่นอันดับ" (Scaled Content Abuse) — M2 จึงต้องมี Fact-Check + เกณฑ์คุณภาพขั้นต่ำ และควรเริ่มแบบ Auto + Human Approve ก่อน' },
+      { t: 'การวัด AI Citation ไม่มี API ทางการ', d: 'ทุกเครื่องมือใช้วิธีสุ่มยิงคำถามแล้วดูคำตอบ ผลจึงเป็น "ค่าประมาณเชิงสถิติ" ไม่ใช่ตัวเลขสัมบูรณ์ และคำตอบ AI เปลี่ยนไปตามผู้ใช้/เวลา' },
+      { t: 'ต้นทุน LLM ผันผวน', d: 'ออกแบบ Multi-Model ตั้งแต่แรก เพื่อสลับโมเดลตามราคา/คุณภาพได้โดยไม่ต้องรื้อระบบ' },
+      { t: 'ผลลัพธ์ต้องใช้เวลา', d: 'SEO/AEO เป็นเกม 3–6 เดือน หากทำเป็นบริการลูกค้า ต้องตั้งความคาดหวังลูกค้าให้ถูกตั้งแต่เซ็นสัญญา' },
+      { t: 'อย่าใช้เทคนิคสายเทา', d: 'สแปมลิงก์/รีวิวปลอม/ปั๊มหน้าซ้ำ ๆ เสี่ยงโดนลงโทษทั้งโดเมนแบบกู้คืนยาก — แพลตฟอร์มนี้ออกแบบให้ชนะด้วยคุณภาพ+ความสม่ำเสมอที่ระบบอัตโนมัติทำได้เหนือกว่ามนุษย์' }
+    ],
+
+    /* ---- แหล่งอ้างอิง (หน้า 11) ---- */
+    references: [
+      'AirOps — Answer Engine Optimization (AEO): Complete Guide for 2026',
+      'Frase — The 10 Best AI Visibility Tools in 2026',
+      'Frase — Complete AEO Guide 2026',
+      'Otterly.ai — AI Search Monitoring Tool'
+    ]
+  };
+
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/api.js */
+/* ============================================================
+   RankPilot AI — API client (เชื่อม frontend ↔ backend FastAPI)
+   โหมด Live: เมื่อเปิด + ตั้ง base URL ของ backend แล้ว view จะดึงข้อมูลจริง
+   ค่าเริ่มต้น = ปิด (ใช้ข้อมูลจำลอง) เพื่อให้เปิดไฟล์เฉย ๆ ก็ยังทำงาน
+   ============================================================ */
+(function (RP) {
+  'use strict';
+  var LS_BASE = 'rp-api-base', LS_LIVE = 'rp-live';
+  function ls(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  var api = RP.api = {
+    base: (ls(LS_BASE) || 'http://localhost:8000').replace(/\/+$/, ''),
+    live: ls(LS_LIVE) === '1',
+    token: ls('rp-token') || '',
+
+    setBase: function (u) { api.base = (u || '').trim().replace(/\/+$/, ''); save(LS_BASE, api.base); },
+    setLive: function (on) { api.live = !!on; save(LS_LIVE, on ? '1' : '0'); },
+    setToken: function (t) { api.token = t || ''; if (t) save('rp-token', t); else { try { localStorage.removeItem('rp-token'); } catch (e) {} } },
+    enabled: function () { return !!(api.live && api.base && typeof fetch === 'function'); },
+    reachable: function () { return !!(api.base && typeof fetch === 'function'); },
+
+    _headers: function () {
+      var h = { 'Content-Type': 'application/json' };
+      if (api.token) h['Authorization'] = 'Bearer ' + api.token;
+      return h;
+    },
+    _get: function (path) { return fetch(api.base + path, { headers: api._headers() }).then(chk); },
+    _post: function (path, body) {
+      return fetch(api.base + path, { method: 'POST', headers: api._headers(), body: JSON.stringify(body) }).then(chk);
+    },
+
+    health: function () { return api._get('/health'); },
+    integrations: function () { return api._get('/api/integrations'); },
+    rankCheck: function (keyword, domain) { return api._post('/api/rank/check', { keyword: keyword, domain: domain }); },
+    gsc: function (siteUrl, days) { return api._post('/api/gsc/summary', { site_url: siteUrl, days: days || 28 }); },
+    citation: function (questions, brandTerms, domain, engines) {
+      return api._post('/api/citation/sample', { questions: questions, brand_terms: brandTerms, domain: domain, engines: engines || ['openai', 'gemini', 'perplexity'] });
+    },
+    generate: function (topic, fmt, words) { return api._post('/api/content/generate', { topic: topic, fmt: fmt || 'บทความยาว', words: words || 1500 }); },
+    publish: function (o) { return api._post('/api/publish', o); },
+    mine: function (seed) { return api._post('/api/mine', { seed: seed }); },
+
+    // ---- Auth (JWT จริง) ----
+    register: function (email, password, name) { return api._post('/api/auth/register', { email: email, password: password, name: name || '' }); },
+    signin: function (email, password) { return api._post('/api/auth/login', { email: email, password: password }); },
+    me: function () { return api._get('/api/auth/me'); },
+    // ---- Projects (DB จริง) ----
+    projects: function () { return api._get('/api/projects'); },
+    createProject: function (o) { return api._post('/api/projects', o); }
+  };
+
+  function chk(r) {
+    if (!r.ok) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        throw new Error(j.detail || ('HTTP ' + r.status));
+      });
+    }
+    return r.json();
+  }
+
+  // helper สำหรับ view: เรียก backend พร้อม toast error อัตโนมัติ
+  RP.live = function (promise, onOk) {
+    if (!api.enabled()) { RP.ui.toast('เปิด "โหมด Live" + รัน backend ในหน้า ⚙️ การตั้งค่า ก่อนครับ'); return; }
+    RP.ui.toast('กำลังดึงข้อมูลจริงจาก backend…');
+    promise.then(onOk).catch(function (e) {
+      RP.ui.toast('เชื่อม backend ไม่ได้: ' + RP.esc(e.message || String(e)));
+    });
+  };
+
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/onboard.js */
+/* ============================================================
+   RankPilot AI — โหมดใช้งานจริง: เข้าสู่ระบบ + Onboarding ตามลำดับ
+   (เดโม: ระบบสมาชิกจำลองด้วย localStorage — ยังไม่เชื่อม auth จริง)
+   ============================================================ */
+(function (RP) {
+  'use strict';
+  var esc = RP.esc, ui = RP.ui;
+  function lget(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lset(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function ldel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+
+  RP.auth = {
+    user: function () { try { return JSON.parse(lget('rp-user') || 'null'); } catch (e) { return null; } },
+    login: function (email) { lset('rp-user', JSON.stringify({ email: email })); },
+    logout: function () { ldel('rp-user'); },
+    onboarded: function () { return lget('rp-onboarded') === '1'; },
+    setOnboarded: function () { lset('rp-onboarded', '1'); }
+  };
+
+  /* ---------- หน้าเข้าสู่ระบบ ---------- */
+  RP.showLogin = function (onSuccess) {
+    var mode = 'login';
+    var el = document.createElement('div');
+    el.className = 'auth-screen'; el.id = 'authScreen';
+    function render() {
+      el.innerHTML =
+        '<div class="auth-card">' +
+        '<div class="auth-brand"><div class="logo">R</div><div class="name">Rank<span>Pilot</span> AI</div></div>' +
+        '<div class="auth-tabs"><button data-m="login" class="' + (mode === 'login' ? 'on' : '') + '">เข้าสู่ระบบ</button>' +
+        '<button data-m="signup" class="' + (mode === 'signup' ? 'on' : '') + '">สมัครใช้งาน</button></div>' +
+        '<h2>' + (mode === 'login' ? 'ยินดีต้อนรับกลับมา 👋' : 'เริ่มใช้ RankPilot AI') + '</h2>' +
+        '<div class="sub">' + (mode === 'login' ? 'เข้าสู่ระบบเพื่อจัดการโปรเจ็ค AEO + SEO ของคุณ' : 'สมัครเพื่อดันเว็บให้ติดทั้ง Google และ AI Search') + '</div>' +
+        (mode === 'signup' ? field('ชื่อ / บริษัท', 'text', 'au_name', 'เช่น คลินิกความงาม ABC') : '') +
+        field('อีเมล', 'email', 'au_email', 'you@example.com') +
+        field('รหัสผ่าน', 'password', 'au_pass', '••••••••') +
+        '<button class="btn btn-primary btn-block" id="au_submit" style="margin-top:6px">' + (mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครและเริ่มใช้งาน') + '</button>' +
+        '<div class="auth-or">หรือ</div>' +
+        '<button class="btn btn-block" id="au_demo">🚀 ทดลองใช้ทันที (บัญชีเดโม)</button>' +
+        '<div class="auth-foot">เดโม — ระบบสมาชิกยังเป็นแบบจำลอง ข้อมูลเก็บในเบราว์เซอร์นี้เท่านั้น</div>' +
+        '</div>';
+      Array.prototype.forEach.call(el.querySelectorAll('.auth-tabs button'), function (b) {
+        b.onclick = function () { mode = b.getAttribute('data-m'); render(); };
+      });
+      el.querySelector('#au_submit').onclick = submit;
+      el.querySelector('#au_demo').onclick = function () { finish('demo@rankpilot.ai'); };
+      var pass = el.querySelector('#au_pass');
+      pass.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+    }
+    function field(label, type, id, ph) {
+      return '<div class="auth-field"><label for="' + id + '">' + esc(label) + '</label>' +
+        '<input id="' + id + '" type="' + type + '" placeholder="' + esc(ph) + '"></div>';
+    }
+    function submit() {
+      var email = (el.querySelector('#au_email').value || '').trim();
+      if (!email || email.indexOf('@') < 0) { RP.ui.toast('กรุณากรอกอีเมลให้ถูกต้อง'); return; }
+      var pass = (el.querySelector('#au_pass').value || '');
+      var nameEl = el.querySelector('#au_name');
+      var name = nameEl ? nameEl.value : '';
+      if (RP.api && RP.api.reachable() && pass) {
+        RP.ui.toast('กำลังเข้าสู่ระบบ…');
+        var p = mode === 'signup' ? RP.api.register(email, pass, name) : RP.api.signin(email, pass);
+        p.then(function (res) { RP.api.setToken(res.token); finish((res.user && res.user.email) || email); })
+          .catch(function (e) {
+            var msg = e.message || '';
+            if (/Failed to fetch|NetworkError|load failed|DATABASE_URL|503/i.test(msg)) {
+              RP.ui.toast('ต่อ backend ไม่ได้ — เข้าสู่โหมดเดโม (ออฟไลน์)'); finish(email);
+            } else { RP.ui.toast(RP.esc(msg)); }
+          });
+      } else { finish(email); }
+    }
+    function finish(email) {
+      RP.auth.login(email);
+      el.style.opacity = '0'; el.style.transition = 'opacity .2s';
+      setTimeout(function () { el.remove(); if (onSuccess) onSuccess(); }, 180);
+    }
+    document.body.appendChild(el);
+    render();
+  };
+
+  /* ---------- Onboarding (ตามลำดับ) ---------- */
+  RP.showOnboarding = function () {
+    var step = 0;
+    var STEPS = [
+      { ic: '🎉', h: 'ยินดีต้อนรับสู่ RankPilot AI', p: 'แพลตฟอร์มที่ดันเว็บของคุณให้ "ติดคำตอบ" ทั้งบน Google และ AI Search อัตโนมัติ มาตั้งค่า 3 ขั้นง่าย ๆ กัน', body: welcomeBody },
+      { ic: '🔌', h: 'ขั้นที่ 1 — เชื่อมต่อ', p: 'เชื่อม API ที่จำเป็นก่อนระบบจะวัดผลได้จริง (ตั้งภายหลังในหน้าการตั้งค่าได้)', body: connectBody },
+      { ic: '🗂️', h: 'ขั้นที่ 2 — โปรเจ็คแรกของคุณ', p: 'ใส่เว็บ/ธุรกิจที่อยากดัน — หรือใช้โปรเจ็คตัวอย่างเพื่อดูระบบก่อน', body: projectBody },
+      { ic: '✅', h: 'พร้อมแล้ว!', p: 'ตั้งค่าเรียบร้อย เข้าสู่แดชบอร์ดเพื่อเริ่มวงจร AEO + SEO อัตโนมัติได้เลย', body: doneBody }
+    ];
+    var el = document.createElement('div'); el.className = 'onb-overlay'; el.id = 'onbOverlay';
+    function dots() { return '<div class="step-dots">' + STEPS.map(function (_, i) { return '<i class="' + (i <= step ? 'on' : '') + '"></i>'; }).join('') + '</div>'; }
+    function render() {
+      var s = STEPS[step];
+      el.innerHTML =
+        '<div class="onb-card"><div class="onb-hero">' + dots() +
+        '<div class="ic">' + s.ic + '</div><h2>' + esc(s.h) + '</h2><p>' + esc(s.p) + '</p></div>' +
+        '<div class="onb-body">' + s.body() + '</div>' +
+        '<div class="onb-foot">' +
+        (step > 0 ? '<button class="btn" id="onb_back">ย้อนกลับ</button>' : '<button class="btn btn-ghost" id="onb_skip">ข้ามการแนะนำ</button>') +
+        '<span class="spacer"></span>' +
+        '<button class="btn btn-primary" id="onb_next">' + (step === STEPS.length - 1 ? 'เข้าสู่แดชบอร์ด →' : 'ถัดไป') + '</button>' +
+        '</div></div>';
+      var back = el.querySelector('#onb_back'); if (back) back.onclick = function () { step--; render(); };
+      var skip = el.querySelector('#onb_skip'); if (skip) skip.onclick = done;
+      el.querySelector('#onb_next').onclick = function () {
+        if (step === STEPS.length - 1) { done(); return; }
+        step++; render();
+      };
+    }
+    function done() {
+      RP.auth.setOnboarded();
+      el.style.opacity = '0'; el.style.transition = 'opacity .2s';
+      setTimeout(function () { el.remove(); }, 180);
+      RP.go('dashboard');
+    }
+    document.body.appendChild(el);
+    render();
+
+    function welcomeBody() {
+      return feat('🔎', 'ขุดคำถามจริง', 'หาสิ่งที่ลูกค้าถามจริงจาก Google, Pantip, AI') +
+        feat('🏭', 'ผลิต + เผยแพร่อัตโนมัติ', 'บทความสูตร AEO ผ่าน Fact-Check ก่อนขึ้นเว็บ') +
+        feat('📈', 'วัดผลของจริง', 'อันดับ Google + การถูก AI อ้างอิง (Share of Voice)');
+    }
+    function connectBody() {
+      var req = RP.data.account.integrations.filter(function (i) { return i.required; });
+      return '<div class="gs-list">' + req.map(function (i) {
+        return '<div class="gs-row ' + (i.connected ? 'done' : '') + '"><div class="gk ' + (i.connected ? 'done' : 'todo') + '">' + (i.connected ? '✓' : '○') + '</div>' +
+          '<div class="gt">' + esc(i.name) + '</div></div>';
+      }).join('') + '</div><div class="hint" style="margin-top:10px">ตั้งค่าคีย์เหล่านี้ในหน้า "การตั้งค่า" — ตอนนี้ข้ามไปดูระบบก่อนได้</div>';
+    }
+    function projectBody() {
+      return '<div style="margin-bottom:10px"><div class="soft small" style="margin-bottom:4px">ชื่อโปรเจ็ค</div><input class="input" id="onb_pname" placeholder="เช่น คลินิกความงาม XYZ" style="width:100%"></div>' +
+        '<div><div class="soft small" style="margin-bottom:4px">โดเมนเว็บไซต์</div><input class="input" id="onb_pdom" placeholder="example.com" style="width:100%"></div>' +
+        '<div class="hint" style="margin-top:10px">เว้นว่างไว้ก็ได้ — ระบบมีโปรเจ็คตัวอย่าง "เว็บคลินิกความงาม ABC" ให้ลองเล่นทันที</div>';
+    }
+    function doneBody() {
+      return feat('🎯', 'ไปที่ M1', 'ลองขุดคำถามสำหรับสินค้า/บริการของคุณ') +
+        feat('📊', 'ดูแดชบอร์ด', 'ภาพรวมทุกคลัสเตอร์และผลการวัด') +
+        feat('⚙️', 'เปิดโหมด Live', 'เชื่อม backend เพื่อดึงข้อมูลจริง (ในหน้าการตั้งค่า)');
+    }
+    function feat(ic, t, s) { return '<div class="onb-feature"><div class="fi">' + ic + '</div><div><div class="ft">' + esc(t) + '</div><div class="fs">' + esc(s) + '</div></div></div>'; }
+  };
+
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/views/dashboard.js */
+/* ============================================================
+   View: แดชบอร์ดหลัก (Main Dashboard) — ตรงกับ Wireframe หน้า 6
+   ============================================================ */
+(function (RP) {
+  'use strict';
+  var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
+
+  function statusBadge(c) {
+    if (c.status === 'loop') return ui.badge('● Loop ทำงานอยู่', 'green');
+    if (c.status === 'producing') return ui.badge('กำลังผลิตคอนเทนต์', 'purple');
+    if (c.status === 'approve') return ui.badge('รออนุมัติ ' + (c.pending || 0) + ' บทความ', 'amber');
+    return ui.badge('—');
+  }
+
+  function citedCell(c) {
+    if (!c.cited || !c.cited.length) return '<span class="soft">ยังไม่ติด</span>';
+    return c.cited.map(function (e) {
+      return '<span class="b" style="color:var(--green-600)">' + esc(e) + ' ✓</span>';
+    }).join(' &nbsp; ');
+  }
+
+  function clusterTable() {
+    var rows = RP.data.clusters.map(function (c) {
+      return '<tr>' +
+        '<td><span class="tbl-title">' + esc(c.name) + '</span></td>' +
+        '<td class="num">' + c.articles + '<span class="soft">/' + c.total + '</span></td>' +
+        '<td class="num">' + (c.avgRank == null ? '<span class="soft">—</span>' : c.avgRank.toFixed(1)) + '</td>' +
+        '<td>' + citedCell(c) + '</td>' +
+        '<td>' + statusBadge(c) + '</td>' +
+        '<td class="right"><button class="link-btn" data-cluster="' + c.id + '">ดูคีย์เวิร์ด ›</button></td>' +
+        '</tr>';
+    }).join('');
+
+    return '<div class="tbl-wrap"><table class="tbl">' +
+      '<thead><tr><th>คลัสเตอร์</th><th>บทความ</th><th>อันดับเฉลี่ย</th><th>ถูก AI อ้างอิง</th><th>สถานะระบบ</th><th></th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div>';
+  }
+
+  function loopStepper() {
+    var steps = RP.data.loop;
+    return '<div class="loop">' + steps.map(function (s, i) {
+      return '<div class="step"><div class="n">' + esc(s.n) + '</div>' +
+        '<div class="t">' + esc(s.t) + '</div><div class="d">' + esc(s.d) + '</div></div>' +
+        (i < steps.length - 1 ? '<div class="arrow">→</div>' : '');
+    }).join('') + '</div>';
+  }
+
+  function sovPanel() {
+    var ci = RP.data.m5.citation;
+    var rows = ci.competitors.map(function (c) {
+      return '<div class="list-row"><div class="grow"><div class="t">' +
+        (c.us ? '<span style="color:var(--brand-700)">★ </span>' : '') + esc(c.name) + '</div>' +
+        ui.bar(c.sov * 2.2, c.us ? '' : 'green') + '</div>' +
+        '<div class="bb" style="min-width:44px;text-align:right">' + c.sov + '%</div></div>';
+    }).join('');
+    return rows;
+  }
+
+  function weeklyPanel() {
+    var w = RP.data.m6.weeklyReport;
+    var items = [
+      ['เผยแพร่', w.published + ' บทความ'],
+      ['ติดหน้า 1 ใหม่', w.newPage1 + ' คีย์เวิร์ด'],
+      ['Citation เพิ่ม', '+' + w.citationsGained],
+      ['รีเฟรชหน้าเก่า', w.refreshed + ' หน้า'],
+      ['เวลาที่คนใช้', w.humanHours + ' ชม.']
+    ];
+    return items.map(function (x) {
+      return '<div class="list-row"><div class="grow"><div class="t small">' + x[0] + '</div></div>' +
+        '<div class="bb">' + x[1] + '</div></div>';
+    }).join('') +
+      '<div class="hint" style="margin-top:10px">ส่งรายงานอัตโนมัติทาง <b>' + esc(w.sentTo) + '</b> ทุกสัปดาห์</div>';
+  }
+
+  function gettingStartedCard() {
+    var steps = RP.data.onboarding;
+    var done = steps.filter(function (s) { return s.done; }).length;
+    if (done >= steps.length) return '';
+    var rows = steps.map(function (s) {
+      return '<div class="gs-row ' + (s.done ? 'done' : '') + '"><div class="gk ' + (s.done ? 'done' : 'todo') + '">' + (s.done ? '✓' : '○') + '</div><div class="gt">' + esc(s.t) + '</div></div>';
+    }).join('');
+    return ui.card({
+      title: '🚀 เริ่มต้นใช้งาน', sub: 'อีก ' + (steps.length - done) + ' ขั้นก็พร้อมวัดผลจริง', cls: 'mb',
+      action: '<button class="btn btn-sm btn-primary" id="gsGo">ตั้งค่าให้ครบ →</button>',
+      body: '<div style="margin-bottom:12px">' + ui.bar(done / steps.length * 100) + '</div><div class="gs-list">' + rows + '</div>'
+    });
+  }
+
+  function pfStat(l, v) { return '<div><div class="soft small">' + esc(l) + '</div><div class="bb" style="font-size:22px">' + v + '</div></div>'; }
+
+  function portfolioCard() {
+    var list = RP.data.project.list;
+    var kw = RP.sum(list, function (p) { return p.keywords; });
+    var cl = RP.sum(list, function (p) { return p.clusters; });
+    var tiles = '<div class="row wrap" style="gap:30px">' +
+      pfStat('โปรเจ็คทั้งหมด', list.length) + pfStat('คีย์เวิร์ดติดตามรวม', fmt.n(kw)) +
+      pfStat('คลัสเตอร์รวม', cl) + pfStat('แพ็กเกจ', esc(RP.data.account.plan)) + '</div>';
+    var rows = list.map(function (p) {
+      var cur = p.id === RP.data.project.current, h = p.health;
+      var dots = [h.gsc, h.serp, h.ai, h.publish].map(function (x) {
+        return '<span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:' + (x ? 'var(--green-500)' : 'var(--border)') + '"></span>';
+      }).join(' ');
+      return '<tr><td><span class="bb">' + esc(p.name) + '</span>' + (cur ? ' ' + ui.badge('กำลังใช้', 'green') : '') +
+        '<div class="soft small">' + esc(p.domain) + '</div></td>' +
+        '<td class="num">' + fmt.n(p.keywords) + '</td><td class="soft">' + (p.mode === 'auto' ? 'Full-Auto' : 'Human Approve') + '</td>' +
+        '<td>' + dots + '</td><td class="right">' + (cur ? '<span class="soft small">ปัจจุบัน</span>' : '<button class="link-btn pf-open" data-id="' + p.id + '">เปิด ›</button>') + '</td></tr>';
+    }).join('');
+    return ui.card({
+      title: 'ภาพรวมทุกโปรเจ็ค', sub: 'บัญชีเดียวดูแลได้หลายเว็บ / หลายลูกค้า', cls: 'mb', flush: true,
+      action: '<button class="btn btn-sm" id="pfManage">จัดการโปรเจ็ค →</button>',
+      body: '<div class="card-pad">' + tiles + '</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>โปรเจ็ค</th><th>คีย์เวิร์ด</th><th>โหมด</th><th>สถานะเชื่อมต่อ</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    });
+  }
+
+  function reDash() { var f = RP.views.dashboard(); var c = document.getElementById('content'); c.innerHTML = '<div class="view">' + f.html + '</div>'; f.mount(c); }
+
+  RP.views.dashboard = function () {
+    var p = RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0];
+
+    var projectBar = '<div class="card mb"><div class="card-pad row between wrap" style="gap:14px">' +
+      '<div class="row" style="gap:12px">' +
+      '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--grad-start),var(--grad-end));display:grid;place-items:center;color:#fff;font-size:20px">🏥</div>' +
+      '<div><div class="bb" style="font-size:17px">โปรเจ็ค: ' + esc(p.name) + '</div>' +
+      '<div class="soft small">' + esc(p.domain) + ' · โหมด ' + (p.mode === 'auto' ? 'Full-Auto' : 'Auto + Human Approve') + '</div></div>' +
+      '</div>' +
+      '<button class="btn btn-green" id="newCluster">＋ สร้างคลัสเตอร์ใหม่ (Auto)</button>' +
+      '</div></div>';
+
+    var kpiGrid = '<div class="grid grid-4 mb">' +
+      RP.data.kpis.map(function (k) { return ui.kpi(k); }).join('') + '</div>';
+
+    var loopCard = ui.card({
+      title: 'AI Growth Loop', sub: 'วงจรอัตโนมัติที่หมุนเองและฉลาดขึ้นทุกรอบ (Closed-Loop)',
+      body: loopStepper()
+    });
+
+    var tableCard = ui.card({
+      title: 'คลัสเตอร์ทั้งหมด', sub: RP.data.clusters.length + ' คลัสเตอร์ · เรียงตามความสำคัญ',
+      flush: true, cls: 'mb',
+      action: '<button class="btn btn-sm" id="goM5">ดูรายงานอันดับ →</button>',
+      body: clusterTable()
+    });
+
+    var twoCol = '<div class="grid mb" style="grid-template-columns:1.5fr 1fr">' +
+      ui.card({ title: 'AI Citation Share of Voice', sub: 'ส่วนแบ่งการถูกอ้างอิงบน AI เทียบคู่แข่ง', body: sovPanel() }) +
+      ui.card({ title: 'รายงานสัปดาห์นี้ (M6)', sub: 'สรุปอัตโนมัติจาก Learning Loop', body: weeklyPanel() }) +
+      '</div>';
+
+    var factStrip = '<div class="grid grid-4">' + RP.data.facts.map(function (f) {
+      return '<div class="card card-pad center"><div class="bb" style="font-size:24px;color:var(--purple-700)">' + esc(f.v) + '</div>' +
+        '<div class="soft small" style="margin-top:4px">' + esc(f.d) + '</div></div>';
+    }).join('') + '</div>';
+
+    var html =
+      ui.pageHead({ eyebrow: 'RankPilot AI — Dashboard หลัก', title: 'แดชบอร์ดหลัก',
+        desc: 'ภาพรวมทุกคลัสเตอร์ในโปรเจ็คเดียว — บทความที่เผยแพร่ อันดับบน Google และการถูก AI อ้างอิง พร้อมสถานะของวงจรอัตโนมัติแต่ละคลัสเตอร์' }) +
+      gettingStartedCard() + portfolioCard() +
+      projectBar + kpiGrid + '<div class="mb">' + loopCard + '</div>' + tableCard + twoCol + factStrip;
+
+    return {
+      html: html,
+      mount: function (root) {
+        var nc = root.querySelector('#newCluster');
+        if (nc) nc.onclick = function () { RP.go('m1'); };
+        var gm5 = root.querySelector('#goM5');
+        if (gm5) gm5.onclick = function () { RP.go('m5'); };
+        var gsGo = root.querySelector('#gsGo'); if (gsGo) gsGo.onclick = function () { RP.go('settings'); };
+        var pfM = root.querySelector('#pfManage'); if (pfM) pfM.onclick = function () { RP.go('projects'); };
+        Array.prototype.forEach.call(root.querySelectorAll('.pf-open'), function (b) {
+          b.onclick = function () { RP.data.project.current = b.getAttribute('data-id'); RP.ui.toast('สลับโปรเจ็คแล้ว'); reDash(); };
+        });
+        Array.prototype.forEach.call(root.querySelectorAll('[data-cluster]'), function (b) {
+          b.onclick = function () { RP.go('m1'); };
+        });
+      }
+    };
+  };
+
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/views/m1.js */
+/* ============================================================
+   View: M1 — Question & Keyword Intelligence (ขุดโอกาส)
+   ตามโครงการ (หน้า 4):
+   - กรอกหัวข้อธุรกิจ/สินค้า → AI ขุด "คำถามจริงที่คนถาม" จากหลายแหล่ง
+     (Google PAA, Google Suggest, Pantip, Reddit, คอมเมนต์โซเชียล, Prompt Mining)
+   - จัดกลุ่มเป็น Topic Cluster อัตโนมัติ: หัวข้อแม่ (Pillar) + คำถามลูก (Cluster)
+     พร้อมประเมินความยาก/โอกาสของแต่ละคำ
+   - ชี้เป้า "คำถามที่ AI ยังตอบได้ไม่ดี/ยังไม่มีแหล่งภาษาไทย" = โอกาสติด Citation ง่ายที่สุด
+   ============================================================ */
+(function (RP) {
+  'use strict';
+  var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
+
+  var state = { seed: 'ครีมกันแดด', cluster: null };
+
+  /* ---- stable pseudo-random from string ---- */
+  function hash(s) {
+    var h = 2166136261 >>> 0;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function rnd(s, mod) { return hash(s) % mod; }
+
+  /* ---- ขุดคำถาม + จัดกลุ่ม Topic Cluster สำหรับหัวข้อแม่ (Pillar) ---- */
+  function mine(seed) {
+    seed = (seed || '').trim() || 'ครีมกันแดด';
+    var srcs = RP.data.m1.sources;
+    var questions = RP.data.m1.questionTemplates.map(function (t) {
+      var q = t.replace('{kw}', seed);
+      var kd = 16 + rnd(q, 66);                       // ความยาก 16–81
+      var vol = 260 + rnd(q + 'v', 9400);             // ปริมาณค้นหา/เดือน
+      var opp = fmt.clamp(Math.round(97 - kd * 0.82 + rnd(q + 'o', 20)), 20, 99);
+      var aiGap = opp >= 70 && rnd(q + 'g', 100) < 62; // AI ยังตอบไม่ดี/ไม่มีแหล่งไทย
+      return { q: q, kd: kd, vol: vol, opp: opp, aiGap: aiGap, source: srcs[rnd(q + 's', srcs.length)] };
+    });
+    questions.sort(function (a, b) { return b.opp - a.opp; });
+    return { pillar: seed, questions: questions };
+  }
+
+  /* ---- สรุปตัวเลข ---- */
+  function summaryKpis() {
+    var c = state.cluster;
+    var avgKd = Math.round(RP.sum(c.questions, function (q) { return q.kd; }) / c.questions.length);
+    var gaps = c.questions.filter(function (q) { return q.aiGap; }).length;
+    var vol = RP.sum(c.questions, function (q) { return q.vol; });
+    return '<div class="grid grid-4 mb">' +
+      ui.kpi({ label: 'คำถามที่ขุดได้', value: fmt.n(c.questions.length), foot: 'จาก ' + RP.data.m1.sources.length + ' แหล่ง' }) +
+      ui.kpi({ label: 'โอกาสทอง (AI Gap)', value: fmt.n(gaps), tone: 'brand', foot: 'AI ยังตอบได้ไม่ดี/ไม่มีแหล่งไทย' }) +
+      ui.kpi({ label: 'ปริมาณค้นหารวม', value: fmt.n(vol), foot: 'ครั้ง/เดือน (โดยประมาณ)' }) +
+      ui.kpi({ label: 'ความยากเฉลี่ย (KD)', value: avgKd, tone: (avgKd <= 40 ? 'pos' : ''), foot: ui.diffLabel(avgKd).t }) +
+      '</div>';
+  }
+
+  /* ---- แถวคำถามลูก (Cluster) ---- */
+  function qRow(q) {
+    var d = ui.diffLabel(q.kd);
+    var gap = q.aiGap ? ' <span class="badge amber" title="AI ยังตอบได้ไม่ดี/ไม่มีแหล่งไทย">🎯 โอกาสทอง</span>' : '';
+    return '<div class="kw-row">' +
+      '<span class="badge purple nowrap">Cluster</span>' +
+      '<div class="kw"><div class="txt">' + esc(q.q) + gap + '</div>' +
+      '<div class="meta">' +
+        '<span>🔍 ~' + fmt.n(q.vol) + '/เดือน</span>' +
+        '<span class="badge ' + d.c + '">' + d.t + ' · KD ' + q.kd + '</span>' +
+        '<span>โอกาส ' + ui.scorePill(q.opp) + '</span>' +
+        '<span class="soft">ขุดจาก: ' + esc(q.source) + '</span>' +
+      '</div></div>' +
+      '<button class="btn btn-sm q-detail" data-q="' + esc(q.q) + '">รายละเอียด</button>' +
+      '</div>';
+  }
+
+  function clusterCard() {
+    var c = state.cluster;
+    var rows = c.questions.map(qRow).join('');
+    return '<div class="intent-col mb">' +
+      '<div class="intent-head rec">' +
+      '<span class="ic">🗂️</span>' +
+      '<div><div class="h">Topic Cluster: ' + esc(c.pillar) + '</div>' +
+      '<div class="c">หัวข้อแม่ (Pillar) + คำถามลูก (Cluster) ' + c.questions.length + ' คำถาม จัดกลุ่มอัตโนมัติ</div></div>' +
+      '<span class="count">Pillar</span></div>' +
+      '<div>' + rows + '</div>' +
+      '</div>';
+  }
+
+  function sourcesCard() {
+    var chips = RP.data.m1.sources.map(function (s) { return '<span class="chip">🌐 ' + esc(s) + '</span>'; }).join('');
+    return ui.card({
+      title: 'แหล่งขุดคำถาม (Question Mining)', sub: 'ระบบรวบรวมคำถามจริงที่คนถามจากหลายแหล่ง',
+      body: '<div class="tag-list mb">' + chips + '</div>' +
+        '<div class="hint">🎯 ชี้เป้า: <b>คำถามที่ AI ยังตอบได้ไม่ดี หรือยังไม่มีแหล่งภาษาไทยอ้างอิง</b> = โอกาสติด Citation ง่ายที่สุด (ตามกลยุทธ์หน้า 5 ของโครงการ)'
+    });
+  }
+
+  function howCard() {
+    return ui.card({
+      title: 'M1 ทำงานอย่างไร', sub: 'ขุดคำถามจริง → จัดกลุ่ม Topic Cluster → ชี้โอกาส',
+      body:
+        '<div class="grid grid-3" style="gap:14px">' +
+        howStep('1', '🔎', 'ขุดคำถามจริง', 'รวบรวมจาก Google People Also Ask, Google Suggest, Pantip, Reddit, คอมเมนต์โซเชียล และจำลองการถาม AI (Prompt Mining)') +
+        howStep('2', '🗂️', 'จัดกลุ่ม Topic Cluster', 'จัดเป็นหัวข้อแม่ (Pillar) + คำถามลูก (Cluster) อัตโนมัติ พร้อมประเมินความยาก/โอกาสของแต่ละคำ') +
+        howStep('3', '🎯', 'ชี้เป้าโอกาสทอง', 'ไฮไลต์คำถามที่ AI ยังตอบได้ไม่ดี/ไม่มีแหล่งไทย — สร้างก่อนได้เปรียบ ติด Citation ง่ายสุด') +
+        '</div>'
+    });
+  }
+
+  function howStep(n, ic, t, d) {
+    return '<div class="panel"><div class="panel-body">' +
+      '<div class="row gap-s" style="margin-bottom:6px"><span style="font-size:20px">' + ic + '</span>' +
+      '<span class="badge purple">ขั้นที่ ' + n + '</span></div>' +
+      '<div class="bb" style="margin-bottom:3px">' + esc(t) + '</div>' +
+      '<div class="soft small">' + esc(d) + '</div></div></div>';
+  }
+
+  /* ---- modal: รายละเอียดคำถาม (ขุดจากไหน / ทำไมเป็นโอกาส / รูปแบบที่แนะนำ) ---- */
+  function openDetail(qText) {
+    var q = state.cluster.questions.filter(function (x) { return x.q === qText; })[0];
+    if (!q) return;
+    var variations = [
+      qText,
+      qText + ' pantip',
+      qText.replace(state.cluster.pillar, state.cluster.pillar + ' 2026'),
+      'อยากรู้ ' + qText
+    ];
+    var fmts = RP.data.m2.formats;
+    var recFmt = fmts[rnd(qText + 'f', fmts.length)];
+    var d = ui.diffLabel(q.kd);
+    var body =
+      '<div class="grid grid-2 mb">' +
+      ui.card({ title: 'ข้อมูลคีย์เวิร์ด', body:
+        '<div class="list-row"><div class="grow t small">ปริมาณค้นหา</div><div class="bb">~' + fmt.n(q.vol) + '/เดือน</div></div>' +
+        '<div class="list-row"><div class="grow t small">ความยาก (KD)</div><div>' + ui.badge(d.t + ' · ' + q.kd, d.c) + '</div></div>' +
+        '<div class="list-row"><div class="grow t small">คะแนนโอกาส</div><div>' + ui.scorePill(q.opp) + '</div></div>' +
+        '<div class="list-row"><div class="grow t small">ขุดจากแหล่ง</div><div class="b">' + esc(q.source) + '</div></div>'
+      }) +
+      ui.card({ title: 'คำแนะนำการผลิต', body:
+        '<div class="small" style="margin-bottom:8px">รูปแบบคอนเทนต์ที่แนะนำ:</div>' +
+        '<div class="mb"><span class="badge blue">' + esc(recFmt) + '</span></div>' +
+        (q.aiGap
+          ? '<div class="ok-box">🎯 <b>โอกาสทอง</b> — AI ยังตอบคำถามนี้ได้ไม่ดีหรือยังไม่มีแหล่งภาษาไทยที่ดี ถ้าเราสร้างคอนเทนต์คุณภาพก่อน มีโอกาสถูก AI หยิบไปอ้างอิงสูง</div>'
+          : '<div class="hint">คำถามนี้มีคู่แข่งอยู่บ้าง เน้นทำให้ครบและสดใหม่กว่าเดิมเพื่อแย่ง Citation</div>')
+      }) +
+      '</div>' +
+      ui.card({ title: 'รูปแบบคำถามที่พบ (People Also Ask / Suggest)', body:
+        variations.map(function (v) { return '<div class="list-row"><span>💬</span><div class="grow t small">' + esc(v) + '</div></div>'; }).join('')
+      });
+    ui.modal({ title: 'รายละเอียดคำถาม', sub: esc(qText), width: 760, body: body });
+  }
+
+  /* ---- main view ---- */
+  RP.views.m1 = function () {
+    state.cluster = mine(state.seed);
+
+    var searchCard =
+      '<div class="card mb"><div class="card-pad">' +
+      '<div class="row wrap" style="gap:10px">' +
+      '<div class="field" style="flex:1;min-width:240px"><span class="ico">🔎</span>' +
+      '<input id="seedInput" placeholder="กรอกหัวข้อธุรกิจ / สินค้า / บริการ เช่น ครีมกันแดด" value="' + esc(state.seed) + '"></div>' +
+      '<button class="btn btn-primary" id="genBtn">ขุดคำถาม & จัดกลุ่ม (Auto)</button>' +
+      '</div>' +
+      '<div class="row wrap" style="gap:8px;margin-top:12px">' +
+      '<span class="soft small">ตัวอย่าง:</span>' +
+      RP.data.seedExamples.map(function (s) { return '<button class="chip seed-eg" data-seed="' + esc(s) + '">' + esc(s) + '</button>'; }).join('') +
+      '</div></div></div>';
+
+    var html =
+      ui.pageHead({ eyebrow: 'M1 · Question & Keyword Intelligence', title: 'ขุดคำถาม & คีย์เวิร์ด',
+        desc: 'กรอกหัวข้อธุรกิจ/สินค้าเพียงหัวข้อเดียว ระบบจะขุด "คำถามจริงที่คนถาม" จากหลายแหล่ง แล้วจัดกลุ่มเป็น <b>Topic Cluster</b> อัตโนมัติ (หัวข้อแม่ Pillar + คำถามลูก Cluster) พร้อมประเมินความยาก/โอกาส และชี้เป้าคำถามที่ AI ยังตอบได้ไม่ดี' }) +
+      searchCard +
+      liveMineCard() +
+      '<div id="mineOut">' + summaryKpis() + '<div class="grid mb" style="grid-template-columns:1.6fr 1fr">' +
+        clusterCard() + sourcesCard() + '</div></div>' +
+      howCard();
+
+    return {
+      html: html,
+      mount: function (root) {
+        function refresh() {
+          root.querySelector('#mineOut').innerHTML =
+            summaryKpis() + '<div class="grid mb" style="grid-template-columns:1.6fr 1fr">' + clusterCard() + sourcesCard() + '</div>';
+          wireDetails(root);
+        }
+        function doGen() {
+          var v = root.querySelector('#seedInput').value.trim();
+          if (!v) { RP.ui.toast('กรุณากรอกหัวข้อก่อน'); return; }
+          state.seed = v; state.cluster = mine(v);
+          refresh();
+          RP.ui.toast('ขุดคำถามสำหรับ <b>"' + esc(v) + '"</b> แล้ว — จัดกลุ่ม Topic Cluster เรียบร้อย ✓');
+        }
+        root.querySelector('#genBtn').onclick = doGen;
+        root.querySelector('#seedInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') doGen(); });
+        Array.prototype.forEach.call(root.querySelectorAll('.seed-eg'), function (b) {
+          b.onclick = function () { root.querySelector('#seedInput').value = b.getAttribute('data-seed'); doGen(); };
+        });
+        var mn = root.querySelector('#m1_mine');
+        if (mn) mn.onclick = function () {
+          var v = (root.querySelector('#seedInput').value || '').trim() || state.seed;
+          RP.live(RP.api.mine(v), mineModal);
+        };
+        wireDetails(root);
+      }
+    };
+  };
+
+  function liveMineCard() {
+    return ui.card({
+      title: 'โหมด Live — ขุดคำถามจริง', sub: 'ดึงจาก Google Suggest + People Also Ask ผ่าน backend', cls: 'mb',
+      action: RP.api.enabled() ? ui.badge('● Live เปิด', 'green') : ui.badge('Live ปิด', 'amber'),
+      body: '<div class="row wrap" style="gap:10px"><div class="soft small" style="flex:1;min-width:200px">ใช้คีย์เวิร์ดในช่องด้านบน แล้วกดปุ่มนี้เพื่อขุด "คำถามจริงที่คนค้นบน Google"</div>' +
+        '<button class="btn btn-primary" id="m1_mine">ขุดคำถามจริง (Live)</button></div>' +
+        '<div class="hint" style="margin-top:10px">Google Suggest ใช้ได้ฟรี (ไม่ต้องมีคีย์) · People Also Ask ต้องมีคีย์ DataForSEO — ต้องเปิดโหมด Live + รัน backend</div>'
+    });
+  }
+
+  function mineModal(res) {
+    var rows = (res.questions || []).map(function (q) {
+      return '<tr><td>' + (q.is_question ? ui.badge('คำถาม', 'purple') : ui.badge('คีย์เวิร์ด', '')) + '</td>' +
+        '<td class="tbl-title">' + esc(q.q) + '</td><td class="soft small">' + esc(q.source) + '</td></tr>';
+    }).join('');
+    ui.modal({ title: 'ผลขุดคำถามจริง — ' + esc(res.pillar), sub: 'พบ ' + res.count + ' รายการ · แหล่ง: ' + (res.sources_used || []).join(', '), width: 760,
+      body: '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>ประเภท</th><th>คำถาม / คีย์เวิร์ด</th><th>แหล่ง</th></tr></thead><tbody>' + rows + '</tbody></table></div>' });
+  }
+
+  function wireDetails(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('.q-detail'), function (b) {
+      b.onclick = function () { openDetail(b.getAttribute('data-q')); };
+    });
+  }
+
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/views/m2.js */
+(function (RP) {
+  'use strict';
+  var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
+
+  function factBadge(fact) {
+    if (fact === 'pass') return ui.badge('ผ่าน', 'green');
+    return ui.badge('กำลังตรวจ', 'amber');
+  }
+
+  function plagBadge(plag) {
+    var v = (plag == null ? 0 : plag);
+    if (v < 5) return ui.badge(v + '%', 'green');
+    return ui.badge(v + '%', 'amber');
+  }
+
+  function statusBadge(status) {
+    if (status === 'ready') return ui.badge('พร้อมเผยแพร่', 'green');
+    if (status === 'scheduled') return ui.badge('ตั้งเวลาแล้ว', 'blue');
+    if (status === 'factcheck') return ui.badge('กำลัง Fact-Check', 'amber');
+    return ui.badge('ฉบับร่าง', '');
+  }
+
+  function queueRow(q) {
+    return '<tr>' +
+      '<td><span class="bb">' + esc(q.title) + '</span>' +
+        '<div class="soft small">' + esc(q.author) + '</div></td>' +
+      '<td>' + ui.badge(esc(q.cluster), '') + '</td>' +
+      '<td class="soft">' + esc(q.format) + '</td>' +
+      '<td class="num">' + fmt.n(q.words) + '</td>' +
+      '<td class="center">' + ui.scorePill(q.aeo) + '</td>' +
+      '<td class="center">' + factBadge(q.fact) + '</td>' +
+      '<td class="center">' + plagBadge(q.plag) + '</td>' +
+      '<td class="center">' + statusBadge(q.status) + '</td>' +
+    '</tr>';
+  }
+
+  function queueTable(queue) {
+    if (!queue.length) {
+      return '<div class="card-pad soft">ยังไม่มีบทความในคิว</div>';
+    }
+    var rows = '';
+    for (var i = 0; i < queue.length; i++) rows += queueRow(queue[i]);
+    return '<div class="tbl-wrap"><table class="tbl">' +
+      '<thead><tr>' +
+        '<th>บทความ</th>' +
+        '<th>คลัสเตอร์</th>' +
+        '<th>รูปแบบ</th>' +
+        '<th class="right">จำนวนคำ</th>' +
+        '<th class="center">คะแนน AEO</th>' +
+        '<th class="center">Fact-Check</th>' +
+        '<th class="center">ความซ้ำ</th>' +
+        '<th class="center">สถานะ</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div>';
+  }
+
+  function checklistBody(list) {
+    if (!list.length) return '<div class="soft">ยังไม่มีรายการตรวจสอบ</div>';
+    var out = '';
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      var mark = c.on
+        ? '<span class="badge green">✓</span>'
+        : '<span class="soft">○</span>';
+      out += '<div class="list-row">' + mark +
+        '<div class="grow"><div class="t">' + esc(c.t) + '</div></div>' +
+        '<div class="s">' + (c.on ? '<span class="muted small">พร้อม</span>' : '<span class="muted small">ยังไม่ผ่าน</span>') + '</div>' +
+      '</div>';
+    }
+    return out;
+  }
+
+  function eeatBody() {
+    return '' +
+      '<div class="note-box purple mb">' +
+        '<b>Author Persona + แหล่งอ้างอิงจริง</b><div class="soft small">' +
+        'ทุกบทความผูกโปรไฟล์ผู้เขียนที่มีความเชี่ยวชาญจริง และแนบแหล่งอ้างอิงที่ระบบไปดึงมา ' +
+        'เพื่อสร้างสัญญาณ E-E-A-T (ประสบการณ์ · ความเชี่ยวชาญ · ความน่าเชื่อถือ · ความไว้วางใจ)</div>' +
+      '</div>' +
+      '<div class="ok-box mb">' +
+        '<b>AI Fact-Check ข้ามแหล่ง</b><div class="soft small">' +
+        'ระบบตรวจข้อเท็จจริงอัตโนมัติโดยเทียบข้อมูลข้ามหลายแหล่ง ก่อนอนุมัติเข้าคิวเผยแพร่</div>' +
+      '</div>' +
+      '<div class="hint">' +
+        '<b>ตรวจความซ้ำ (Plagiarism)</b> · บทความที่มีความซ้ำ ' +
+        '<span class="bb">ต่ำกว่า 5%</span> จึงจะถือว่าปลอดภัยต่อการเผยแพร่' +
+      '</div>';
+  }
+
+  function formatsBody(formats) {
+    if (!formats.length) return '<div class="soft">ยังไม่ได้กำหนดรูปแบบคอนเทนต์</div>';
+    var chips = '';
+    for (var i = 0; i < formats.length; i++) {
+      chips += '<span class="chip">' + esc(formats[i]) + '</span>';
+    }
+    return '<div class="tag-list">' + chips + '</div>';
+  }
+
+  RP.views.m2 = function () {
+    var d = (RP.data && RP.data.m2) || {};
+    var queue = d.queue || [];
+    var formats = d.formats || [];
+    var checklist = d.aeoChecklist || [];
+
+    var total = queue.length;
+    var readyCount = RP.by(queue, 'status', 'ready').length;
+    var factPass = RP.by(queue, 'fact', 'pass').length;
+    var avgAeo = total ? Math.round(RP.sum(queue, function (q) { return q.aeo || 0; }) / total) : 0;
+
+    var kpis =
+      ui.kpi({
+        label: 'บทความในคิว',
+        value: fmt.n(total),
+        tone: '',
+        foot: '<span class="soft">รวมทุกสถานะการผลิต</span>'
+      }) +
+      ui.kpi({
+        label: 'พร้อมเผยแพร่',
+        value: fmt.n(readyCount),
+        tone: 'pos',
+        foot: '<span class="soft">ผ่านทุกด่านตรวจแล้ว</span>'
+      }) +
+      ui.kpi({
+        label: 'คะแนน AEO เฉลี่ย',
+        value: total ? fmt.n(avgAeo) : '—',
+        tone: 'brand',
+        foot: '<span class="soft">Answer-First · โครงสร้าง · FAQ</span>'
+      }) +
+      ui.kpi({
+        label: 'ผ่าน Fact-Check',
+        value: fmt.n(factPass) + '<span class="soft"> / ' + fmt.n(total) + '</span>',
+        tone: '',
+        foot: '<span class="soft">ตรวจข้อเท็จจริงข้ามแหล่ง</span>'
+      });
+
+    var html =
+      ui.pageHead({
+        eyebrow: 'M2 · AI Content Factory',
+        title: 'โรงงานคอนเทนต์',
+        desc: 'ผลิตบทความตาม<b>สูตร AEO</b> — เปิดด้วยคำตอบ 40–60 คำ, โครงสร้าง H2/H3, FAQ, ตาราง, สรุปประเด็น ' +
+          'พร้อมผูก Author Persona และผ่าน Fact-Check + Plagiarism ก่อนเผยแพร่'
+      }) +
+      liveGenCard() +
+      '<div class="grid grid-4 mb">' + kpis + '</div>' +
+      ui.card({
+        title: 'คิวผลิตคอนเทนต์',
+        sub: 'ผลิตตามสูตร AEO + Fact-Check + Plagiarism ก่อนเข้าคิวเผยแพร่',
+        body: queueTable(queue),
+        flush: true
+      }) +
+      '<div class="grid grid-2 mb">' +
+        ui.card({
+          title: 'เช็กลิสต์สูตร AEO',
+          sub: 'องค์ประกอบที่ต้องมีในทุกบทความ',
+          body: checklistBody(checklist)
+        }) +
+        ui.card({
+          title: 'คุณภาพ & ความน่าเชื่อถือ (E-E-A-T)',
+          sub: 'สร้างความไว้วางใจก่อนเผยแพร่',
+          body: eeatBody()
+        }) +
+      '</div>' +
+      ui.card({
+        title: 'รูปแบบคอนเทนต์ที่รองรับ',
+        sub: 'บทความยาว · หน้าเปรียบเทียบ · “X คืออะไร” · รีวิว · Listicle · Programmatic',
+        body: formatsBody(formats)
+      });
+
+    return {
+      html: html,
+      mount: function (root) {
+        var b = root.querySelector('#m2_gen');
+        if (b) b.onclick = function () {
+          var topic = (root.querySelector('#m2_topic').value || '').trim();
+          if (!topic) { RP.ui.toast('พิมพ์หัวข้อบทความก่อนครับ'); return; }
+          var fmtSel = root.querySelector('#m2_fmt');
+          RP.live(RP.api.generate(topic, fmtSel ? fmtSel.value : 'บทความยาว', 1500), genModal);
+        };
+      }
+    };
+  };
+
+  function liveGenCard() {
+    var opts = RP.data.m2.formats.map(function (f) { return '<option>' + esc(f) + '</option>'; }).join('');
+    return ui.card({
+      title: 'โหมด Live — ผลิตบทความด้วย AI จริง', sub: 'ยิงไปที่ LLM (Claude/GPT/Gemini) ผ่าน backend', cls: 'mb',
+      action: RP.api.enabled() ? ui.badge('● Live เปิด', 'green') : ui.badge('Live ปิด', 'amber'),
+      body:
+        '<div class="row wrap" style="gap:10px">' +
+        '<div class="field" style="flex:1;min-width:240px"><span class="ico">✍️</span><input id="m2_topic" placeholder="หัวข้อบทความ เช่น ครีมกันแดดหน้าไม่วอก สำหรับผิวมัน"></div>' +
+        '<select class="select" id="m2_fmt">' + opts + '</select>' +
+        '<button class="btn btn-primary" id="m2_gen">ผลิตด้วย AI สด</button></div>' +
+        '<div class="hint" style="margin-top:10px">ยิงไปที่ LLM จริงตามสูตร AEO (Answer-First 40–60 คำ + H2/H3 + FAQ) — ต้องเปิดโหมด Live + รัน backend + ตั้งคีย์ LLM ก่อน</div>'
+    });
+  }
+
+  function genModal(res) {
+    ui.modal({ title: 'บทความที่ผลิตด้วย AI (Live)', sub: 'โมเดล: ' + esc(res.provider || '') + ' · ' + esc(res.model || ''), width: 860,
+      body: '<div class="note-box mb">ตัวอย่างผลลัพธ์จริงจาก LLM — พร้อมส่งต่อเข้าคิว/เผยแพร่ (M4)</div>' +
+        '<div style="border:1px solid var(--border);border-radius:12px;padding:16px;max-height:52vh;overflow:auto">' + (res.html || '<span class="soft">ไม่มีเนื้อหา</span>') + '</div>' });
+  }
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/views/m3.js */
+(function (RP) {
+  'use strict';
+  var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
+
+  RP.views.m3 = function () {
+    var d = (RP.data && RP.data.m3) || {};
+    var schema = d.schema || [];
+    var llmsTxt = d.llmsTxt || {};
+    var sitemap = d.sitemap || {};
+    var internalLinks = d.internalLinks || {};
+    var freshness = d.freshness || [];
+    var audit = d.audit || [];
+
+    var avgPct = schema.length
+      ? Math.round(RP.sum(schema, function (s) { return s.pct || 0; }) / schema.length)
+      : 0;
+
+    var html = ui.pageHead({
+      eyebrow: 'M3 · AEO Optimizer',
+      title: 'AEO Optimizer',
+      desc: 'เครื่องยนต์ติดคำตอบ — ใส่ Schema อัตโนมัติ, ดูแล llms.txt/Sitemap, สร้าง Topical Authority และรีเฟรชความสดของเนื้อหาให้ติดอันดับใน AI Answer'
+    }) + '';
+
+    // 1) KPI ROW
+    html += '<div class="grid grid-4 mb">';
+    html += ui.kpi({
+      label: 'Schema ครอบคลุมเฉลี่ย',
+      value: avgPct + '%',
+      tone: 'brand',
+      foot: 'ครอบคลุม ' + fmt.n(schema.length) + ' ชนิดเนื้อหา'
+    });
+    html += ui.kpi({
+      label: 'llms.txt',
+      value: fmt.n(llmsTxt.entries || 0) + ' รายการ',
+      foot: 'อัปเดต ' + esc(llmsTxt.updated || '-')
+    });
+    html += ui.kpi({
+      label: 'Sitemap URLs',
+      value: fmt.n(sitemap.urls || 0),
+      foot: sitemap.submitted ? 'ส่งเข้าระบบแล้ว' : 'ยังไม่ได้ส่ง'
+    });
+    html += ui.kpi({
+      label: 'Internal Links',
+      value: fmt.n(internalLinks.total || 0),
+      foot: 'เฉลี่ย ' + esc(String(internalLinks.avgPerPage || 0)) + '/หน้า'
+    });
+    html += '</div>';
+
+    // 2) SCHEMA COVERAGE CARD
+    var schemaBody = '';
+    if (schema.length) {
+      schema.forEach(function (s) {
+        var pct = fmt.clamp(s.pct || 0, 0, 100);
+        schemaBody +=
+          '<div class="list-row">' +
+            '<span class="t b nowrap">' + esc(s.t) + '</span>' +
+            '<div class="grow">' + ui.bar(pct) + '</div>' +
+            '<span class="s right nowrap">' + fmt.n(s.pages || 0) + '/' + fmt.n(s.total || 0) +
+              ' (' + pct + '%)</span>' +
+          '</div>';
+      });
+    } else {
+      schemaBody = '<div class="soft small center">ยังไม่มีข้อมูล Schema</div>';
+    }
+    html += ui.card({
+      title: 'ความครอบคลุม Schema Markup',
+      sub: 'ใส่ schema อัตโนมัติตามชนิดเนื้อหา (FAQPage, HowTo, Article, Author, Organization, Product)',
+      body: schemaBody,
+      cls: 'mb'
+    });
+
+    // 3) TWO-COL: files/links + technical audit
+    html += '<div class="grid grid-2 mb">';
+
+    // 3a) llms.txt · Sitemap · Internal Link
+    var filesBody = '';
+    filesBody +=
+      '<div class="list-row">' +
+        '<span class="t b">llms.txt</span>' +
+        '<div class="grow s soft">อัปเดต ' + esc(llmsTxt.updated || '-') + '</div>' +
+        '<span class="right">' + ui.badge('อัปเดตแล้ว', 'green') + '</span>' +
+      '</div>';
+    filesBody +=
+      '<div class="list-row">' +
+        '<span class="t b">Sitemap</span>' +
+        '<div class="grow s soft">' + fmt.n(sitemap.urls || 0) + ' URLs</div>' +
+        '<span class="right">' + (sitemap.submitted ? ui.badge('ส่งแล้ว', 'green') : ui.badge('ยังไม่ส่ง', 'amber')) + '</span>' +
+      '</div>';
+    filesBody +=
+      '<div class="list-row">' +
+        '<span class="t b">Internal Links</span>' +
+        '<div class="grow s soft">Topical Authority ภายใน Topic Cluster</div>' +
+        '<span class="right b">' + fmt.n(internalLinks.total || 0) + '</span>' +
+      '</div>';
+    var orphan = internalLinks.orphan || 0;
+    filesBody +=
+      '<div class="list-row">' +
+        '<span class="t b">หน้ากำพร้า (Orphan)</span>' +
+        '<div class="grow s soft">หน้าที่ยังไม่มีลิงก์ภายในชี้ถึง</div>' +
+        '<span class="right">' + (orphan > 0
+          ? ui.badge(fmt.n(orphan) + ' หน้า', 'amber')
+          : ui.badge('0 หน้า', 'green')) + '</span>' +
+      '</div>';
+    html += ui.card({
+      title: 'llms.txt · Sitemap · Internal Link',
+      sub: 'ทำให้เว็บอ่านง่ายสำหรับ AI Crawler และสร้าง Topical Authority',
+      body: filesBody
+    });
+
+    // 3b) Technical SEO Audit
+    var auditBody = '';
+    if (audit.length) {
+      audit.forEach(function (a) {
+        var mark = a.ok === true
+          ? '<span class="b" style="color:var(--green,#16a34a)">✓</span>'
+          : '<span class="b" style="color:var(--amber,#d97706)">⚠</span>';
+        auditBody +=
+          '<div class="list-row">' +
+            '<span class="t b">' + esc(a.t) + '</span>' +
+            '<div class="grow s soft right">' + esc(String(a.val)) + '</div>' +
+            '<span class="right nowrap">' + mark + '</span>' +
+          '</div>';
+      });
+    } else {
+      auditBody = '<div class="soft small center">ยังไม่มีผล Audit</div>';
+    }
+    html += ui.card({
+      title: 'Technical SEO Audit',
+      sub: 'ตรวจอัตโนมัติ: ความเร็ว, Core Web Vitals, Mobile, Index Coverage',
+      body: auditBody
+    });
+
+    html += '</div>';
+
+    // 4) FRESHNESS ENGINE (flush table)
+    var rows = '';
+    if (freshness.length) {
+      freshness.forEach(function (f) {
+        rows +=
+          '<tr>' +
+            '<td>' + esc(f.title) + '</td>' +
+            '<td class="num">' + esc(String(f.age)) + '</td>' +
+            '<td class="center">' + ui.badge(esc(f.due), 'amber') + '</td>' +
+            '<td class="right">' + ui.badge(esc(f.act), 'purple') + '</td>' +
+          '</tr>';
+      });
+    } else {
+      rows = '<tr><td colspan="4" class="center soft">ทุกหน้ายังสดใหม่ ไม่มีหน้าที่ต้องรีเฟรช</td></tr>';
+    }
+    var freshBody =
+      '<div class="tbl-wrap"><table class="tbl">' +
+        '<thead><tr>' +
+          '<th>หน้า</th>' +
+          '<th class="num">อายุ</th>' +
+          '<th class="center">สถานะ</th>' +
+          '<th class="right">การทำงาน</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+      '</table></div>' +
+      '<div class="hint">Freshness Engine ตรวจอายุทุกหน้า หน้าไหนใกล้ครบ 3–6 เดือน ระบบจะรีเฟรชเนื้อหา/ตัวเลข/ปี พ.ศ. ให้อัตโนมัติ ' +
+        'ความสดใหม่ของเนื้อหาสำคัญมากต่อการถูกอ้างอิงโดย AI — 83% ของ Citation มาจากหน้าที่อัปเดตภายใน 12 เดือน</div>';
+    html += ui.card({
+      title: 'Freshness Engine',
+      sub: 'รีเฟรชหน้าที่ใกล้ครบ 3–6 เดือนอัตโนมัติ',
+      action: ui.badge('83% ของ Citation มาจากหน้าที่อัปเดตใน 12 เดือน', 'blue'),
+      body: freshBody,
+      flush: true
+    });
+
+    return { html: html, mount: null };
+  };
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/views/m4.js */
+(function (RP) {
+  'use strict';
+  var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
+
+  RP.views.m4 = function () {
+    var d = RP.data.m4;
+
+    function modeCard(mode, title, sub) {
+      var on = d.mode === mode;
+      var style = on
+        ? ' style="border:2px solid var(--brand-600); background:var(--surface-2);"'
+        : ' style="border:2px solid transparent;"';
+      return '' +
+        '<div class="panel mode-opt" data-mode="' + esc(mode) + '"' + style + ' role="button" tabindex="0">' +
+          '<div class="panel-body">' +
+            '<div class="row between wrap gap-s">' +
+              '<span class="bb">' + esc(title) + '</span>' +
+              (on ? ui.badge('เลือกอยู่', 'green') : ui.badge('แตะเพื่อเลือก', '')) +
+            '</div>' +
+            '<div class="s soft small">' + esc(sub) + '</div>' +
+          '</div>' +
+        '</div>';
+    }
+
+    function buildModes() {
+      return '' +
+        '<div class="grid grid-2 mb">' +
+          modeCard('auto', 'Full-Auto 100%', 'ระบบเผยแพร่เองทันทีที่ผ่านเกณฑ์คุณภาพ') +
+          modeCard('approve', 'Auto + Human Approve', 'ส่งเข้าคิวรออนุมัติทางไลน์/อีเมลก่อนเผยแพร่') +
+        '</div>' +
+        '<div class="hint">แนะนำเริ่มด้วย <b>Auto + Human Approve</b> — ปลอดภัยกว่าตามหน้าประเมินความเสี่ยง เพราะมีคนตรวจก่อนเผยแพร่จริง</div>';
+    }
+
+    // 1) โหมดเผยแพร่
+    var modeCardHtml = ui.card({
+      title: 'โหมดเผยแพร่',
+      sub: 'เลือกวิธีนำคอนเทนต์ขึ้นเว็บ',
+      body: '<div id="rp-m4-modes">' + buildModes() + '</div>'
+    });
+
+    // 2) ปลายทางที่เชื่อมต่อ
+    var targetRows = (d.targets || []).map(function (t) {
+      return '' +
+        '<div class="list-row">' +
+          '<div class="grow">' +
+            '<div class="t bb">' + esc(t.name) + '</div>' +
+            '<div class="s soft small">' + esc(t.type) + '</div>' +
+          '</div>' +
+          ui.badge(t.status, t.ok ? 'green' : 'amber') +
+        '</div>';
+    }).join('');
+    var targetsCardHtml = ui.card({
+      title: 'ปลายทางที่เชื่อมต่อ',
+      sub: 'เชื่อมต่อ WordPress / Webflow / เว็บลูกค้าผ่าน API',
+      body: targetRows || '<div class="soft small">ยังไม่มีปลายทางที่เชื่อมต่อ</div>'
+    });
+
+    // 3) ปฏิทินคอนเทนต์
+    var calRows = (d.calendar || []).map(function (c) {
+      return '' +
+        '<tr>' +
+          '<td class="nowrap">' + esc(c.date) + '</td>' +
+          '<td class="bb">' + esc(c.title) + '</td>' +
+          '<td>' + ui.badge(c.cluster, 'blue') + '</td>' +
+          '<td class="num">' + esc(c.time) + '</td>' +
+        '</tr>';
+    }).join('');
+    var calBody = '' +
+      '<div class="tbl-wrap"><table class="tbl">' +
+        '<thead><tr>' +
+          '<th>วันที่</th><th>บทความ</th><th>คลัสเตอร์</th><th class="right">เวลา</th>' +
+        '</tr></thead>' +
+        '<tbody>' + (calRows || '<tr><td colspan="4" class="center soft">ยังไม่มีตารางเผยแพร่</td></tr>') + '</tbody>' +
+      '</table></div>';
+    var calendarCardHtml = ui.card({
+      title: 'ปฏิทินคอนเทนต์ (Content Calendar)',
+      sub: 'ตั้งตารางเผยแพร่ล่วงหน้าอัตโนมัติ',
+      flush: true,
+      body: calBody
+    });
+
+    // 4) คิวรออนุมัติ
+    function approvalRows() {
+      return (d.approval || []).map(function (a, i) {
+        return '' +
+          '<tr data-row="' + i + '">' +
+            '<td>' +
+              '<div class="bb">' + esc(a.title) + '</div>' +
+              '<div class="soft small">' + ui.badge(a.cluster, 'purple') + '</div>' +
+            '</td>' +
+            '<td class="num">' + fmt.n(a.words) + ' คำ</td>' +
+            '<td class="center">' + ui.scorePill(a.aeo) + '</td>' +
+            '<td class="right nowrap" data-cell="act">' +
+              '<button class="btn btn-green btn-sm approve" data-idx="' + i + '">✓ อนุมัติ</button> ' +
+              '<button class="btn btn-sm">แก้ไข</button>' +
+            '</td>' +
+          '</tr>';
+      }).join('');
+    }
+    var approvalBody = '' +
+      '<div class="tbl-wrap"><table class="tbl">' +
+        '<thead><tr>' +
+          '<th>บทความ</th><th class="right">จำนวนคำ</th><th class="center">AEO</th><th class="right">การจัดการ</th>' +
+        '</tr></thead>' +
+        '<tbody>' + (approvalRows() || '<tr><td colspan="4" class="center soft">ไม่มีบทความรออนุมัติ</td></tr>') + '</tbody>' +
+      '</table></div>';
+    var approvalCardHtml = ui.card({
+      title: 'คิวรออนุมัติ',
+      sub: 'ตรวจก่อนเผยแพร่ตามโหมด Human Approve',
+      flush: true,
+      action: ui.badge('รออนุมัติ ' + fmt.n(d.pendingCount) + ' บทความ', 'amber'),
+      body: approvalBody
+    });
+
+    // 5) แจ้ง Index
+    var pingRows = (d.indexPings || []).map(function (p) {
+      return '' +
+        '<div class="list-row">' +
+          '<div class="grow">' +
+            '<div class="t">' + esc(p.url) + '</div>' +
+            '<div class="s soft small">' + esc(p.ts) + '</div>' +
+          '</div>' +
+          (p.ok
+            ? '<span class="bb" style="color:var(--green-600, #16a34a);">✓</span>'
+            : ui.badge('รอ', 'amber')) +
+        '</div>';
+    }).join('');
+    var indexCardHtml = ui.card({
+      title: 'แจ้ง Index (IndexNow / Sitemap Ping)',
+      sub: 'แจ้ง Google ทันทีที่เผยแพร่ผ่าน Indexing / Sitemap Ping และ IndexNow',
+      body: (pingRows || '<div class="soft small">ยังไม่มีการแจ้ง Index</div>') +
+        '<div class="note-box mb-l" style="margin-top:12px;">แจ้ง Google ผ่าน Indexing/Sitemap Ping และ IndexNow ทันทีที่บทความถูกเผยแพร่</div>'
+    });
+
+    var html =
+      ui.pageHead({
+        eyebrow: 'M4 · Auto Publisher',
+        title: 'เผยแพร่อัตโนมัติ',
+        desc: 'เชื่อมต่อเว็บลูกค้าผ่าน API ตั้งตารางเผยแพร่ล่วงหน้า พร้อมแจ้ง Google ทันที และเลือกโหมดอนุมัติได้'
+      }) +
+      modeCardHtml +
+      '<div class="grid grid-2 mb">' + targetsCardHtml + indexCardHtml + '</div>' +
+      calendarCardHtml +
+      approvalCardHtml;
+
+    return {
+      html: html,
+      mount: function (root) {
+        // 1) โหมดเผยแพร่ — interactive
+        var modesWrap = root.querySelector('#rp-m4-modes');
+
+        function wireModes() {
+          var opts = modesWrap.querySelectorAll('.mode-opt');
+          opts.forEach(function (el) {
+            el.onclick = function () {
+              var m = el.getAttribute('data-mode');
+              if (RP.data.m4.mode === m) return;
+              RP.data.m4.mode = m;
+              modesWrap.innerHTML = buildModes();
+              wireModes();
+              var label = m === 'auto' ? 'Full-Auto 100%' : 'Auto + Human Approve';
+              ui.toast('เปลี่ยนโหมดเป็น <b>' + esc(label) + '</b>');
+            };
+          });
+        }
+        if (modesWrap) wireModes();
+
+        // 4) คิวรออนุมัติ — approve buttons
+        root.querySelectorAll('button.approve').forEach(function (btn) {
+          btn.onclick = function () {
+            var idx = btn.getAttribute('data-idx');
+            var row = root.querySelector('tr[data-row="' + idx + '"]');
+            var cell = row ? row.querySelector('[data-cell="act"]') : null;
+            if (cell) cell.innerHTML = ui.badge('อนุมัติแล้ว', 'green');
+            ui.toast('อนุมัติและส่งเข้าคิวเผยแพร่แล้ว ✓');
+          };
+        });
+      }
+    };
+  };
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/views/m5.js */
+/* ============================================================
+   View: M5 — AI Visibility & Rank Tracker (แดชบอร์ดวัดผล)
+   ฝั่ง SEO: อันดับ Google + Search Console
+   ฝั่ง AEO: Prompt Sampling วัด AI Citation + Share of Voice
+   ============================================================ */
+(function (RP) {
+  'use strict';
+  var ui = RP.ui, esc = RP.esc, fmt = RP.fmt, d = RP.data.m5;
+
+  function seoKpis() {
+    var s = d.seo;
+    return '<div class="grid grid-4 mb">' +
+      ui.kpi({ label: 'คีย์เวิร์ดที่ติดตาม', value: fmt.n(s.keywordsTracked), foot: 'ผ่าน SERP API รายวัน' }) +
+      ui.kpi({ label: 'ติดหน้า 1 Google', value: fmt.n(s.page1), tone: 'brand',
+        foot: '<span class="trend-up">▲ +' + (s.page1 - s.page1Prev) + '</span> จากเดือนก่อน' }) +
+      ui.kpi({ label: 'ติด Top 3', value: fmt.n(s.top3), tone: 'pos', foot: 'ตำแหน่งทองของ SERP' }) +
+      ui.kpi({ label: 'อันดับเฉลี่ย', value: s.avgPosition.toFixed(1), tone: 'brand',
+        foot: '<span class="trend-up">▲ ดีขึ้น ' + (s.avgPositionPrev - s.avgPosition).toFixed(1) + '</span>' }) +
+      '</div>';
+  }
+
+  function seoCard() {
+    var s = d.seo;
+    var clicksNow = s.clicks90[s.clicks90.length - 1];
+    var impNow = s.impressions90[s.impressions90.length - 1];
+    return ui.card({
+      title: 'ฝั่ง SEO — Google Search Console (90 วัน)', sub: 'คลิก & การมองเห็น',
+      body:
+        '<div class="row between wrap mb"><div><div class="soft small">คลิกรวม 90 วัน</div>' +
+        '<div class="bb" style="font-size:26px;color:var(--brand-700)">' + fmt.n(clicksNow) + '</div></div>' +
+        ui.spark(s.clicks90, { w: 220, h: 56, color: 'var(--brand-600)' }) + '</div>' +
+        '<div class="divider"></div>' +
+        '<div class="row between wrap"><div><div class="soft small">Impressions (พันครั้ง)</div>' +
+        '<div class="bb" style="font-size:22px">' + fmt.n(impNow) + 'K</div></div>' +
+        ui.spark(s.impressions90, { w: 220, h: 56, color: '#17b978' }) + '</div>'
+    });
+  }
+
+  function citationCard() {
+    var c = RP.data.m5.citation;
+    return ui.card({
+      title: 'ฝั่ง AEO — AI Citation Share of Voice', sub: 'สัดส่วนที่ AI หยิบเราไปอ้างอิง',
+      body:
+        '<div class="row" style="gap:22px;align-items:center">' +
+        '<div class="ring" style="--p:' + c.sov + '"><span class="ring-val">' + c.sov + '%</span></div>' +
+        '<div style="flex:1">' +
+        '<div class="soft small">แนวโน้ม Citation SoV (10 สัปดาห์)</div>' +
+        ui.spark(c.sovTrend, { w: 260, h: 56, color: 'var(--purple-600)' }) +
+        '<div class="small" style="margin-top:6px"><span class="trend up">▲ ' + (c.sov - c.sovPrev) + '%</span> จากเดือนก่อน · เป้าหมาย 15–25%</div>' +
+        '</div></div>'
+    });
+  }
+
+  function enginesCard() {
+    var c = RP.data.m5.citation;
+    var rows = c.engines.map(function (e) {
+      return '<div class="list-row"><div style="width:96px" class="b">' + esc(e.name) + '</div>' +
+        '<div class="grow"><div class="bar" style="display:flex;height:20px;border-radius:8px;overflow:hidden;background:var(--bg)">' +
+        '<span style="width:' + e.us + '%;background:var(--brand-600)" title="เรา ' + e.us + '%"></span>' +
+        '<span style="width:' + e.comp + '%;background:#f59e0b" title="คู่แข่ง ' + e.comp + '%"></span>' +
+        '<span style="width:' + e.none + '%;background:var(--border)" title="ไม่มีใคร ' + e.none + '%"></span>' +
+        '</div></div>' +
+        '<div class="bb" style="width:44px;text-align:right;color:var(--brand-700)">' + e.us + '%</div></div>';
+    }).join('');
+    return ui.card({
+      title: 'การมองเห็นแยกตาม AI Engine', sub: 'เรา vs คู่แข่ง vs ไม่มีใครถูกอ้าง',
+      body: rows +
+        '<div class="chart-legend" style="margin-top:10px">' +
+        '<span><i style="background:var(--brand-600)"></i> เรา (ABC)</span>' +
+        '<span><i style="background:#f59e0b"></i> คู่แข่ง</span>' +
+        '<span><i style="background:var(--border)"></i> ไม่มีใครถูกอ้าง</span></div>'
+    });
+  }
+
+  function competitorCard() {
+    var c = RP.data.m5.citation;
+    var max = Math.max.apply(null, c.competitors.map(function (x) { return x.sov; }));
+    var rows = c.competitors.map(function (x) {
+      return '<div class="list-row"><div class="grow"><div class="t small">' +
+        (x.us ? '<span style="color:var(--brand-700)">★ </span>' : '') + esc(x.name) + '</div>' +
+        '<div class="bar ' + (x.us ? '' : 'green') + '"><span style="width:' + (x.sov / max * 100) + '%"></span></div></div>' +
+        '<div class="bb" style="width:40px;text-align:right">' + x.sov + '%</div></div>';
+    }).join('');
+    return ui.card({ title: 'Share of Voice เทียบคู่แข่ง', sub: 'ใครถูก AI อ้างอิงมากที่สุดในหมวดนี้', body: rows });
+  }
+
+  function promptCard() {
+    var check = function (ok) { return ok ? '<span style="color:var(--green-600);font-weight:800">✓</span>' : '<span class="soft">—</span>'; };
+    var rows = d.prompts.map(function (p) {
+      var cited = p.chatgpt || p.gemini || p.perplexity;
+      return '<tr>' +
+        '<td class="tbl-title">' + esc(p.q) + '</td>' +
+        '<td class="center">' + check(p.chatgpt) + '</td>' +
+        '<td class="center">' + check(p.gemini) + '</td>' +
+        '<td class="center">' + check(p.perplexity) + '</td>' +
+        '<td class="center">' + (p.pos ? '<span class="badge green">อันดับอ้างอิง ' + p.pos + '</span>' : '<span class="badge">ยังไม่ถูกอ้าง</span>') + '</td>' +
+        '</tr>';
+    }).join('');
+    var citedCount = d.prompts.filter(function (p) { return p.chatgpt || p.gemini || p.perplexity; }).length;
+    return ui.card({
+      title: 'Prompt Sampling — วัด AI Citation', sub: 'ยิงชุดคำถามเป้าหมายไปที่ AI แล้ววัดว่าถูกอ้างอิงไหม',
+      flush: true,
+      action: '<span class="badge blue">ถูกอ้าง ' + citedCount + '/' + d.prompts.length + ' คำถาม</span>',
+      body: '<div class="tbl-wrap"><table class="tbl">' +
+        '<thead><tr><th>คำถามเป้าหมาย</th><th class="center">ChatGPT</th><th class="center">Gemini</th><th class="center">Perplexity</th><th class="center">สถานะ</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table></div>'
+    });
+  }
+
+  function curProj() { return RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0]; }
+
+  function liveTools() {
+    var p = curProj();
+    return ui.card({
+      title: 'โหมด Live — ดึงข้อมูลจริงจาก backend', sub: 'ใช้โดเมน/แบรนด์ของโปรเจ็คปัจจุบัน: ' + esc(p.domain), cls: 'mb',
+      action: RP.api.enabled() ? ui.badge('● Live เปิด', 'green') : ui.badge('Live ปิด', 'amber'),
+      body:
+        '<div class="row wrap" style="gap:10px">' +
+        '<div class="field" style="flex:1;min-width:240px"><span class="ico">🔎</span><input id="m5_kw" placeholder="พิมพ์คีย์เวิร์ดเพื่อตรวจอันดับ Google จริง เช่น ครีมกันแดด ยี่ห้อไหนดี"></div>' +
+        '<button class="btn btn-primary" id="m5_rank">ตรวจอันดับ Google สด</button>' +
+        '<button class="btn" id="m5_gsc">ดึง Search Console สด</button>' +
+        '<button class="btn" id="m5_cite">รัน Prompt Sampling สด</button></div>' +
+        '<div class="hint" style="margin-top:10px">ปุ่มเหล่านี้ยิงไปที่ backend จริง (SERP / GSC / AI) — ต้องเปิดโหมด Live + รัน backend + ตั้งคีย์ API ก่อน มิฉะนั้นจะแจ้งให้ไปตั้งค่า</div>'
+    });
+  }
+
+  function rankModal(res) {
+    var rows = (res.top10 || []).map(function (r) {
+      return '<tr><td class="num">#' + r.rank + '</td><td><div class="tbl-title">' + esc(r.title || '') + '</div>' +
+        '<div class="tbl-sub">' + esc(r.domain || '') + '</div></td><td class="soft small">' + esc(r.url || '') + '</td></tr>';
+    }).join('');
+    var banner = res.on_page1
+      ? '<div class="verify-banner mb"><span class="big">✅</span><div><div class="t">อยู่หน้า 1 Google จริง — อันดับ ' + res.our_rank + '</div><div class="s">โดเมน: ' + esc(res.domain) + ' · คีย์เวิร์ด: ' + esc(res.keyword) + '</div></div></div>'
+      : '<div class="warn-box mb">ยังไม่ติดหน้า 1 สำหรับ "' + esc(res.keyword) + '" (อันดับปัจจุบัน: ' + (res.our_rank || 'ไม่พบใน 100 อันดับ') + ')</div>';
+    ui.modal({ title: 'ผลตรวจอันดับจริง (DataForSEO)', sub: esc(res.keyword), width: 860,
+      body: banner + '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>อันดับ</th><th>หน้า / โดเมน</th><th>URL</th></tr></thead><tbody>' + rows + '</tbody></table></div>' });
+  }
+
+  function gscModal(res) {
+    var rows = (res.top_queries || []).map(function (q) {
+      return '<tr><td class="tbl-title">' + esc(q.query) + '</td><td class="num">' + fmt.n(q.clicks) + '</td><td class="num">' + fmt.n(q.impressions) + '</td><td class="num">' + q.ctr + '%</td><td class="num">' + q.position + '</td></tr>';
+    }).join('');
+    ui.modal({ title: 'Google Search Console (ข้อมูลจริง)', sub: esc(res.site_url) + ' · ' + res.period_days + ' วัน', width: 820,
+      body: '<div class="grid grid-3 mb">' +
+        ui.kpi({ label: 'คลิกรวม', value: fmt.n(res.clicks), tone: 'brand' }) +
+        ui.kpi({ label: 'Impressions', value: fmt.n(res.impressions) }) +
+        ui.kpi({ label: 'อันดับเฉลี่ย', value: res.avg_position == null ? '—' : res.avg_position }) + '</div>' +
+        '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>คำค้น</th><th>คลิก</th><th>Impr.</th><th>CTR</th><th>อันดับ</th></tr></thead><tbody>' + rows + '</tbody></table></div>' });
+  }
+
+  function citeModal(res) {
+    var eng = res.per_engine || {};
+    var rows = Object.keys(eng).map(function (k) {
+      var e = eng[k];
+      return '<tr><td class="bb">' + esc(k) + '</td><td class="num">' + e.answered + '</td><td class="num">' + e.cited + '</td><td>' + (e.sov_percent == null ? '<span class="soft">—</span>' : ui.badge(e.sov_percent + '%', 'green')) + '</td></tr>';
+    }).join('');
+    ui.modal({ title: 'Prompt Sampling — AI Citation (ข้อมูลจริง)', sub: 'Share of Voice รวม: ' + (res.overall_sov_percent == null ? '—' : res.overall_sov_percent + '%'), width: 720,
+      body: '<div class="note-box mb">' + esc(res.note || '') + '</div>' +
+        '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>เอนจิน</th><th>ตอบ</th><th>อ้างอิงเรา</th><th>SoV</th></tr></thead><tbody>' + rows + '</tbody></table></div>' });
+  }
+
+  RP.views.m5 = function () {
+    var html =
+      ui.pageHead({ eyebrow: 'M5 · AI Visibility & Rank Tracker', title: 'วัดผล & Rank Tracker',
+        desc: 'วัดผลทั้ง 2 ฝั่งในที่เดียว — ฝั่ง <b>SEO</b> ติดตามอันดับ Google รายวันและทราฟฟิกจาก Search Console · ฝั่ง <b>AEO</b> ใช้ Prompt Sampling ยิงคำถามไปที่ ChatGPT / Gemini / Perplexity เพื่อวัดว่าแบรนด์เราถูกอ้างอิงกี่เปอร์เซ็นต์ (Share of Voice)' }) +
+      liveTools() +
+      seoKpis() +
+      '<div class="grid grid-2 mb">' + seoCard() + citationCard() + '</div>' +
+      '<div class="grid grid-2 mb">' + enginesCard() + competitorCard() + '</div>' +
+      promptCard() +
+      '<div class="hint" style="margin-top:14px">📌 ข้อควรรู้: การวัด AI Citation ไม่มี API ทางการ ผลจึงเป็น "ค่าประมาณเชิงสถิติ" จากการสุ่มยิงคำถาม — คำตอบ AI เปลี่ยนได้ตามผู้ใช้/เวลา (ดูหน้าความเสี่ยงในรายงาน)</div>';
+
+    return {
+      html: html,
+      mount: function (root) {
+        var p = curProj();
+        var rk = root.querySelector('#m5_rank');
+        if (rk) rk.onclick = function () {
+          var kw = (root.querySelector('#m5_kw').value || '').trim();
+          if (!kw) { RP.ui.toast('พิมพ์คีย์เวิร์ดก่อนครับ'); return; }
+          RP.live(RP.api.rankCheck(kw, p.domain), rankModal);
+        };
+        var gs = root.querySelector('#m5_gsc');
+        if (gs) gs.onclick = function () { RP.live(RP.api.gsc('sc-domain:' + p.domain), gscModal); };
+        var ct = root.querySelector('#m5_cite');
+        if (ct) ct.onclick = function () {
+          var qs = RP.data.m5.prompts.map(function (x) { return x.q; });
+          RP.live(RP.api.citation(qs, p.brandTerms || [], p.domain), citeModal);
+        };
+      }
+    };
+  };
+
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/views/m6.js */
+(function (RP) {
+  'use strict';
+  var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
+
+  RP.views.m6 = function () {
+    var d = (RP.data && RP.data.m6) || {};
+    var insights = d.insights || [];
+    var actions = d.actions || [];
+    var wr = d.weeklyReport || {};
+    var loop = (RP.data && RP.data.loop) || [];
+
+    var html = ui.pageHead({
+      eyebrow: 'M6 · Learning Loop',
+      title: 'Learning Loop — สมองของระบบ',
+      desc: 'วงจร Closed-Loop ที่ทำให้ระบบฉลาดขึ้นทุกรอบ: เรียนรู้จากผลจริงแล้วปรับการผลิตรอบถัดไปเอง'
+    }) + '';
+
+    // 1) เกริ่นนำ — สมองของระบบ
+    html += '<div class="note-box purple mb">' +
+      '<div class="text b">M6 คือ “สมองของระบบ”</div>' +
+      '<div class="text soft small">ระบบเรียนรู้จากผลจริงว่าอะไรทำให้หน้าติด Citation/อันดับดี (ความยาว โครงสร้าง ชนิด Schema หัวข้อ ฯลฯ) ' +
+      'แล้วปรับเทมเพลตการผลิตคอนเทนต์และลำดับความสำคัญของคิวงานรอบถัดไป<b> โดยอัตโนมัติ ไม่ต้องมีคนคอยวิเคราะห์</b> — ' +
+      'ครบวงจร Discover → Create → Optimize → Publish → Measure → Learn แล้ววนกลับ</div>' +
+    '</div>';
+
+    // 2) Insights
+    var insBody = '<div class="grid grid-2">';
+    for (var i = 0; i < insights.length; i++) {
+      var it = insights[i] || {};
+      insBody += '<div class="panel"><div class="panel-body">' +
+        '<div class="text soft small">' + esc(it.t || '') + '</div>' +
+        '<div class="text bb" style="font-size:20px;color:var(--purple-700)">' + esc(it.v || '') + '</div>' +
+        '<div class="text soft small">' + esc(it.note || '') + '</div>' +
+      '</div></div>';
+    }
+    insBody += '</div>';
+    html += ui.card({
+      title: 'สิ่งที่ระบบเรียนรู้ (Insights)',
+      sub: 'ลักษณะร่วมของหน้าที่ติด Citation/อันดับดี',
+      body: insBody,
+      cls: 'mb'
+    });
+
+    // 3) Auto-Tuning
+    var actBody = '';
+    for (var a = 0; a < actions.length; a++) {
+      var ac = actions[a] || {};
+      var okFlag = !!ac.ok;
+      actBody += '<div class="list-row row between wrap">' +
+        '<div class="grow">' +
+          '<div class="t">' + esc(ac.t || '') + '</div>' +
+          '<div class="s soft">' + esc(ac.when || '') + '</div>' +
+        '</div>' +
+        ui.badge(okFlag ? 'ปรับแล้ว' : 'กำลังรอผล', okFlag ? 'green' : 'amber') +
+      '</div>';
+    }
+    html += ui.card({
+      title: 'การปรับอัตโนมัติรอบถัดไป (Auto-Tuning)',
+      sub: 'ระบบปรับเทมเพลต + ลำดับความสำคัญของคิวงานเองตามสิ่งที่เรียนรู้',
+      body: actBody,
+      flush: true,
+      cls: 'mb'
+    });
+
+    // 4) รายงานสรุปรายสัปดาห์
+    var humanHrs = (wr.humanHours != null) ? wr.humanHours : 0;
+    var autoTone = (humanHrs < 2) ? 'pos' : '';
+    var repBody = '<div class="grid grid-3">' +
+      ui.kpi({ label: 'เผยแพร่บทความ', value: fmt.n(wr.published || 0) + ' บทความ', tone: 'brand' }) +
+      ui.kpi({ label: 'ติดหน้า 1 ใหม่', value: fmt.n(wr.newPage1 || 0) + ' คีย์เวิร์ด', tone: 'pos', foot: 'ขึ้นหน้าแรกในรอบสัปดาห์' }) +
+      ui.kpi({ label: 'Citation เพิ่ม', value: '+' + fmt.n(wr.citationsGained || 0), tone: 'brand', foot: 'ถูกอ้างอิงโดย AI Answer เพิ่มขึ้น' }) +
+      ui.kpi({ label: 'รีเฟรชหน้าเก่า', value: fmt.n(wr.refreshed || 0) + ' หน้า' }) +
+      ui.kpi({ label: 'เวลาที่คนต้องใช้', value: fmt.n(humanHrs) + ' ชม./สัปดาห์', tone: autoTone, foot: 'ระบบทำเอง ≥ 90% (คนใช้เวลา < 2 ชม.)' }) +
+    '</div>';
+    repBody += '<div class="hint dashed">รายงานนี้สรุปครบทั้ง 3 คำถาม: <b>ทำอะไรไปบ้าง</b> · <b>ผลเป็นอย่างไร</b> · <b>รอบหน้าจะทำอะไร</b></div>';
+    html += ui.card({
+      title: 'รายงานสรุปรายสัปดาห์',
+      sub: 'ส่งอัตโนมัติทาง ' + esc(wr.sentTo || ''),
+      body: repBody,
+      cls: 'mb'
+    });
+
+    // 5) วงจร AI Growth Loop
+    if (loop.length) {
+      var loopBody = '<div class="row wrap gap-s">';
+      for (var l = 0; l < loop.length; l++) {
+        var st = loop[l] || {};
+        loopBody += '<div class="chip"><b>' + esc(String(st.n)) + '</b> · ' + esc(st.t || '') +
+          '<span class="text soft small"> — ' + esc(st.d || '') + '</span></div>';
+        if (l < loop.length - 1) loopBody += '<span class="text muted">→</span>';
+      }
+      loopBody += '<span class="text muted">↻</span>';
+      loopBody += '</div>';
+      loopBody += '<div class="text soft small" style="margin-top:8px">เมื่อถึงขั้น <b>Learn</b> ระบบจะวนกลับไปขั้น <b>Discover</b> ทันที — วงจรนี้ทำให้ทุกรอบฉลาดกว่ารอบก่อน</div>';
+      html += ui.card({
+        title: 'วงจร AI Growth Loop',
+        sub: 'Discover → Create → Optimize → Publish → Measure → Learn แล้ววนกลับ',
+        body: loopBody
+      });
+    }
+
+    return { html: html, mount: null };
+  };
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/views/report.js */
+(function (RP) {
+  'use strict';
+  var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
+
+  function tbl(head, rows) {
+    return '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
+      head + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  RP.views.report = function () {
+    var d = RP.data || {};
+
+    // ---- 1) แถบสถิติ (facts) ----
+    var facts = d.facts || [];
+    var factsHtml = '<div class="grid grid-4 mb">';
+    facts.forEach(function (f) {
+      factsHtml +=
+        '<div class="card card-pad center">' +
+          '<div class="bb" style="font-size:1.8rem;line-height:1.2;color:var(--purple-700)">' + esc(f.v) + '</div>' +
+          '<div class="soft small">' + esc(f.d) + '</div>' +
+        '</div>';
+    });
+    factsHtml += '</div>';
+
+    // ---- 2) แผนพัฒนา (Roadmap) ----
+    var roadmap = d.roadmap || [];
+    var rmRows = '';
+    roadmap.forEach(function (r) {
+      rmRows +=
+        '<tr>' +
+          '<td class="bb">' + esc(r.phase) + '</td>' +
+          '<td>' + esc(r.scope) + '</td>' +
+          '<td class="nowrap">' + esc(r.weeks) + '</td>' +
+          '<td>' + ui.bar(r.progress) + ' ' + esc(String(r.progress)) + '%</td>' +
+        '</tr>';
+    });
+    var roadmapCard = ui.card({
+      title: 'แผนพัฒนา (Roadmap)',
+      sub: 'แบ่งเป็น 4 เฟส',
+      flush: true,
+      cls: 'mb',
+      body: tbl(
+        '<th>เฟส</th><th>ขอบเขต</th><th>ระยะเวลา</th><th>ความคืบหน้า</th>',
+        rmRows
+      )
+    });
+
+    // ---- 3) ตัวชี้วัดความสำเร็จ (KPI) ----
+    var kpiTargets = d.kpiTargets || [];
+    var kpiRows = '';
+    kpiTargets.forEach(function (k) {
+      kpiRows +=
+        '<tr>' +
+          '<td class="bb">' + esc(k.kpi) + '</td>' +
+          '<td>' + esc(k.target) + '</td>' +
+          '<td class="num">' + esc(k.curTxt) + '</td>' +
+          '<td>' + ui.bar(k.pct) + ' ' + esc(String(k.pct)) + '%</td>' +
+        '</tr>';
+    });
+    var kpiCard = ui.card({
+      title: 'ตัวชี้วัดความสำเร็จ (KPI) — เป้าหมาย 6 เดือน',
+      flush: true,
+      cls: 'mb',
+      body: tbl(
+        '<th>KPI</th><th>เป้าหมาย</th><th>ปัจจุบัน</th><th>ความคืบหน้า</th>',
+        kpiRows
+      )
+    });
+
+    // ---- 4) กลยุทธ์ที่ทำให้เห็นผลจริง ----
+    var strategies = d.strategies || [];
+    var stratBody = '';
+    strategies.forEach(function (s) {
+      stratBody +=
+        '<div class="list-row"><div class="grow">' +
+          '<div class="t bb">' + esc(s.t) + '</div>' +
+          '<div class="s soft small">' + esc(s.d) + '</div>' +
+        '</div></div>';
+    });
+    stratBody += '<div class="note-box">' + esc(d.strategyNote) + '</div>';
+    var stratCard = ui.card({
+      title: 'กลยุทธ์ที่ทำให้เห็นผลจริง',
+      cls: 'mb',
+      body: stratBody
+    });
+
+    // ---- 5) ประมาณการต้นทุน ----
+    var costs = d.costs || [];
+    var costRows = '';
+    costs.forEach(function (c) {
+      costRows +=
+        '<tr>' +
+          '<td>' + esc(c.item) + '</td>' +
+          '<td class="right">' + esc(c.est) + '</td>' +
+        '</tr>';
+    });
+    costRows +=
+      '<tr>' +
+        '<td class="bb">รวมโดยประมาณ</td>' +
+        '<td class="bb right">' + esc(d.costTotal) + '</td>' +
+      '</tr>';
+    var costBody =
+      tbl('<th>รายการ</th><th class="right">ประมาณการ</th>', costRows) +
+      '<div class="hint">ต้นทุนต่ำกว่าจ้างนักเขียน SEO 1 คนหลายเท่า — โมเดลนี้จึงมี Margin สูง</div>';
+    var costCard = ui.card({
+      title: 'ประมาณการต้นทุน (ต่อ 1 โปรเจ็ค/เดือน)',
+      flush: true,
+      cls: 'mb',
+      body: costBody
+    });
+
+    // ---- 6) สถาปัตยกรรม & เทคโนโลยี ----
+    var stack = d.stack || [];
+    var stackRows = '';
+    stack.forEach(function (s) {
+      stackRows +=
+        '<tr>' +
+          '<td class="bb">' + esc(s.part) + '</td>' +
+          '<td>' + esc(s.tech) + '</td>' +
+          '<td class="soft">' + esc(s.note) + '</td>' +
+        '</tr>';
+    });
+    var stackCard = ui.card({
+      title: 'สถาปัตยกรรม & เทคโนโลยี',
+      flush: true,
+      cls: 'mb',
+      body: tbl(
+        '<th>ส่วนประกอบ</th><th>เทคโนโลยีที่แนะนำ</th><th>หมายเหตุ</th>',
+        stackRows
+      )
+    });
+
+    // ---- 7) โมเดลธุรกิจ & แนวทางหารายได้ ----
+    var pricing = d.pricing || [];
+    var priceRows = '';
+    pricing.forEach(function (p) {
+      priceRows +=
+        '<tr>' +
+          '<td class="bb">' + esc(p.plan) + '</td>' +
+          '<td>' + esc(p.detail) + '</td>' +
+          '<td class="nowrap">' + esc(p.price) + '</td>' +
+        '</tr>';
+    });
+    var priceBody =
+      tbl('<th>รูปแบบ</th><th>รายละเอียด</th><th>ราคาแนะนำ</th>', priceRows) +
+      '<div class="note-box">ลำดับที่แนะนำ: ใช้เองก่อนเพื่อพิสูจน์ว่า "ระบบดันเว็บติดจริง" → เก็บตัวเลขเป็น Case Study → เปิดรับลูกค้า Agency → เมื่อระบบนิ่งค่อยเปิด SaaS</div>';
+    var priceCard = ui.card({
+      title: 'โมเดลธุรกิจ & แนวทางหารายได้',
+      flush: true,
+      cls: 'mb',
+      body: priceBody
+    });
+
+    // ---- 8) ความเสี่ยงที่ต้องรู้ก่อนลงมือ ----
+    var risks = d.risks || [];
+    var riskBody = '';
+    risks.forEach(function (r) {
+      riskBody +=
+        '<div class="warn-box mb">' +
+          '<div class="bb">⚠ ' + esc(r.t) + '</div>' +
+          '<div>' + esc(r.d) + '</div>' +
+        '</div>';
+    });
+    var riskCard = ui.card({
+      title: 'ความเสี่ยงที่ต้องรู้ก่อนลงมือ',
+      cls: 'mb',
+      body: riskBody
+    });
+
+    // ---- 9) แหล่งอ้างอิง ----
+    var references = d.references || [];
+    var refBody = '';
+    references.forEach(function (r) {
+      refBody +=
+        '<div class="list-row"><div class="grow">' +
+          '<div class="t soft small">' + esc(r) + '</div>' +
+        '</div></div>';
+    });
+    var refCard = ui.card({
+      title: 'แหล่งอ้างอิง',
+      cls: 'mb',
+      body: refBody
+    });
+
+    var html =
+      ui.pageHead({
+        eyebrow: 'รายงานโครงการ',
+        title: 'รายงาน & Roadmap',
+        desc: 'สรุปแผนพัฒนา ตัวชี้วัดความสำเร็จ ต้นทุน สถาปัตยกรรม โมเดลธุรกิจ และความเสี่ยง (อ้างอิงหัวข้อ 7–11 ของเอกสารโครงการ)'
+      }) +
+      factsHtml +
+      roadmapCard +
+      kpiCard +
+      stratCard +
+      costCard +
+      stackCard +
+      priceCard +
+      riskCard +
+      refCard;
+
+    return { html: html, mount: null };
+  };
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/views/projects.js */
+/* ============================================================
+   View: จัดการโปรเจ็ค (Multi-Project) + สร้างโปรเจ็คใหม่ (Wizard)
+   รองรับหลายโปรเจ็คตามแพ็กเกจ (Starter 1 / Pro 3 / Enterprise ไม่จำกัด)
+   ============================================================ */
+(function (RP) {
+  'use strict';
+  var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
+
+  function healthDots(h) {
+    var items = [['GSC', h.gsc], ['SERP', h.serp], ['AI Citation', h.ai], ['เผยแพร่', h.publish]];
+    return '<div class="row wrap gap-s" style="margin:10px 0">' + items.map(function (x) {
+      return '<span class="chip" style="gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' +
+        (x[1] ? 'var(--green-500)' : 'var(--border)') + '"></span>' + esc(x[0]) + '</span>';
+    }).join('') + '</div>';
+  }
+
+  function projectCard(p) {
+    var isCur = p.id === RP.data.project.current;
+    var setup = p.status === 'setup';
+    var connected = (p.health.gsc ? 1 : 0) + (p.health.serp ? 1 : 0) + (p.health.ai ? 1 : 0) + (p.health.publish ? 1 : 0);
+    return '<div class="card card-pad" style="' + (isCur ? 'border-color:var(--brand-500);box-shadow:0 0 0 2px rgba(99,102,241,.15)' : '') + '">' +
+      '<div class="row between wrap" style="gap:8px">' +
+      '<div class="bb" style="font-size:16px">' + esc(p.name) + (isCur ? ' ' + ui.badge('กำลังใช้งาน', 'green') : '') + '</div>' +
+      ui.badge('แพ็กเกจ ' + p.plan, 'purple') + '</div>' +
+      '<div class="soft small" style="margin-top:2px">🌐 ' + esc(p.domain) + ' · ' + esc(p.country) + ' · สร้างเมื่อ ' + esc(p.created) + '</div>' +
+      (setup ? '<div class="hint" style="margin-top:10px">⚠️ ตั้งค่ายังไม่ครบ (' + connected + '/4) — เชื่อม AI Citation + ปลายทางเผยแพร่ให้ครบก่อนเริ่มวัดผล</div>' : '') +
+      healthDots(p.health) +
+      '<div class="row wrap" style="gap:18px;margin:6px 0 12px">' +
+      stat('คีย์เวิร์ดติดตาม', fmt.n(p.keywords)) + stat('คลัสเตอร์', p.clusters) +
+      stat('โหมด', p.mode === 'auto' ? 'Full-Auto' : 'Human Approve') + stat('Freshness', p.freshnessDays + ' วัน') +
+      '</div>' +
+      '<div class="row gap-s wrap">' +
+      (isCur ? '<button class="btn btn-sm" disabled style="opacity:.6">● ใช้งานอยู่</button>'
+             : '<button class="btn btn-primary btn-sm use-proj" data-id="' + p.id + '">เปิดใช้งานโปรเจ็คนี้</button>') +
+      '<button class="btn btn-sm cfg-proj" data-id="' + p.id + '">⚙️ ตั้งค่า</button>' +
+      '<button class="btn btn-sm open-dash" data-id="' + p.id + '">เปิดแดชบอร์ด →</button>' +
+      '</div></div>';
+  }
+  function stat(l, v) { return '<div><div class="soft" style="font-size:11px">' + esc(l) + '</div><div class="bb">' + v + '</div></div>'; }
+
+  function quotaCard() {
+    var a = RP.data.account, used = RP.data.project.list.length, q = a.projectQuota;
+    var full = used >= q;
+    return '<div class="card mb"><div class="card-pad row between wrap" style="gap:14px">' +
+      '<div style="flex:1;min-width:260px">' +
+      '<div class="row gap-s" style="margin-bottom:6px"><span class="bb">แพ็กเกจ ' + esc(a.plan) + '</span>' + ui.badge(a.billingCycle, 'blue') + '</div>' +
+      '<div class="soft small" style="margin-bottom:8px">ใช้ไป <b>' + used + '</b> จาก <b>' + q + '</b> โปรเจ็ค' + (full ? ' — เต็มโควตาแล้ว' : '') + '</div>' +
+      ui.bar(used / q * 100, full ? 'amber' : '') + '</div>' +
+      '<div class="row gap-s wrap">' +
+      '<button class="btn" id="loadDb">⤓ โหลดจากฐานข้อมูล</button>' +
+      '<button class="btn btn-green new-proj"' + (full ? ' disabled style="opacity:.55"' : '') + '>＋ สร้างโปรเจ็คใหม่</button>' +
+      '</div>' +
+      '</div>' +
+      (full ? '<div style="padding:0 22px 16px"><div class="hint">ต้องการมากกว่า ' + q + ' โปรเจ็ค? อัปเกรดเป็น <b>Enterprise</b> (ไม่จำกัดเว็บ) ในหน้า การตั้งค่า › บัญชี & ทีม</div></div>' : '') +
+      '</div>';
+  }
+
+  /* ---- Wizard: สร้างโปรเจ็คใหม่ ---- */
+  function openWizard() {
+    var body =
+      '<div class="hint mb">การสร้างโปรเจ็คคือการบอกระบบว่า "จะดันเว็บไหน ด้วยคีย์เวิร์ด/คู่แข่งอะไร และเผยแพร่ที่ไหน" — ตั้งค่าเสร็จระบบเริ่มวงจรอัตโนมัติให้เอง</div>' +
+      wizSection('1 · ข้อมูลโปรเจ็ค',
+        field('ชื่อโปรเจ็ค', '<input class="input" id="np_name" placeholder="เช่น คลินิกความงาม XYZ" style="width:100%">') +
+        field('โดเมนเว็บไซต์', '<input class="input" id="np_domain" placeholder="example.com" style="width:100%">') +
+        field('ประเทศ / ภาษาเป้าหมาย', '<select class="select" id="np_country" style="width:100%"><option>ไทย / ภาษาไทย</option><option>ไทย / อังกฤษ</option></select>')) +
+      wizSection('2 · การเชื่อมต่อที่ต้องมี (จำเป็นก่อนวัดผล)',
+        checkline('SERP API — วัดอันดับ Google', true) +
+        checkline('Google Search Console — ยืนยันโดเมน', false) +
+        checkline('API วัด AI Citation (ChatGPT/Gemini/Perplexity)', false) +
+        checkline('ปลายทางเผยแพร่ (WordPress / Webflow)', false)) +
+      wizSection('3 · เป้าหมาย',
+        field('คีย์เวิร์ด/หัวข้อเริ่มต้น (คั่นด้วย ,)', '<input class="input" id="np_kw" placeholder="เลเซอร์หน้าใส, ฟิลเลอร์, ครีมกันแดด" style="width:100%">') +
+        field('โดเมนคู่แข่ง (คั่นด้วย ,)', '<input class="input" id="np_comp" placeholder="competitor-a.com, competitor-b.com" style="width:100%">') +
+        field('ชื่อแบรนด์ที่ใช้ตรวจ AI Citation', '<input class="input" id="np_brand" placeholder="ชื่อแบรนด์ / ชื่อเว็บ" style="width:100%">')) +
+      wizSection('4 · โหมดเผยแพร่',
+        '<label class="row gap-s" style="cursor:pointer;margin-bottom:6px"><input type="radio" name="np_mode" value="approve" checked> <span>Auto + Human Approve (แนะนำ — กดอนุมัติก่อนเผยแพร่)</span></label>' +
+        '<label class="row gap-s" style="cursor:pointer"><input type="radio" name="np_mode" value="auto"> <span>Full-Auto 100% (เผยแพร่เองเมื่อผ่านเกณฑ์คุณภาพ)</span></label>') +
+      '<div class="row between" style="margin-top:18px"><span class="soft small">ตั้งค่าเพิ่มเติมได้ภายหลังที่ การตั้งค่า</span>' +
+      '<button class="btn btn-primary" id="np_create">สร้างโปรเจ็ค & เริ่มวงจร</button></div>';
+    ui.modal({ title: 'สร้างโปรเจ็คใหม่', sub: 'ตั้งค่าพื้นฐานให้ระบบเริ่มทำงานอัตโนมัติ', width: 720, body: body });
+    var btn = document.getElementById('np_create');
+    if (btn) btn.onclick = function () {
+        var name = (document.getElementById('np_name').value || '').trim();
+        var domain = (document.getElementById('np_domain').value || '').trim();
+        if (!name || !domain) { ui.toast('กรุณากรอกชื่อโปรเจ็คและโดเมน'); return; }
+        var modeEl = document.querySelector('input[name="np_mode"]:checked');
+        var id = 'p' + (RP.data.project.list.length + 1);
+        RP.data.project.list.push({
+          id: id, name: name, domain: domain, mode: modeEl ? modeEl.value : 'approve',
+          country: 'ไทย', lang: 'ภาษาไทย', plan: 'Pro', status: 'setup', created: 'เมื่อสักครู่',
+          keywords: 0, clusters: 0,
+          competitors: splitc(document.getElementById('np_comp').value),
+          brandTerms: splitc(document.getElementById('np_brand').value),
+          promptSet: 0, freshnessDays: 120, authors: 0,
+          health: { gsc: false, serp: true, ai: false, publish: false }
+        });
+        ui.closeModal();
+        ui.toast('สร้างโปรเจ็ค <b>' + esc(name) + '</b> แล้ว — เชื่อมต่อที่เหลือในหน้าตั้งค่าเพื่อเริ่มวัดผล ✓');
+        RP.go('projects'); mountNow();
+      };
+  }
+  function splitc(s) { return (s || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean); }
+  function wizSection(t, inner) { return '<div class="panel mb"><div class="panel-head">' + esc(t) + '</div><div class="panel-body">' + inner + '</div></div>'; }
+  function field(l, inp) { return '<div style="margin-bottom:10px"><div class="soft small" style="margin-bottom:4px">' + esc(l) + '</div>' + inp + '</div>'; }
+  function checkline(t, on) { return '<div class="list-row"><span style="color:' + (on ? 'var(--green-600)' : 'var(--text-soft)') + ';font-weight:800">' + (on ? '✓' : '○') + '</span><div class="grow t small">' + esc(t) + '</div>' + (on ? ui.badge('พร้อม', 'green') : ui.badge('ต้องเชื่อม', 'amber')) + '</div>'; }
+
+  function mountNow() { /* re-render current view */ if (location.hash === '#/projects') { var f = RP.views.projects(); var c = document.getElementById('content'); c.innerHTML = '<div class="view">' + f.html + '</div>'; f.mount(c); } }
+
+  RP.views.projects = function () {
+    var cards = RP.data.project.list.map(projectCard).join('');
+    var html =
+      ui.pageHead({ eyebrow: 'ระบบ · Multi-Project', title: 'จัดการโปรเจ็ค',
+        desc: 'หนึ่งบัญชีดูแลได้หลายเว็บ/หลายลูกค้า — แต่ละโปรเจ็คมีคีย์เวิร์ด คู่แข่ง ปลายทางเผยแพร่ และการวัดผลของตัวเอง (จำนวนโปรเจ็คตามแพ็กเกจ)' }) +
+      quotaCard() +
+      '<div class="grid grid-2">' + cards + '</div>';
+    return {
+      html: html,
+      mount: function (root) {
+        var np = root.querySelector('.new-proj'); if (np && !np.disabled) np.onclick = openWizard;
+        var ld = root.querySelector('#loadDb');
+        if (ld) ld.onclick = function () {
+          if (!RP.api.reachable()) { RP.ui.toast('ตั้ง base URL ของ backend ในหน้า ⚙️ การตั้งค่าก่อน'); return; }
+          RP.ui.toast('กำลังโหลดจากฐานข้อมูล…');
+          RP.api.projects().then(function (res) {
+            if (!res.projects || !res.projects.length) { RP.ui.toast('ยังไม่มีโปรเจ็คใน DB — ลองรัน scripts/seed.py'); return; }
+            RP.data.project.list = res.projects.map(function (p) {
+              return { id: 'db' + p.id, name: p.name, domain: p.domain, mode: p.mode, country: p.country || 'ไทย', lang: 'ภาษาไทย', plan: 'Pro', status: 'active', created: 'จากฐานข้อมูล', keywords: 0, clusters: 0, competitors: [], brandTerms: [], promptSet: 0, freshnessDays: p.freshness_days || 120, authors: 0, health: { gsc: false, serp: false, ai: false, publish: false } };
+            });
+            RP.data.project.current = RP.data.project.list[0].id;
+            RP.ui.toast('โหลด ' + res.projects.length + ' โปรเจ็คจากฐานข้อมูลแล้ว ✓');
+            mountNow();
+          }).catch(function (e) { RP.ui.toast('โหลดไม่ได้: ' + RP.esc(e.message) + ' (ต้องเข้าสู่ระบบจริง + ตั้ง DATABASE_URL)'); });
+        };
+        Array.prototype.forEach.call(root.querySelectorAll('.use-proj'), function (b) {
+          b.onclick = function () {
+            RP.data.project.current = b.getAttribute('data-id');
+            var p = RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0];
+            ui.toast('สลับมาที่โปรเจ็ค <b>' + esc(p.name) + '</b>');
+            mountNow();
+          };
+        });
+        Array.prototype.forEach.call(root.querySelectorAll('.cfg-proj'), function (b) {
+          b.onclick = function () { RP.data.project.current = b.getAttribute('data-id'); RP.go('settings'); };
+        });
+        Array.prototype.forEach.call(root.querySelectorAll('.open-dash'), function (b) {
+          b.onclick = function () { RP.data.project.current = b.getAttribute('data-id'); RP.go('dashboard'); };
+        });
+      }
+    };
+  };
+
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/views/settings.js */
+/* ============================================================
+   View: การตั้งค่า (Settings)
+   แท็บ: การเชื่อมต่อ · ตั้งค่าโปรเจ็คนี้ · บัญชี & ทีม · การวัดผลทำงานยังไง (ของจริง)
+   ============================================================ */
+(function (RP) {
+  'use strict';
+  var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
+
+  var curTab = 'connect';
+  var TABS = [
+    { id: 'connect', t: '🔌 การเชื่อมต่อ' },
+    { id: 'project', t: '🎯 ตั้งค่าโปรเจ็คนี้' },
+    { id: 'account', t: '👤 บัญชี & ทีม' },
+    { id: 'measure', t: '📏 การวัดผลทำงานยังไง' }
+  ];
+
+  var liveInt = null; // สถานะ integration จริงจาก backend (ถ้าดึงมาแล้ว)
+  var ID_MAP = { serp: 'serp', gsc: 'gsc', llm: 'llm', aiapi: 'citation', wp: 'wordpress', webflow: 'webflow', indexnow: 'indexnow', ga4: 'ga4', notify: 'line' };
+  function liveConnected(mockId) {
+    if (!liveInt) return null;
+    var f = liveInt.filter(function (x) { return x.id === ID_MAP[mockId]; })[0];
+    return f ? f.connected : null;
+  }
+
+  function liveCard() {
+    var on = RP.api.live;
+    return '<div class="card mb"><div class="card-pad">' +
+      '<div class="row between wrap" style="gap:10px">' +
+      '<div><div class="bb">โหมดข้อมูล: ' + (on ? '<span style="color:var(--green-600)">● Live (ดึงสดจาก backend)</span>' : 'จำลอง (Mock)') + '</div>' +
+      '<div class="soft small">เปิด Live เพื่อให้แดชบอร์ดดึงข้อมูลจริงจาก backend FastAPI — ต้องรัน <code>uvicorn app.main:app</code> ก่อน</div></div>' +
+      '<label class="row gap-s" style="cursor:pointer"><input type="checkbox" id="liveToggle"' + (on ? ' checked' : '') + '> <span class="b">เปิดโหมด Live</span></label></div>' +
+      '<div class="row wrap" style="gap:8px;margin-top:12px">' +
+      '<div class="field" style="flex:1;min-width:220px"><span class="ico">🖥️</span><input id="apiBase" value="' + esc(RP.api.base) + '" placeholder="http://localhost:8000"></div>' +
+      '<button class="btn" id="apiTest">ทดสอบการเชื่อมต่อ</button>' +
+      '<button class="btn btn-primary" id="apiPull">ดึงสถานะจริงจาก backend</button></div>' +
+      '<div class="hint" style="margin-top:10px">💡 โหมด Live ทำงานเมื่อเปิดจากเครื่อง (index.html / standalone) ที่รัน backend อยู่ — ในลิงก์ artifact เบราว์เซอร์จะบล็อกการต่อ localhost (CSP) จึงใช้ข้อมูลจำลอง</div>' +
+      '</div></div>';
+  }
+
+  function curProj() { return RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0]; }
+  function chips(arr, empty) {
+    if (!arr || !arr.length) return '<span class="soft small">' + (empty || 'ยังไม่มี') + '</span>';
+    return '<div class="tag-list">' + arr.map(function (x) { return '<span class="chip">' + esc(x) + '</span>'; }).join('') + '</div>';
+  }
+
+  /* ---------- TAB 1: การเชื่อมต่อ ---------- */
+  function tabConnect() {
+    var a = RP.data.account;
+    var done = RP.data.onboarding.filter(function (o) { return o.done; }).length;
+    var total = RP.data.onboarding.length;
+    var progress =
+      '<div class="card mb"><div class="card-pad">' +
+      '<div class="row between wrap"><div class="bb">ความพร้อมก่อนวัดผลจริง (Onboarding)</div>' +
+      '<span class="badge ' + (done === total ? 'green' : 'amber') + '">' + done + '/' + total + ' ขั้นตอน</span></div>' +
+      '<div style="margin:10px 0">' + ui.bar(done / total * 100, done === total ? 'green' : '') + '</div>' +
+      '<div class="grid grid-2" style="gap:4px 18px">' +
+      RP.data.onboarding.map(function (o) {
+        return '<div class="list-row" style="padding:6px 0"><span style="color:' + (o.done ? 'var(--green-600)' : 'var(--amber-600)') + ';font-weight:800">' +
+          (o.done ? '✓' : '○') + '</span><div class="grow t small">' + esc(o.t) + '</div></div>';
+      }).join('') + '</div></div></div>';
+
+    function intCard(i) {
+      var lc = liveConnected(i.id);
+      var conn = lc === null ? i.connected : lc;
+      var src = lc === null ? i.detail : (conn ? 'เชื่อมแล้ว (จาก backend)' : 'ยังไม่ตั้งคีย์ (จาก backend)');
+      return '<div class="card card-pad">' +
+        '<div class="row between wrap" style="gap:8px"><div class="bb">' + esc(i.name) + '</div>' +
+        ui.badge(conn ? '● เชื่อมแล้ว' : 'ต้องเชื่อม', conn ? 'green' : 'amber') + '</div>' +
+        '<div class="soft small" style="margin:2px 0 8px">ผู้ให้บริการ: ' + esc(i.provider) + (i.required ? ' · <b style="color:var(--red-text)">จำเป็น</b>' : ' · เสริม') + '</div>' +
+        '<div class="small" style="margin-bottom:12px">⚙️ ใช้กับ: ' + esc(i.powers) + '</div>' +
+        '<div class="row between"><span class="soft small">' + esc(src) + '</span>' +
+        '<button class="btn btn-sm ' + (conn ? '' : 'btn-primary') + ' int-btn" data-id="' + i.id + '">' + (conn ? 'จัดการ' : 'เชื่อมต่อ') + '</button></div></div>';
+    }
+    var required = a.integrations.filter(function (i) { return i.required; });
+    var optional = a.integrations.filter(function (i) { return !i.required; });
+    return liveCard() + progress +
+      '<div class="bb mb" style="font-size:15px">การเชื่อมต่อที่จำเป็น</div>' +
+      '<div class="grid grid-2 mb-l">' + required.map(intCard).join('') + '</div>' +
+      '<div class="bb mb" style="font-size:15px">การเชื่อมต่อเสริม</div>' +
+      '<div class="grid grid-2">' + optional.map(intCard).join('') + '</div>' +
+      '<div class="hint" style="margin-top:14px">🔒 คีย์และโทเคนทั้งหมดถูกเก็บเข้ารหัสฝั่งเซิร์ฟเวอร์ · ค่าใช้จ่าย API เรียกตามการใช้งานจริงของแต่ละโปรเจ็ค (~2,300–5,400 บาท/โปรเจ็ค/เดือน ตามเอกสาร)</div>';
+  }
+
+  /* ---------- TAB 2: ตั้งค่าโปรเจ็คนี้ ---------- */
+  function tabProject() {
+    var p = curProj();
+    function row(l, v) { return '<div class="list-row"><div class="grow"><div class="soft small">' + esc(l) + '</div><div class="t">' + v + '</div></div></div>'; }
+    var left = ui.card({ title: 'ข้อมูลโปรเจ็ค', body:
+      '<div style="margin-bottom:10px"><div class="soft small" style="margin-bottom:4px">ชื่อโปรเจ็ค</div><input class="input" id="s_name" value="' + esc(p.name) + '" style="width:100%"></div>' +
+      '<div style="margin-bottom:10px"><div class="soft small" style="margin-bottom:4px">โดเมน</div><input class="input" id="s_domain" value="' + esc(p.domain) + '" style="width:100%"></div>' +
+      '<div style="margin-bottom:10px"><div class="soft small" style="margin-bottom:4px">ประเทศ / ภาษา</div><input class="input" value="' + esc(p.country + ' / ' + p.lang) + '" style="width:100%"></div>' +
+      '<div><div class="soft small" style="margin-bottom:4px">โหมดเผยแพร่</div>' +
+      '<select class="select" id="s_mode" style="width:100%"><option value="approve"' + (p.mode === 'approve' ? ' selected' : '') + '>Auto + Human Approve</option><option value="auto"' + (p.mode === 'auto' ? ' selected' : '') + '>Full-Auto 100%</option></select></div>'
+    });
+    var right = ui.card({ title: 'เป้าหมาย & การวัดผล', body:
+      row('คีย์เวิร์ดที่ติดตาม', fmt.n(p.keywords) + ' คำ · ' + p.clusters + ' คลัสเตอร์') +
+      '<div class="divider"></div>' +
+      '<div class="soft small" style="margin-bottom:5px">โดเมนคู่แข่ง (เทียบ Share of Voice)</div>' + chips(p.competitors, 'ยังไม่ได้ตั้งคู่แข่ง') +
+      '<div class="divider"></div>' +
+      '<div class="soft small" style="margin-bottom:5px">ชื่อแบรนด์ที่ใช้ตรวจ AI Citation</div>' + chips(p.brandTerms) +
+      '<div class="divider"></div>' +
+      row('ชุดคำถาม Prompt Sampling', p.promptSet + ' คำถาม/รอบ') +
+      row('เกณฑ์ Freshness', 'รีเฟรชเมื่อหน้าเก่ากว่า ' + p.freshnessDays + ' วัน') +
+      row('Author Personas (E-E-A-T)', p.authors + ' โปรไฟล์')
+    });
+    return '<div class="hint mb">กำลังตั้งค่าโปรเจ็ค: <b>' + esc(p.name) + '</b> — ค่าเหล่านี้คือสิ่งที่ระบบใช้ "ขุดคำถาม → ผลิต → เผยแพร่ → วัดผล" ของโปรเจ็คนี้โดยเฉพาะ</div>' +
+      '<div class="grid grid-2 mb">' + left + right + '</div>' +
+      '<div class="row"><button class="btn btn-primary" id="s_save">บันทึกการตั้งค่า</button></div>';
+  }
+
+  /* ---------- TAB 3: บัญชี & ทีม ---------- */
+  function tabAccount() {
+    var a = RP.data.account;
+    var plan = ui.card({ title: 'แพ็กเกจปัจจุบัน', body:
+      '<div class="row between wrap" style="gap:10px"><div><div class="bb" style="font-size:20px;color:var(--purple-700)">' + esc(a.plan) + '</div>' +
+      '<div class="soft small">' + esc(a.billingCycle) + ' · ' + a.projectQuota + ' โปรเจ็ค' + (a.whiteLabel ? ' · White-Label' : '') + '</div></div>' +
+      '<button class="btn btn-sm" id="s_upgrade">อัปเกรด/จัดการแพ็กเกจ</button></div>' +
+      '<div class="divider"></div>' +
+      '<div class="grid grid-3" style="gap:10px">' +
+      planTile('Starter', '2,900–4,900', '1 เว็บ · 60 บทความ/ด.', a.plan.indexOf('Starter') >= 0) +
+      planTile('Pro', '9,900–14,900', '3 เว็บ · ไม่จำกัด · White-Label', a.plan.indexOf('Pro') >= 0) +
+      planTile('Enterprise', 'เริ่ม 29,900', 'ไม่จำกัดเว็บ · API · SLA', a.plan.indexOf('Enterprise') >= 0) +
+      '</div>'
+    });
+    var team = ui.card({ title: 'สมาชิกทีม & สิทธิ์', sub: 'เหมาะกับ Agency ที่ให้ลูกค้าเข้าดูรายงานได้', flush: true,
+      action: '<button class="btn btn-sm btn-primary" id="s_invite">＋ เชิญสมาชิก</button>',
+      body: '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>สมาชิก</th><th>อีเมล</th><th>สิทธิ์</th></tr></thead><tbody>' +
+        a.team.map(function (m) {
+          var tone = m.role.indexOf('เจ้าของ') >= 0 ? 'purple' : (m.role.indexOf('Editor') >= 0 ? 'blue' : '');
+          return '<tr><td class="bb">' + esc(m.name) + '</td><td class="soft">' + esc(m.email) + '</td><td>' + ui.badge(m.role, tone) + '</td></tr>';
+        }).join('') + '</tbody></table></div>'
+    });
+    return plan + '<div class="mb"></div>' + team +
+      '<div class="note-box" style="margin-top:14px">💡 <b>White-Label (Pro/Enterprise):</b> ใส่โลโก้/โดเมนของเอเจนซีเอง ส่งรายงานให้ลูกค้าในนามแบรนด์คุณ — ลูกค้าเห็นเฉพาะโปรเจ็คของตัวเองด้วยสิทธิ์ "ดูอย่างเดียว"</div>';
+  }
+  function planTile(name, price, d, cur) {
+    return '<div class="panel" style="' + (cur ? 'border-color:var(--brand-500);background:var(--surface-2)' : '') + '"><div class="panel-body">' +
+      '<div class="row between"><span class="bb">' + name + '</span>' + (cur ? ui.badge('ปัจจุบัน', 'green') : '') + '</div>' +
+      '<div class="bb" style="color:var(--purple-700);margin:4px 0">฿' + price + '<span class="soft" style="font-size:11px">/ด.</span></div>' +
+      '<div class="soft small">' + esc(d) + '</div></div></div>';
+  }
+
+  /* ---------- TAB 4: การวัดผลทำงานยังไง (ของจริง) ---------- */
+  function tabMeasure() {
+    var block = function (icon, title, tone, real, body) {
+      return '<div class="card card-pad">' +
+        '<div class="row between wrap"><div class="row gap-s"><span style="font-size:20px">' + icon + '</span><span class="bb">' + esc(title) + '</span></div>' +
+        ui.badge(real, tone) + '</div><div class="small" style="margin-top:10px;line-height:1.7">' + body + '</div></div>';
+    };
+    var table =
+      '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>ตัวชี้วัด</th><th>แหล่งข้อมูลจริง</th><th>ตรวจสอบได้ไหม</th></tr></thead><tbody>' +
+      mrow('อันดับ Google / ติดหน้า 1', 'SERP API + Search Console', 'ของจริง — เสิร์ชเองก็เห็น', 'green') +
+      mrow('คลิก / Impressions / CTR', 'Google Search Console (first-party)', 'ของจริง — ข้อมูลจาก Google เอง', 'green') +
+      mrow('AI Citation / Share of Voice', 'Prompt Sampling (ยิงถาม AI จริง)', 'ค่าประมาณเชิงสถิติ (สุ่มถาม)', 'amber') +
+      mrow('ทราฟฟิก / Conversion / ROI', 'GA4 + ฟอร์ม/CRM', 'ของจริง — วัด Lead/ยอดขาย', 'green') +
+      mrow('บทความ / คะแนน AEO', 'ข้อเท็จจริงจากระบบ', 'ของจริง — นับ/คำนวณจริง', 'green') +
+      '</tbody></table></div>';
+    return '<div class="warn-box mb" style="border-left-color:var(--amber-500);background:var(--amber-bg)">⚠️ <b>ความจริงที่ต้องรู้:</b> ตัวเลขที่เห็นในเดโมตอนนี้เป็น <b>ข้อมูลจำลอง</b> เพื่อสาธิต UX — เมื่อเชื่อม API/บัญชีจริงในแท็บ "การเชื่อมต่อ" ตัวเลขจะถูกแทนที่ด้วยข้อมูลที่ <b>ดึงสดจากแหล่งจริง</b> ทั้งหมด</div>' +
+      '<div class="grid grid-3 mb">' +
+      block('🔎', 'ฝั่ง SEO', 'green', 'ของจริง · ตรวจสอบได้', 'วัดจาก <b>SERP API</b> (ยิงคีย์เวิร์ด+ประเทศ+ภาษา ได้ผลอันดับ Google จริง) และ <b>Google Search Console</b> (คลิก/impression/อันดับ ตัวเลขจริงจาก Google เอง) — คุณเปิด Google เสิร์ชเองก็ตรวจได้ทันที ไม่มีทางปลอม') +
+      block('🤖', 'ฝั่ง AEO (AI Citation)', 'amber', 'ของจริง · แต่เป็นค่าประมาณ', '<b>Prompt Sampling</b>: ระบบยิงชุดคำถามจริงไปที่ ChatGPT/Gemini/Perplexity ตามรอบ แล้ว "อ่านคำตอบ" ว่าเอ่ยถึง/อ้างอิงโดเมนเราไหม → นับ % = Share of Voice · เป็นการวัดจริง (ถามจริง อ่านจริง) แต่เป็น <b>ตัวอย่างเชิงสถิติ</b> เพราะ AI ตอบต่างกันตามผู้ใช้/เวลา และไม่มี API ทางการบอก citation ตรง ๆ') +
+      block('💰', 'Conversion / ROI', 'green', 'ของจริง', 'เชื่อม <b>GA4</b> + ฟอร์ม/CRM เพื่อผูกทราฟฟิก Organic + AI Referral เข้ากับ <b>Lead/ยอดขายจริง</b> — พิสูจน์ ROI ได้ ไม่ใช่แค่ดูอันดับ') +
+      '</div>' +
+      ui.card({ title: 'สรุป: อะไรจริง / อะไรประมาณ', flush: true, body: table }) +
+      '<div class="note-box" style="margin-top:14px">📌 <b>พูดตรง ๆ:</b> ฝั่ง SEO วัดได้จริงและตรวจสอบเองได้ 100% · ฝั่ง AI Citation วัดได้จริงแต่เป็นค่าประมาณจากการสุ่มถาม — <b>ไม่มีเครื่องมือไหนในโลก</b> (Profound, Otterly ก็ตาม) มีเลข AI citation แบบ absolute เพราะ AI ไม่เปิด API บอกตรง ๆ · เราจึงเน้นดู <b>แนวโน้ม</b> มากกว่าเลขเป๊ะจุดเดียว</div>';
+  }
+  function mrow(k, s, v, tone) {
+    return '<tr><td class="bb">' + esc(k) + '</td><td class="soft">' + esc(s) + '</td><td>' + ui.badge(v, tone) + '</td></tr>';
+  }
+
+  function bodyFor(tab) {
+    if (tab === 'connect') return tabConnect();
+    if (tab === 'project') return tabProject();
+    if (tab === 'account') return tabAccount();
+    return tabMeasure();
+  }
+
+  function tabsBar() {
+    return '<div class="row wrap gap-s mb" role="tablist">' + TABS.map(function (t) {
+      return '<button class="chip set-tab' + (t.id === curTab ? ' on' : '') + '" data-tab="' + t.id + '">' + t.t + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function wire(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('.set-tab'), function (b) {
+      b.onclick = function () {
+        curTab = b.getAttribute('data-tab');
+        root.querySelector('#setTabs').outerHTML = wrapTabs();
+        root.querySelector('#setBody').innerHTML = bodyFor(curTab);
+        wire(root);
+      };
+    });
+    // tab-specific
+    var save = root.querySelector('#s_save'); if (save) save.onclick = function () {
+      var p = curProj();
+      var n = root.querySelector('#s_name'); if (n) p.name = n.value.trim() || p.name;
+      var d = root.querySelector('#s_domain'); if (d) p.domain = d.value.trim() || p.domain;
+      var m = root.querySelector('#s_mode'); if (m) p.mode = m.value;
+      ui.toast('บันทึกการตั้งค่าโปรเจ็ค <b>' + esc(p.name) + '</b> แล้ว ✓');
+    };
+    Array.prototype.forEach.call(root.querySelectorAll('.int-btn'), function (b) {
+      b.onclick = function () {
+        var i = RP.data.account.integrations.filter(function (x) { return x.id === b.getAttribute('data-id'); })[0];
+        ui.toast(i.connected ? 'เปิดหน้าจัดการ <b>' + esc(i.name) + '</b>' : 'เปิดหน้าเชื่อมต่อ <b>' + esc(i.name) + '</b> (ใส่ API key / OAuth)');
+      };
+    });
+    ['s_upgrade', 's_invite'].forEach(function (id) {
+      var el = root.querySelector('#' + id); if (el) el.onclick = function () { ui.toast('เปิดหน้า' + (id === 's_invite' ? 'เชิญสมาชิกทีม' : 'จัดการแพ็กเกจ')); };
+    });
+    // โหมด Live
+    var ab = root.querySelector('#apiBase');
+    if (ab) ab.onchange = function () { RP.api.setBase(ab.value); };
+    var lt = root.querySelector('#liveToggle');
+    if (lt) lt.onchange = function () {
+      if (ab) RP.api.setBase(ab.value);
+      RP.api.setLive(lt.checked);
+      ui.toast('โหมด Live: ' + (lt.checked ? '<b>เปิด</b>' : 'ปิด'));
+      root.querySelector('#setBody').innerHTML = bodyFor(curTab); wire(root);
+    };
+    var at = root.querySelector('#apiTest');
+    if (at) at.onclick = function () {
+      if (ab) RP.api.setBase(ab.value);
+      ui.toast('กำลังทดสอบการเชื่อมต่อ…');
+      RP.api.health().then(function (h) { ui.toast('เชื่อม backend สำเร็จ ✓ (' + esc(h.service || 'ok') + ')'); })
+        .catch(function (e) { ui.toast('เชื่อมไม่ได้: ' + esc(e.message)); });
+    };
+    var ap = root.querySelector('#apiPull');
+    if (ap) ap.onclick = function () {
+      if (ab) RP.api.setBase(ab.value);
+      ui.toast('กำลังดึงสถานะจาก backend…');
+      RP.api.integrations().then(function (res) {
+        liveInt = res.integrations;
+        ui.toast('ดึงสถานะจริงแล้ว — พร้อมวัดผล: ' + (res.ready_for_measurement ? '✓ ครบ' : 'ยังไม่ครบ'));
+        root.querySelector('#setBody').innerHTML = bodyFor(curTab); wire(root);
+      }).catch(function (e) { ui.toast('ดึงไม่ได้: ' + esc(e.message)); });
+    };
+  }
+  function wrapTabs() { return '<div id="setTabs">' + tabsBar() + '</div>'; }
+
+  RP.views.settings = function () {
+    var p = curProj();
+    var html =
+      ui.pageHead({ eyebrow: 'ระบบ · Settings', title: 'การตั้งค่า',
+        desc: 'ตั้งค่าการเชื่อมต่อ (API/บัญชี) ที่จำเป็นก่อนระบบจะวัดผลได้จริง ตั้งค่าเฉพาะโปรเจ็ค จัดการทีม/แพ็กเกจ และดูว่า "การวัดผลทำงานยังไงของจริง" — โปรเจ็คปัจจุบัน: <b>' + esc(p.name) + '</b>' }) +
+      wrapTabs() +
+      '<div id="setBody">' + bodyFor(curTab) + '</div>';
+    return { html: html, mount: function (root) { wire(root); } };
+  };
+
+})(window.RP);
+
+</script>
+<script>
+/* assets/js/app.js */
+/* ============================================================
+   RankPilot AI — App shell / router / navigation
+   View contract:
+     RP.views.<id> = function () {
+        return { html: '<...>', mount: function(rootEl){ attach listeners } };
+     }
+   ============================================================ */
+(function (RP) {
+  'use strict';
+
+  var NAV = [
+    { section: 'ภาพรวม', items: [
+      { id: 'dashboard', code: '', ico: '📊', lbl: 'แดชบอร์ดหลัก' }
+    ]},
+    { section: 'โมดูลของแพลตฟอร์ม', items: [
+      { id: 'm1', code: 'M1', ico: '🔎', lbl: 'ขุดคำถาม & คีย์เวิร์ด' },
+      { id: 'm2', code: 'M2', ico: '🏭', lbl: 'โรงงานคอนเทนต์' },
+      { id: 'm3', code: 'M3', ico: '⚙️', lbl: 'AEO Optimizer' },
+      { id: 'm4', code: 'M4', ico: '🚀', lbl: 'เผยแพร่อัตโนมัติ' },
+      { id: 'm5', code: 'M5', ico: '📈', lbl: 'วัดผล & Rank Tracker' },
+      { id: 'm6', code: 'M6', ico: '🧠', lbl: 'Learning Loop' }
+    ]},
+    { section: 'รายงาน', items: [
+      { id: 'report', code: '', ico: '📑', lbl: 'รายงาน & Roadmap' }
+    ]},
+    { section: 'ระบบ', items: [
+      { id: 'projects', code: '', ico: '🗂️', lbl: 'จัดการโปรเจ็ค' },
+      { id: 'settings', code: '', ico: '⚙️', lbl: 'การตั้งค่า' }
+    ]}
+  ];
+
+  var TITLES = {
+    dashboard: 'แดชบอร์ดหลัก',
+    m1: 'M1 · ขุดคำถาม & คีย์เวิร์ด',
+    m2: 'M2 · โรงงานคอนเทนต์',
+    m3: 'M3 · AEO Optimizer',
+    m4: 'M4 · เผยแพร่อัตโนมัติ',
+    m5: 'M5 · วัดผล & Rank Tracker',
+    m6: 'M6 · Learning Loop',
+    report: 'รายงาน & Roadmap',
+    projects: 'จัดการโปรเจ็ค',
+    settings: 'การตั้งค่า'
+  };
+
+  function currentRoute() {
+    var h = (location.hash || '').replace(/^#\/?/, '');
+    return RP.views[h] ? h : 'dashboard';
+  }
+
+  function renderSidebar() {
+    var navHtml = NAV.map(function (grp) {
+      return '<div class="nav-section">' + grp.section + '</div>' +
+        grp.items.map(function (it) {
+          return '<button class="nav-item" data-route="' + it.id + '">' +
+            '<span class="ico">' + it.ico + '</span>' +
+            '<span class="lbl">' + it.lbl + '</span>' +
+            (it.code ? '<span class="code">' + it.code + '</span>' : '') +
+            '</button>';
+        }).join('');
+    }).join('');
+
+    return '<div class="brand">' +
+        '<div class="logo">R</div>' +
+        '<div><div class="name">Rank<span>Pilot</span> AI</div>' +
+        '<div class="tag">AEO + SEO · อัตโนมัติด้วย AI</div></div>' +
+      '</div>' +
+      '<nav class="nav">' + navHtml + '</nav>' +
+      '<div class="sidebar-foot">' + userChip() +
+        '<div class="small soft">เอกสารโครงการ v' + RP.data.meta.version + ' · ระบบทำงานเองได้ ~' + RP.data.meta.autoLevel + '%</div></div>';
+  }
+
+  function userChip() {
+    var u = (RP.auth && RP.auth.user()) || { email: 'ผู้ใช้เดโม' };
+    var initial = (u.email || 'U').charAt(0).toUpperCase();
+    return '<div class="user-chip"><div class="ua">' + initial + '</div>' +
+      '<div class="uinfo"><div class="un">' + RP.esc(u.email) + '</div><div class="ur">' + RP.esc(RP.data.account.plan) + '</div></div>' +
+      '<button class="icon-btn" id="logoutBtn" title="ออกจากระบบ" style="width:32px;height:32px">⎋</button></div>';
+  }
+
+  function projectSelector() {
+    var p = RP.data.project;
+    return '<select class="select" id="projSel" aria-label="เลือกโปรเจ็ค">' +
+      p.list.map(function (x) {
+        return '<option value="' + x.id + '"' + (x.id === p.current ? ' selected' : '') + '>โปรเจ็ค: ' + RP.esc(x.name) + '</option>';
+      }).join('') + '</select>';
+  }
+
+  function modePill() {
+    var cur = RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0];
+    var auto = cur && cur.mode === 'auto';
+    return '<span class="mode-pill" id="modePill" title="สลับโหมดเผยแพร่">' +
+      '<span class="dot" style="background:' + (auto ? 'var(--green-500)' : 'var(--amber-500)') + '"></span>' +
+      (auto ? 'Full-Auto 100%' : 'Auto + Human Approve') + '</span>';
+  }
+
+  function renderTopbar(route) {
+    return '<button class="icon-btn mobile-nav-btn" id="mNav" aria-label="เมนู">☰</button>' +
+      '<div class="crumbs">RankPilot AI <span class="soft">/</span> <b>' + (TITLES[route] || '') + '</b></div>' +
+      '<span class="spacer"></span>' +
+      projectSelector() +
+      modePill() +
+      '<button class="icon-btn" id="themeBtn" aria-label="สลับธีม" title="สลับสว่าง/มืด">🌙</button>';
+  }
+
+  function mountRoute() {
+    var route = currentRoute();
+    var contentEl = document.getElementById('content');
+    var topbarEl = document.getElementById('topbar');
+
+    topbarEl.innerHTML = renderTopbar(route);
+    wireTopbar();
+
+    // active nav
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function (b) {
+      b.classList.toggle('active', b.getAttribute('data-route') === route);
+    });
+
+    var factory = RP.views[route];
+    var out;
+    try {
+      out = factory();
+    } catch (e) {
+      out = { html: errorCard(route, e), mount: null };
+      console.error('View render error:', route, e);
+    }
+    contentEl.innerHTML = '<div class="view">' + (out && out.html ? out.html : '') + '</div>';
+    if (out && typeof out.mount === 'function') {
+      try { out.mount(contentEl); } catch (e2) { console.error('View mount error:', route, e2); }
+    }
+    contentEl.scrollTop = 0;
+    window.scrollTo(0, 0);
+    closeMobileNav();
+  }
+
+  function errorCard(route, e) {
+    return '<div class="warn-box"><b>โหลดหน้า "' + route + '" ไม่สำเร็จ</b><br>' +
+      RP.esc(e && e.message ? e.message : String(e)) + '</div>';
+  }
+
+  /* ---- interactions ---- */
+  function wireNav() {
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function (b) {
+      b.onclick = function () { location.hash = '#/' + b.getAttribute('data-route'); };
+    });
+  }
+
+  function wireTopbar() {
+    var sel = document.getElementById('projSel');
+    if (sel) sel.onchange = function () {
+      RP.data.project.current = sel.value;
+      RP.ui.toast('สลับโปรเจ็คเป็น <b>' + RP.esc(sel.options[sel.selectedIndex].text.replace('โปรเจ็ค: ', '')) + '</b>');
+      document.getElementById('modePill').outerHTML = modePill();
+      mountRoute();
+    };
+    var mp = document.getElementById('modePill');
+    if (mp) mp.onclick = function () {
+      var cur = RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0];
+      cur.mode = cur.mode === 'auto' ? 'approve' : 'auto';
+      mp.outerHTML = modePill();
+      RP.ui.toast('โหมดเผยแพร่: <b>' + (cur.mode === 'auto' ? 'Full-Auto 100%' : 'Auto + Human Approve') + '</b>');
+      wireTopbar();
+    };
+    var tb = document.getElementById('themeBtn');
+    if (tb) {
+      tb.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+      tb.onclick = toggleTheme;
+    }
+    var mn = document.getElementById('mNav');
+    if (mn) mn.onclick = openMobileNav;
+  }
+
+  function toggleTheme() {
+    var root = document.documentElement;
+    var dark = root.getAttribute('data-theme') === 'dark';
+    root.setAttribute('data-theme', dark ? 'light' : 'dark');
+    try { localStorage.setItem('rp-theme', dark ? 'light' : 'dark'); } catch (e) {}
+    document.getElementById('themeBtn').textContent = dark ? '🌙' : '☀️';
+  }
+
+  function openMobileNav() {
+    document.querySelector('.sidebar').classList.add('open');
+    document.getElementById('scrim').classList.add('show');
+  }
+  function closeMobileNav() {
+    var sb = document.querySelector('.sidebar'); if (sb) sb.classList.remove('open');
+    var sc = document.getElementById('scrim'); if (sc) sc.classList.remove('show');
+  }
+
+  /* ---- boot ---- */
+  function boot() {
+    try {
+      var saved = localStorage.getItem('rp-theme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+    } catch (e) {}
+
+    // โหมดใช้งานจริง: ต้องเข้าสู่ระบบก่อน
+    if (RP.auth && !RP.auth.user()) { RP.showLogin(startApp); return; }
+    startApp();
+  }
+
+  function startApp() {
+    document.getElementById('sidebar').innerHTML = renderSidebar();
+    wireNav(); wireUser();
+    document.getElementById('scrim').onclick = closeMobileNav;
+
+    window.removeEventListener('hashchange', mountRoute);
+    window.addEventListener('hashchange', mountRoute);
+    if (!location.hash) location.hash = '#/dashboard';
+    mountRoute();
+
+    // ครั้งแรก: แสดง onboarding ตามลำดับ
+    if (RP.auth && !RP.auth.onboarded()) setTimeout(function () { if (RP.showOnboarding) RP.showOnboarding(); }, 350);
+  }
+
+  function wireUser() {
+    var lo = document.getElementById('logoutBtn');
+    if (lo) lo.onclick = function () { if (RP.auth) RP.auth.logout(); if (RP.api) RP.api.setToken(''); location.reload(); };
+  }
+
+  RP.go = function (route) { location.hash = '#/' + route; };
+  RP.boot = boot;
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else { boot(); }
+
+})(window.RP);
+
+</script>
+</body>
+</html>

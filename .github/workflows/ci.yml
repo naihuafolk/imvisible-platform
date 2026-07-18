@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Syntax check (all JS)
+        run: |
+          for f in assets/js/*.js assets/js/views/*.js; do node --check "$f"; done
+      - name: Smoke test (jsdom render all views)
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm i jsdom@25 --no-save
+          node tests/smoke.mjs
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-dev.txt
+      - name: Compile all modules
+        run: cd backend && python -m compileall app
+      - name: Smoke test (import + auth + sqlite register/login/projects)
+        run: cd backend && python tests/test_smoke.py
+
+  deploy:
+    needs: [frontend, backend]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy backend (Render deploy hook, ถ้าตั้ง secret)
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -n "$HOOK" ]; then curl -fsS "$HOOK" && echo "triggered Render deploy"; else echo "ไม่มี RENDER_DEPLOY_HOOK — ข้าม"; fi
+      - name: Deploy frontend (Vercel, ถ้าตั้ง secret)
+        env:
+          VT: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -n "$VT" ]; then npx --yes vercel --prod --yes --token "$VT" || true; else echo "ไม่มี VERCEL_TOKEN — ข้าม"; fi

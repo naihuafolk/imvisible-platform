@@ -1,0 +1,76 @@
+# RankPilot AI — full stack (ขึ้นเว็บจริงได้ด้วยคำสั่งเดียว: docker compose up)
+# เปิดใช้งานที่ http://localhost:8080  (frontend + proxy /api ไป backend)
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: rankpilot
+      POSTGRES_PASSWORD: rankpilot
+      POSTGRES_DB: rankpilot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rankpilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://rankpilot:rankpilot@db:5432/rankpilot
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: ./backend
+    command: celery -A app.worker.celery_app worker -l info
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://rankpilot:rankpilot@db:5432/rankpilot
+    depends_on:
+      redis: { condition: service_healthy }
+      db: { condition: service_healthy }
+
+  beat:
+    build: ./backend
+    command: celery -A app.worker.celery_app beat -l info
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis: { condition: service_healthy }
+
+  web:
+    image: nginx:alpine
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./assets:/usr/share/nginx/html/assets:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
