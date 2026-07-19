@@ -14,3 +14,5 @@ asyncpg==0.30.0
 pgvector==0.3.6
 # Auth
 PyJWT==2.10.1
+# เข้ารหัสโทเคนช่องทางกระจาย (LINE/FB) ที่เก็บใน DB
+cryptography==44.0.0

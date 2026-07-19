@@ -14,7 +14,7 @@ from app.config import settings, integration_status
 from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
-    RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate,
+    RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining
 from app.auth import security
@@ -245,6 +245,90 @@ async def project_articles(project_id: int, user=Depends(get_current_user)):
             select(Article).where(Article.project_id == project_id).order_by(Article.id.desc()))).scalars().all()
     return {"articles": [{"id": a.id, "title": a.title, "status": a.status,
                           "words": a.words, "url": a.url} for a in rows]}
+
+
+# ---------- Distribution (ช่องทางกระจาย + Log โปร่งใส) ----------
+async def _own_project(s, project_id, user):
+    from app.db.models import Project
+    p = await s.get(Project, project_id)
+    if not p or p.user_id != user["id"]:
+        raise HTTPException(404, "ไม่พบโปรเจ็ค")
+    return p
+
+
+@app.get("/api/projects/{project_id}/channels")
+async def list_channels(project_id: int, user=Depends(get_current_user)):
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import DistributionChannel
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+        rows = (await s.execute(select(DistributionChannel).where(
+            DistributionChannel.project_id == project_id))).scalars().all()
+        # ไม่คืน token — คืนแค่ว่าเชื่อมแล้วหรือยัง (โปร่งใส แต่ไม่รั่วความลับ)
+        out = [{"kind": c.kind, "ref": c.ref, "enabled": c.enabled, "connected": bool(c.token_enc)} for c in rows]
+    return {"channels": out}
+
+
+@app.put("/api/projects/{project_id}/channels")
+async def set_channel(project_id: int, req: ChannelUpdate, user=Depends(get_current_user)):
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import DistributionChannel
+    from app import crypto
+    if req.kind not in ("line", "facebook"):
+        raise HTTPException(422, "รองรับเฉพาะ line | facebook ตอนนี้")
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+        c = (await s.execute(select(DistributionChannel).where(
+            DistributionChannel.project_id == project_id, DistributionChannel.kind == req.kind))).scalars().first()
+        if not c:
+            c = DistributionChannel(project_id=project_id, kind=req.kind); s.add(c)
+        c.ref = (req.ref or "").strip()
+        c.enabled = bool(req.enabled)
+        if req.token:                                # ส่ง token = ตั้ง/เปลี่ยน · ว่าง = คงเดิม
+            c.token_enc = crypto.enc(req.token.strip())
+        await s.commit()
+        result = {"kind": c.kind, "ref": c.ref, "enabled": c.enabled, "connected": bool(c.token_enc)}
+    return result
+
+
+@app.get("/api/articles/{article_id}/distribution")
+async def article_distribution(article_id: int, user=Depends(get_current_user)):
+    """Log การกระจายต่อบทความ — ลูกค้าเห็นว่าคอนเทนต์ไปโผล่ที่ไหนบ้าง (โปร่งใส)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Article, DistributionEvent
+    async with db.session() as s:
+        art = await s.get(Article, article_id)
+        if not art:
+            raise HTTPException(404, "ไม่พบบทความ")
+        await _own_project(s, art.project_id, user)
+        rows = (await s.execute(select(DistributionEvent).where(
+            DistributionEvent.article_id == article_id).order_by(DistributionEvent.id))).scalars().all()
+        out = [{"channel": e.channel, "status": e.status, "url": e.url, "detail": e.detail,
+                "at": e.created_at.isoformat() if e.created_at else ""} for e in rows]
+    return {"events": out}
+
+
+@app.post("/api/articles/{article_id}/distribute")
+async def redistribute(article_id: int, user=Depends(get_current_user)):
+    """สั่งกระจายบทความที่เผยแพร่แล้วซ้ำ (เช่น เพิ่งเชื่อมช่องใหม่)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Article
+    async with db.session() as s:
+        art = await s.get(Article, article_id)
+        if not art:
+            raise HTTPException(404, "ไม่พบบทความ")
+        await _own_project(s, art.project_id, user)
+        pid = art.project_id
+    try:
+        from app.worker.tasks import distribute_article
+        task = distribute_article.delay(pid, article_id)
+        return {"queued": True, "task_id": str(task.id)}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ต่อคิวไม่ได้ (worker/redis พร้อมไหม): " + str(e))
 
 
 @app.get("/api/tls/check")

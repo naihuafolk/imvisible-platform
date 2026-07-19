@@ -53,7 +53,12 @@
     createProject: function (o) { return api._post('/api/projects', o); },
     grow: function (pid) { return api._post('/api/projects/' + pid + '/grow', {}); },
     projectArticles: function (pid) { return api._get('/api/projects/' + pid + '/articles'); },
-    setPublishTarget: function (pid, o) { return api._put('/api/projects/' + pid + '/publish', o); }
+    setPublishTarget: function (pid, o) { return api._put('/api/projects/' + pid + '/publish', o); },
+    // ---- Distribution (ช่องทางกระจาย + Log โปร่งใส) ----
+    getChannels: function (pid) { return api._get('/api/projects/' + pid + '/channels'); },
+    setChannel: function (pid, o) { return api._put('/api/projects/' + pid + '/channels', o); },
+    articleDistribution: function (aid) { return api._get('/api/articles/' + aid + '/distribution'); },
+    redistribute: function (aid) { return api._post('/api/articles/' + aid + '/distribute', {}); }
   };
 
   function chk(r) {

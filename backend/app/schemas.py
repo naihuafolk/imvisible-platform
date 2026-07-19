@@ -65,3 +65,10 @@ class ProjectCreate(BaseModel):
 class PublishTargetUpdate(BaseModel):
     publish_mode: str = "managed"    # managed | wordpress | none
     custom_domain: str = ""
+
+
+class ChannelUpdate(BaseModel):
+    kind: str                        # line | facebook
+    ref: str = ""                    # facebook: page_id · line: userId/groupId (หรือ 'broadcast')
+    token: str = ""                  # โทเคน (ส่งมาเฉพาะตอนตั้ง/เปลี่ยน · ว่าง = คงเดิม)
+    enabled: bool = True

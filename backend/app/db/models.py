@@ -85,3 +85,28 @@ class CitationSnapshot(Base):
     answered: Mapped[int] = mapped_column(Integer, default=0)
     cited: Mapped[int] = mapped_column(Integer, default=0)
     sampled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DistributionChannel(Base):
+    """ช่องทางกระจายโพสต่อโปรเจ็ค (โซเชียลของลูกค้าเอง) — โทเคนเก็บแบบเข้ารหัส (crypto.enc)"""
+    __tablename__ = "distribution_channels"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))           # line | facebook | x | linkedin
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    ref: Mapped[str] = mapped_column(String(255), default="")     # page_id / userId / groupId (ไม่ลับ)
+    token_enc: Mapped[str] = mapped_column(Text, default="")      # โทเคน (เข้ารหัสแล้ว)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DistributionEvent(Base):
+    """บันทึกการกระจายต่อบทความ — ลูกค้าเห็นได้ว่าคอนเทนต์ไปโผล่ที่ไหนบ้าง (โปร่งใส)"""
+    __tablename__ = "distribution_events"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    channel: Mapped[str] = mapped_column(String(20))        # blog | indexnow | wordpress | line | facebook ...
+    status: Mapped[str] = mapped_column(String(12), default="posted")   # posted | failed | skipped
+    url: Mapped[str] = mapped_column(String(600), default="")
+    detail: Mapped[str] = mapped_column(String(400), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

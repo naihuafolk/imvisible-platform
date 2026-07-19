@@ -212,7 +212,8 @@
             ' · ' + esc(p.publish_mode === 'wordpress' ? 'WordPress ลูกค้า' : (p.publish_mode === 'none' ? 'ไม่เผยแพร่' : 'โฮสต์ให้')) + '</span></div>' +
           '<div class="row gap-s">' +
           '<button class="btn btn-sm btn-green rp-grow" data-id="' + p.id + '">🚀 ผลิตเดี๋ยวนี้</button>' +
-          '<button class="btn btn-sm rp-arts" data-id="' + p.id + '">ดูบทความจริง</button></div></div>' +
+          '<button class="btn btn-sm rp-arts" data-id="' + p.id + '">ดูบทความจริง</button>' +
+          '<button class="btn btn-sm rp-chan" data-id="' + p.id + '">🔗 เชื่อมช่องทาง</button></div></div>' +
           (home ? '<div class="soft small" style="margin-top:6px">🌐 บล็อกที่เราโฮสต์ให้: <a href="' + esc(home) + '" target="_blank">' + esc(home) + '</a></div>' : '') +
           '<div class="rp-arts-out" data-for="' + p.id + '" style="margin-top:8px"></div></div></div>';
       }).join('');
@@ -222,14 +223,75 @@
     });
   }
 
+  var CH_LABEL = { blog: 'บล็อก', wordpress: 'WordPress', indexnow: 'IndexNow',
+    line: 'LINE OA', facebook: 'Facebook', x: 'X', linkedin: 'LinkedIn' };
+
+  function distStatus(st) {
+    if (st === 'posted') return ui.badge('โพสต์แล้ว', 'green');
+    if (st === 'failed') return ui.badge('ล้มเหลว', 'amber');
+    if (st === 'skipped') return ui.badge('ข้าม', '');
+    return ui.badge(esc(st), '');
+  }
+
+  function distTimeline(events) {
+    if (!events.length) return '<div class="soft small">ยังไม่มีการกระจาย (บทความนี้อาจยังเป็นร่าง หรือยังไม่ถูกเผยแพร่)</div>';
+    return '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>ช่องทาง</th><th class="center">สถานะ</th><th>รายละเอียด</th><th class="center">ลิงก์</th></tr></thead><tbody>' +
+      events.map(function (e) {
+        return '<tr><td class="bb">' + esc(CH_LABEL[e.channel] || e.channel) + '</td>' +
+          '<td class="center">' + distStatus(e.status) + '</td>' +
+          '<td class="soft small">' + esc(e.detail || '') + '</td>' +
+          '<td class="center">' + (e.url ? '<a href="' + esc(e.url) + '" target="_blank">ดู</a>' : '—') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function chStatus(chs, kind) {
+    var c = chs.filter(function (x) { return x.kind === kind; })[0];
+    return (c && c.connected) ? '<span style="color:var(--green-600);font-weight:700">● เชื่อมแล้ว</span>' : '<span class="soft">○ ยังไม่เชื่อม</span>';
+  }
+
+  function chField(l, inp) { return '<div style="margin-bottom:8px"><div class="soft small" style="margin-bottom:3px">' + esc(l) + '</div>' + inp + '</div>'; }
+
+  function channelModal(pid) {
+    RP.api.getChannels(pid).then(function (r) { openChannelModal(pid, r.channels || []); })
+      .catch(function (e) { RP.ui.toast('โหลดช่องทางไม่ได้: ' + esc(e.message || String(e))); openChannelModal(pid, []); });
+  }
+
+  function openChannelModal(pid, chs) {
+    var body =
+      '<div class="hint mb">เชื่อมโซเชียล<strong>ของคุณเอง</strong> → ทุกบทความใหม่ระบบโพสต์ขึ้นแบรนด์คุณอัตโนมัติ (โทเคนเก็บแบบ<strong>เข้ารหัส</strong>)</div>' +
+      '<div class="panel mb"><div class="panel-head">LINE OA · ' + chStatus(chs, 'line') + '</div><div class="panel-body">' +
+      chField('Channel Access Token', '<input class="input" id="ch_line_tok" type="password" placeholder="วางโทเคน (เว้นว่าง = คงเดิม)" style="width:100%">') +
+      chField('ปลายทาง', '<input class="input" id="ch_line_ref" placeholder="userId/groupId — หรือ broadcast (ส่งผู้ติดตามทุกคน)" style="width:100%">') +
+      '<button class="btn btn-primary btn-sm" id="ch_line_save">บันทึก LINE</button></div></div>' +
+      '<div class="panel mb"><div class="panel-head">Facebook Page · ' + chStatus(chs, 'facebook') + '</div><div class="panel-body">' +
+      chField('Page ID', '<input class="input" id="ch_fb_ref" placeholder="เลข Page ID" style="width:100%">') +
+      chField('Page Access Token', '<input class="input" id="ch_fb_tok" type="password" placeholder="วางโทเคน (เว้นว่าง = คงเดิม)" style="width:100%">') +
+      '<button class="btn btn-primary btn-sm" id="ch_fb_save">บันทึก Facebook</button></div></div>' +
+      '<div class="hint">X (API เสียเงิน) / LinkedIn (ต้องขออนุมัติ) — ยังไม่รองรับตอนนี้ · เราไม่ทำ link-spam</div>';
+    ui.modal({ title: 'เชื่อมช่องทางกระจาย', sub: 'โพสต์บทความใหม่ขึ้นโซเชียลแบรนด์คุณอัตโนมัติ', width: 620, body: body });
+    var ls = document.getElementById('ch_line_save');
+    if (ls) ls.onclick = function () {
+      RP.api.setChannel(pid, { kind: 'line', ref: (document.getElementById('ch_line_ref').value || '').trim(), token: document.getElementById('ch_line_tok').value || '', enabled: true })
+        .then(function () { RP.ui.toast('บันทึก LINE แล้ว ✓'); }).catch(function (e) { RP.ui.toast('บันทึกไม่ได้: ' + esc(e.message || String(e))); });
+    };
+    var fs = document.getElementById('ch_fb_save');
+    if (fs) fs.onclick = function () {
+      RP.api.setChannel(pid, { kind: 'facebook', ref: (document.getElementById('ch_fb_ref').value || '').trim(), token: document.getElementById('ch_fb_tok').value || '', enabled: true })
+        .then(function () { RP.ui.toast('บันทึก Facebook แล้ว ✓'); }).catch(function (e) { RP.ui.toast('บันทึกไม่ได้: ' + esc(e.message || String(e))); });
+    };
+  }
+
   function wireReal(root) {
     Array.prototype.forEach.call(root.querySelectorAll('.rp-grow'), function (b) {
       b.onclick = function () {
         RP.ui.toast('สั่งระบบผลิตคอนเทนต์…');
         RP.api.grow(b.getAttribute('data-id'))
-          .then(function () { RP.ui.toast('เข้าคิวแล้ว ✓ ระบบกำลังขุด→เขียน→เผยแพร่ (กด "ดูบทความจริง" อีกสักครู่)'); })
+          .then(function () { RP.ui.toast('เข้าคิวแล้ว ✓ ระบบกำลังขุด→เขียน→เผยแพร่→กระจาย (กด "ดูบทความจริง" อีกสักครู่)'); })
           .catch(function (e) { RP.ui.toast('สั่งไม่ได้: ' + esc(e.message || String(e))); });
       };
+    });
+    Array.prototype.forEach.call(root.querySelectorAll('.rp-chan'), function (b) {
+      b.onclick = function () { channelModal(b.getAttribute('data-id')); };
     });
     Array.prototype.forEach.call(root.querySelectorAll('.rp-arts'), function (b) {
       b.onclick = function () {
@@ -239,13 +301,32 @@
         RP.api.projectArticles(id).then(function (res) {
           var arts = res.articles || [];
           if (!arts.length) { box.innerHTML = '<div class="soft small">ยังไม่มีบทความ (ลองกด ผลิตเดี๋ยวนี้ แล้วรอสักครู่)</div>'; return; }
-          box.innerHTML = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>บทความ (AI เขียนจริง)</th><th class="center">สถานะ</th><th class="right">คำ</th><th class="center">ลิงก์</th></tr></thead><tbody>' +
+          box.innerHTML = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>บทความ (AI เขียนจริง)</th><th class="center">สถานะ</th><th class="right">คำ</th><th class="center">ลิงก์</th><th class="center">กระจาย</th></tr></thead><tbody>' +
             arts.map(function (a) {
               return '<tr><td class="tbl-title">' + esc(a.title) + '</td>' +
                 '<td class="center">' + ui.badge(esc(a.status), a.status === 'published' ? 'green' : '') + '</td>' +
                 '<td class="num">' + (a.words || 0) + '</td>' +
-                '<td class="center">' + (a.url ? '<a href="' + esc(a.url) + '" target="_blank">เปิด</a>' : '—') + '</td></tr>';
-            }).join('') + '</tbody></table></div>';
+                '<td class="center">' + (a.url ? '<a href="' + esc(a.url) + '" target="_blank">เปิด</a>' : '—') + '</td>' +
+                '<td class="center"><button class="btn btn-sm rp-dist" data-id="' + a.id + '">ดู Log</button></td></tr>';
+            }).join('') + '</tbody></table></div><div class="rp-dist-panel" style="margin-top:10px"></div>';
+          var panel = box.querySelector('.rp-dist-panel');
+          Array.prototype.forEach.call(box.querySelectorAll('.rp-dist'), function (db2) {
+            db2.onclick = function () {
+              var aid = db2.getAttribute('data-id');
+              panel.innerHTML = '<div class="soft small">กำลังโหลด Log การกระจาย…</div>';
+              RP.api.articleDistribution(aid).then(function (r) {
+                panel.innerHTML = '<div class="bb" style="margin:8px 0">📡 การกระจายของบทความนี้ ' +
+                  '<button class="btn btn-sm rp-redist" data-id="' + aid + '" style="margin-left:8px">กระจายซ้ำ</button></div>' +
+                  distTimeline(r.events || []);
+                var rd = panel.querySelector('.rp-redist');
+                if (rd) rd.onclick = function () {
+                  rd.disabled = true; rd.textContent = 'เข้าคิว…';
+                  RP.api.redistribute(aid).then(function () { RP.ui.toast('สั่งกระจายซ้ำแล้ว ✓ กด "ดู Log" อีกครั้งสักครู่'); })
+                    .catch(function (e) { rd.disabled = false; rd.textContent = 'กระจายซ้ำ'; RP.ui.toast('กระจายไม่ได้: ' + esc(e.message || String(e))); });
+                };
+              }).catch(function (e) { panel.innerHTML = '<div class="soft small">โหลด Log ไม่ได้: ' + esc(e.message || String(e)) + '</div>'; });
+            };
+          });
         }).catch(function (e) { box.innerHTML = '<div class="soft small">โหลดไม่ได้: ' + esc(e.message || String(e)) + '</div>'; });
       };
     });

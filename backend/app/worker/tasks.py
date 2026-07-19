@@ -12,9 +12,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.worker.celery_app import celery_app
-from app.connectors import mining, content, serp, citation, publish
+from app.connectors import mining, content, serp, citation, publish, social
 from app.db import session as db
-from app import urls
+from app import urls, crypto
 
 
 def _run(coro):
@@ -153,16 +153,21 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                         if a:
                             a.url = link; await s.commit()
                 item["published"] = link or "(no link)"
+                item["distributed"] = await _distribute(project_id, art_id, topic, _plain(html)[:160],
+                                                         link or art_url, "wordpress", bool(pub.get("indexnow")))
             elif p.publish_mode == "managed":                         # 3b) Managed = สดจาก DB + แจ้ง index
                 item["published"] = art_url
+                indexnow_ok = False
                 try:
                     from urllib.parse import urlparse
                     host = urlparse(art_url).hostname or ""
                     if host.endswith(publish_host_base()):   # ping เฉพาะโดเมนที่เราคุม key ได้
                         await publish.indexnow_submit(art_url)
-                        item["indexnow"] = "pinged"
+                        indexnow_ok = True; item["indexnow"] = "pinged"
                 except Exception:
                     pass
+                item["distributed"] = await _distribute(project_id, art_id, topic, _plain(html)[:160],
+                                                         art_url, "blog", indexnow_ok)
             else:                                                     # none = เก็บใน DB เฉย ๆ
                 item["published"] = "(mode=none)"
             results.append(item)
@@ -175,6 +180,59 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
 def publish_host_base() -> str:
     from app.config import settings
     return settings.managed_base_domain
+
+
+async def _distribute(project_id: int, article_id: int, title: str, desc: str,
+                      page_url: str, publish_channel: str, indexnow_ok: bool) -> list:
+    """กระจายบทความไปช่องของลูกค้า + บันทึกทุก event (โปร่งใส ลูกค้าเห็นได้)"""
+    from app.db.models import DistributionChannel, DistributionEvent
+    events = [(publish_channel, "posted", page_url, "เผยแพร่แล้ว")]
+    if indexnow_ok:
+        events.append(("indexnow", "posted", "", "แจ้ง IndexNow แล้ว"))
+    try:                                              # ห้ามให้การกระจายล้มแล้วทำการผลิตบทความพัง
+        async with db.session() as s:                 # อ่านช่องที่เปิด + ถอดรหัสโทเคน
+            chans = (await s.execute(select(DistributionChannel).where(
+                DistributionChannel.project_id == project_id,
+                DistributionChannel.enabled == True))).scalars().all()   # noqa: E712
+            chan_list = [(c.kind, crypto.dec(c.token_enc), c.ref) for c in chans]
+
+        text = "%s%s" % (title, ("\n" + desc) if desc else "")
+        for kind, token, ref in chan_list:
+            if not token:
+                events.append((kind, "skipped", "", "ยังไม่ได้เชื่อมโทเคน")); continue
+            res = await social.dispatch(kind, token, ref, text, page_url)
+            events.append((kind, "posted" if res.get("ok") else "failed",
+                           res.get("url", ""), (res.get("detail", "") or "")[:390]))
+
+        async with db.session() as s:                 # บันทึก event ทั้งหมด
+            for ch, st, url, detail in events:
+                s.add(DistributionEvent(article_id=article_id, project_id=project_id,
+                                        channel=ch, status=st, url=url or "", detail=detail or ""))
+            await s.commit()
+    except Exception as e:  # noqa: BLE001
+        return [{"channel": "distribution", "status": "failed", "error": str(e)[:140]}]
+    return [{"channel": e[0], "status": e[1]} for e in events]
+
+
+@celery_app.task(name="app.worker.tasks.distribute_article")
+def distribute_article(project_id: int, article_id: int) -> dict:
+    """สั่งกระจายบทความที่เผยแพร่แล้วซ้ำ (เช่น เพิ่งเชื่อมช่องใหม่) — ใช้จาก API"""
+    return _run(_redistribute(project_id, article_id))
+
+
+async def _redistribute(project_id: int, article_id: int) -> dict:
+    from app.db.models import Article
+    if not db.enabled():
+        return {"error": "DB not configured"}
+    async with db.session() as s:
+        art = await s.get(Article, article_id)
+        if not art or art.project_id != project_id:
+            return {"error": "article not found"}
+        title, desc, url = art.title, (art.description or ""), art.url
+    if not url:
+        return {"error": "บทความนี้ยังไม่ถูกเผยแพร่ (ไม่มี URL)"}
+    ch = "wordpress" if "/wp" in url or url.count("/") <= 3 else "blog"
+    return {"distributed": await _distribute(project_id, article_id, title, desc[:160], url, ch, False)}
 
 
 @celery_app.task(name="app.worker.tasks.grow_all_projects")
