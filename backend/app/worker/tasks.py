@@ -43,9 +43,14 @@ def publish_article(title: str, html: str, status: str = "draft", url_path: str 
 
 @celery_app.task(name="app.worker.tasks.measure_rank")
 def measure_rank(keyword: str, domain: str, project_id: int | None = None) -> dict:
-    res = _run(serp.rank_check(keyword, domain))
+    return _run(_measure_rank(keyword, domain, project_id))
+
+
+async def _measure_rank(keyword: str, domain: str, project_id: int | None) -> dict:
+    """รวมเป็น coroutine เดียว (event loop เดียวต่อ task) — เช็กอันดับแล้วบันทึกในลูปเดียวกัน"""
+    res = await serp.rank_check(keyword, domain)
     if project_id and db.enabled():
-        _run(_save_rank(project_id, res))
+        await _save_rank(project_id, res)
     return res
 
 
@@ -71,9 +76,12 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
         existing = set((await s.execute(
             select(Article.title).where(Article.project_id == project_id))).scalars().all())
 
-    # 1) ขุดคำถามจริงจากชื่อโปรเจ็ค (M1)
+    # 1) ขุดคำถามจริงจากชื่อโปรเจ็ค (M1) — กัน external API ล่มทำทั้ง task พัง
     seed = (proj.name or proj.domain or "").strip()
-    mined = await mining.mine(seed)
+    try:
+        mined = await mining.mine(seed)
+    except Exception as e:  # noqa: BLE001
+        return {"project": proj.name, "produced": 0, "note": "mining failed: " + str(e)[:120]}
     topics = [q.get("q") for q in mined.get("questions", []) if q.get("q") and q.get("q") not in existing]
     topics = topics[:max_new]
     if not topics:
@@ -84,9 +92,17 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
     results = []
     for topic in topics:
         try:
+            try:  # ดึงคู่แข่งจริงจาก SERP → Stage 1 หา content gap แซงคู่แข่งได้
+                comps = await serp.top_competitors(topic, n=5)
+                comp_text = "\n".join(
+                    "- [#%s] %s (%s): %s" % (c.get("rank"), c.get("title"),
+                                             c.get("domain"), c.get("snippet") or "")
+                    for c in comps)
+            except Exception:
+                comp_text = ""
             gen = await content.generate(topic, "บทความยาว", 1500,   # 2) เขียนด้วย AI (M2 · เครื่องยนต์ 3 stage)
                                          questions=all_q, domain=proj.domain, language=lang,
-                                         target_url="https://" + proj.domain)
+                                         competitors=comp_text, target_url="https://" + proj.domain)
             html = gen.get("html", "")
             auto = (proj.mode == "auto")
             async with db.session() as s:

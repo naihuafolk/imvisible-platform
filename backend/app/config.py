@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     line_channel_access_token: str = ""
     line_default_to: str = ""
 
+    # 9) ModelArk (BytePlus) — Seedream (รูป) + Seedance (วิดีโอ)
+    ark_api_key: str = ""
+    ark_base_url: str = "https://ark.ap-southeast.bytepluses.com/api/v3"
+    ark_image_model: str = "dola-seedream-5-0-pro-260628"
+    ark_video_model: str = ""
+
     # โครงสร้างพื้นฐาน (คิวงาน + ฐานข้อมูล ตาม stack หน้า 7)
     redis_url: str = "redis://localhost:6379/0"
     database_url: str = ""   # เช่น postgresql+asyncpg://rankpilot:rankpilot@localhost:5432/rankpilot
@@ -85,4 +91,6 @@ def integration_status() -> list[dict]:
          "connected": bool(s.ga4_property_id and s.google_refresh_token)},
         {"id": "line",     "name": "LINE Messaging API",               "required": False,
          "connected": bool(s.line_channel_access_token)},
+        {"id": "modelark", "name": "ModelArk (Seedream/Seedance)",      "required": False,
+         "connected": bool(s.ark_api_key)},
     ]

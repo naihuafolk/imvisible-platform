@@ -48,12 +48,12 @@ async def rank_check(keyword: str, domain: str,
         return {"keyword": keyword, "domain": domain, "our_rank": None,
                 "on_page1": False, "top10": [], "raw_status": data.get("status_message")}
 
-    dom = domain.lower().lstrip("www.")
+    dom = domain.lower().removeprefix("www.")
     organic = [it for it in items if it.get("type") == "organic"]
 
     our_rank = None
     for it in organic:
-        d = (it.get("domain") or "").lower().lstrip("www.")
+        d = (it.get("domain") or "").lower().removeprefix("www.")
         if d == dom:
             our_rank = it.get("rank_absolute")
             break
@@ -72,3 +72,33 @@ async def rank_check(keyword: str, domain: str,
         "on_page1": our_rank is not None and our_rank <= 10,
         "top10": top10,
     }
+
+
+async def top_competitors(keyword: str, n: int = 5,
+                          location_code: int | None = None,
+                          language_code: str | None = None) -> list[dict]:
+    """ดึงหน้าที่ติดอันดับต้น ๆ จริง (title + snippet + url) เพื่อป้อนเครื่องยนต์คอนเทนต์
+    ใช้วิเคราะห์ content gap ใน Stage 1 (แซงคู่แข่งที่ติดอยู่แล้ว) — คืน [] ถ้าไม่มีคีย์/ล้ม"""
+    payload = [{
+        "keyword": keyword,
+        "location_code": location_code or settings.serp_location_code,
+        "language_code": language_code or settings.serp_language_code,
+        "device": "desktop",
+        "depth": 20,
+    }]
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(BASE, headers=_auth_header(), json=payload)
+        r.raise_for_status()
+        data = r.json()
+    try:
+        items = data["tasks"][0]["result"][0]["items"]
+    except (KeyError, IndexError, TypeError):
+        return []
+    organic = [it for it in items if it.get("type") == "organic"]
+    return [{
+        "rank": it.get("rank_absolute"),
+        "title": it.get("title"),
+        "snippet": it.get("description"),
+        "url": it.get("url"),
+        "domain": it.get("domain"),
+    } for it in organic[:n]]

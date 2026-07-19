@@ -106,23 +106,23 @@ async def _gemini_chat(system: str, user: str) -> str:
 
 
 async def _llm(system: str, user: str, tier: str = "fast") -> tuple[str, str]:
-    """เลือกโมเดลตาม tier + คีย์ที่มี · คืน (provider, text)"""
-    has_a = bool(settings.anthropic_api_key)
-    has_o = bool(settings.openai_api_key)
-    has_g = bool(settings.gemini_api_key)
+    """เลือกโมเดลตาม tier + คีย์ที่มี · คืน (provider, text) · ถ้าคืนค่าว่าง (เช่น safety block) = ล้มเหลว → ลองตัวถัดไป"""
+    has = {"anthropic": bool(settings.anthropic_api_key),
+           "openai": bool(settings.openai_api_key),
+           "gemini": bool(settings.gemini_api_key)}
+    callers = {"anthropic": _anthropic_chat, "openai": _openai_chat, "gemini": _gemini_chat}
     order = (["anthropic", "openai", "gemini"] if tier in ("premium", "strong")
              else ["gemini", "anthropic", "openai"])
     for prov in order:
+        if not has[prov]:
+            continue
         try:
-            if prov == "anthropic" and has_a:
-                return "anthropic", await _anthropic_chat(system, user)
-            if prov == "openai" and has_o:
-                return "openai", await _openai_chat(system, user)
-            if prov == "gemini" and has_g:
-                return "gemini", await _gemini_chat(system, user)
+            text = await callers[prov](system, user)
         except Exception:
             continue
-    raise RuntimeError("ยังไม่ได้ตั้งคีย์ LLM ตัวใดเลย (ANTHROPIC/OPENAI/GEMINI)")
+        if text and text.strip():
+            return prov, text
+    raise RuntimeError("LLM ทุกตัวคืนค่าว่าง/ล้มเหลว (ตรวจคีย์ ANTHROPIC/OPENAI/GEMINI)")
 
 
 # ============ stage prompts ============
@@ -214,9 +214,11 @@ async def _stage3(blueprint_json, draft_html, domain, target_url, year):
 
 
 def _split_blocks(text: str):
-    """แยก <!--ARTICLE--> / <!--SCHEMA--> / <!--NOTES-->"""
+    """แยก <!--ARTICLE--> / <!--SCHEMA--> / <!--NOTES--> · ตัด article ที่ marker ทั้ง SCHEMA และ NOTES
+    (กัน NOTES/placeholder หลุดเข้าบทความเมื่อ LLM ไม่ใส่ marker SCHEMA)"""
     t = _strip_fence(text)
-    art = re.split(r"<!--\s*SCHEMA\s*-->", re.split(r"<!--\s*ARTICLE\s*-->", t)[-1])[0]
+    after = re.split(r"<!--\s*ARTICLE\s*-->", t)[-1]
+    art = re.split(r"<!--\s*(?:SCHEMA|NOTES)\s*-->", after)[0].strip()
     schema, notes = "", ""
     m = re.search(r"<!--\s*SCHEMA\s*-->(.*?)(<!--\s*NOTES\s*-->|$)", t, re.S)
     if m:
@@ -224,12 +226,13 @@ def _split_blocks(text: str):
     n = re.search(r"<!--\s*NOTES\s*-->(.*)$", t, re.S)
     if n:
         notes = n.group(1).strip()
-    return art.strip(), schema, notes
+    return art, schema, notes
 
 
 def _lint(html: str) -> str:
-    """Stage 4 (โค้ด): strip fence/แท็กต้องห้าม + ตัดหัวข้อ intro ที่ไม่ใช่ <p>/<h2>"""
+    """Stage 4 (โค้ด): strip fence/แท็กต้องห้าม/HTML comment + ตัดหัวข้อ intro ที่ไม่ใช่ <p>/<h2>"""
     h = _strip_fence(html)
+    h = re.sub(r"<!--.*?-->", "", h, flags=re.S)   # ตัด HTML comment (กัน NOTES/marker หลุดเข้าบทความ)
     h = re.sub(r"</?(?:html|head|body|style|script)[^>]*>", "", h, flags=re.I)
     h = re.sub(r"^```[a-zA-Z]*|```$", "", h).strip()
     # ตัดข้อความก่อน <p> หรือ <h2> ตัวแรก (กันคำเกริ่นหลุด)
@@ -271,6 +274,8 @@ async def generate(topic: str, fmt: str = "บทความยาว", words: 
         pass
 
     html = _lint(draft)
+    if _wordcount(html) < 120:   # guard: ห้ามคืน/เผยแพร่บทความว่าง/สั้น (auto-loop จะจับเป็น error)
+        raise RuntimeError("เนื้อหาที่ได้สั้น/ว่างเกินไป (%d คำ)" % _wordcount(html))
     model = {"anthropic": settings.anthropic_model, "openai": settings.openai_model,
              "gemini": settings.gemini_model}.get(provider, "")
     return {"provider": provider, "model": model, "html": html,

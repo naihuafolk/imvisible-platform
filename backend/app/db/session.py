@@ -22,7 +22,10 @@ def _init():
     if _engine is not None or not settings.database_url:
         return
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-    _engine = create_async_engine(_normalize(settings.database_url), pool_pre_ping=True)
+    from sqlalchemy.pool import NullPool
+    # NullPool: ไม่ reuse connection ข้าม event loop — จำเป็นสำหรับ Celery ที่เรียก asyncio.run() ใหม่ทุก task
+    # (ไม่งั้น asyncpg connection ที่ผูก loop เก่าจะพังใน task ที่ 2 เป็นต้นไป)
+    _engine = create_async_engine(_normalize(settings.database_url), poolclass=NullPool)
     _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
 
 
