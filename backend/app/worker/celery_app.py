@@ -24,6 +24,10 @@ celery_app.conf.update(
 
 # ตารางเวลาให้ "วงจรโต" หมุนเอง (AI Growth Loop)
 celery_app.conf.beat_schedule = {
+    "grow-content-daily": {          # 🚀 M1→M2→M4 · ผลิตคอนเทนต์ใหม่อัตโนมัติทุกวัน 02:00
+        "task": "app.worker.tasks.grow_all_projects",
+        "schedule": crontab(hour=2, minute=0),
+    },
     "measure-rank-daily": {          # M5 · เช็กอันดับทุกวัน 06:00
         "task": "app.worker.tasks.measure_all_ranks",
         "schedule": crontab(hour=6, minute=0),

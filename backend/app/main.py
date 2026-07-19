@@ -18,7 +18,7 @@ from app.auth import security
 from app.auth.deps import get_current_user
 from app.db import session as db
 
-app = FastAPI(title="RankPilot AI API", version="1.0")
+app = FastAPI(title="ImVisible API", version="1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,7 +40,7 @@ async def _startup():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "RankPilot AI API", "db": db.enabled()}
+    return {"status": "ok", "service": "ImVisible API", "db": db.enabled()}
 
 
 # ---------- Auth (JWT + hash รหัสผ่าน) ----------
@@ -112,6 +112,40 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
         p = Project(user_id=user["id"], name=req.name, domain=req.domain, country=req.country, mode=req.mode)
         s.add(p); await s.commit(); await s.refresh(p)
     return _proj_dict(p)
+
+
+@app.post("/api/projects/{project_id}/grow")
+async def grow_project(project_id: int, user=Depends(get_current_user)):
+    """🚀 สั่ง 'วงจรโต' ให้โปรเจ็คนี้เดี๋ยวนี้: ขุดคำถาม→เขียน→เผยแพร่ (เข้าคิว Celery ทำเบื้องหลัง)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+    if not p or p.user_id != user["id"]:
+        raise HTTPException(404, "ไม่พบโปรเจ็ค")
+    try:
+        from app.worker.tasks import produce_for_project
+        task = produce_for_project.delay(project_id, 1)
+        return {"queued": True, "task_id": str(task.id), "project": p.name, "mode": p.mode}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ต่อคิวงานไม่ได้ (backend/worker/redis พร้อมไหม): " + str(e))
+
+
+@app.get("/api/projects/{project_id}/articles")
+async def project_articles(project_id: int, user=Depends(get_current_user)):
+    """ดูบทความที่ระบบผลิตให้โปรเจ็คนี้ (ของจริงจาก DB)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project, Article
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        rows = (await s.execute(
+            select(Article).where(Article.project_id == project_id).order_by(Article.id.desc()))).scalars().all()
+    return {"articles": [{"id": a.id, "title": a.title, "status": a.status,
+                          "words": a.words, "url": a.url} for a in rows]}
 
 
 @app.get("/api/integrations")
