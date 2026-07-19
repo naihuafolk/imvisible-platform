@@ -105,7 +105,7 @@ async def me(user=Depends(get_current_user)):
 # ---------- Projects (เชื่อม DB จริง) ----------
 def _proj_dict(p):
     return {"id": p.id, "name": p.name, "domain": p.domain, "country": p.country,
-            "mode": p.mode, "freshness_days": p.freshness_days,
+            "language": p.language, "mode": p.mode, "freshness_days": p.freshness_days,
             "slug": p.slug, "publish_mode": p.publish_mode, "custom_domain": p.custom_domain,
             "public_home": project_public_home(p)}
 

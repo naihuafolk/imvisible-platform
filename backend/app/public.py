@@ -205,7 +205,9 @@ article hr{border:0;border-top:1px solid var(--line);margin:2.3em 0}
 
 
 def _head(title, desc, canonical, lang, jsonld_list, og_type="article", published=None, modified=None):
-    ld = "\n".join('<script type="application/ld+json">%s</script>' % j for j in jsonld_list if j)
+    # escape "</" -> "<\/" (valid JSON) กัน </script> ในหัวข้อ/คำอธิบายมาปิด script block ก่อน (กัน JSON-LD พัง/injection)
+    ld = "\n".join('<script type="application/ld+json">%s</script>' % j.replace("</", "<\\/")
+                   for j in jsonld_list if j)
     times = ""
     if published:
         times += '<meta property="article:published_time" content="%s">' % _esc(published.isoformat())
