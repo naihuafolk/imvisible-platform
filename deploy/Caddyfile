@@ -7,7 +7,7 @@
     root * /srv/landing
 
     # หน้าแรก + /en/ + ไฟล์ระดับเว็บ เสิร์ฟแบบ static (เร็ว + เป๊ะทุกพิกเซล)
-    @landing path / /en /en/ /og-cover.png /llms.txt
+    @landing path / /en /en/ /og-cover.png /llms.txt /googleda33bb425e22c4c7.html
     handle @landing {
         try_files {path} /index.html
         file_server
