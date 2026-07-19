@@ -294,7 +294,7 @@
           d.fields.map(function (f) { return fInput(d.kind, f); }).join('') +
           '<button class="btn btn-primary btn-sm ch-save" data-kind="' + d.kind + '">บันทึก ' + esc(d.name) + '</button></div></div>';
       }).join('');
-    ui.modal({ title: 'เชื่อมช่องทางกระจาย (8 ช่อง)', sub: 'โพสต์บทความใหม่ขึ้นทุกช่องของคุณอัตโนมัติ', width: 640, body: body });
+    ui.modal({ title: 'เชื่อมช่องทางกระจาย (10 ช่อง)', sub: 'โพสต์บทความใหม่ขึ้นทุกช่องของคุณอัตโนมัติ', width: 640, body: body });
     Array.prototype.forEach.call(document.querySelectorAll('.ch-save'), function (b) {
       b.onclick = function () {
         var kind = b.getAttribute('data-kind');
