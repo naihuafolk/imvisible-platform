@@ -205,12 +205,15 @@
       var projs = res.projects || [];
       if (!projs.length) { out.innerHTML = '<div class="hint">ยังไม่มีโปรเจ็คใน DB — สร้างในหน้าจัดการโปรเจ็ค หรือรัน grow_test</div>'; return; }
       out.innerHTML = projs.map(function (p) {
+        var home = p.public_home || '';
         return '<div class="panel mb"><div class="panel-body">' +
           '<div class="row between wrap" style="gap:8px">' +
-          '<div class="bb">' + esc(p.name) + ' <span class="soft small">· ' + esc(p.domain) + ' · โหมด ' + esc(p.mode) + '</span></div>' +
+          '<div class="bb">' + esc(p.name) + ' <span class="soft small">· ' + esc(p.domain) + ' · โหมด ' + esc(p.mode) +
+            ' · ' + esc(p.publish_mode === 'wordpress' ? 'WordPress ลูกค้า' : (p.publish_mode === 'none' ? 'ไม่เผยแพร่' : 'โฮสต์ให้')) + '</span></div>' +
           '<div class="row gap-s">' +
           '<button class="btn btn-sm btn-green rp-grow" data-id="' + p.id + '">🚀 ผลิตเดี๋ยวนี้</button>' +
           '<button class="btn btn-sm rp-arts" data-id="' + p.id + '">ดูบทความจริง</button></div></div>' +
+          (home ? '<div class="soft small" style="margin-top:6px">🌐 บล็อกที่เราโฮสต์ให้: <a href="' + esc(home) + '" target="_blank">' + esc(home) + '</a></div>' : '') +
           '<div class="rp-arts-out" data-for="' + p.id + '" style="margin-top:8px"></div></div></div>';
       }).join('');
       wireReal(root);

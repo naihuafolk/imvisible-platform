@@ -3,20 +3,25 @@ RankPilot AI — Backend API (FastAPI)
 รัน: uvicorn app.main:app --reload   (จากโฟลเดอร์ backend/)
 เอกสาร API อัตโนมัติ: http://localhost:8000/docs
 """
+import secrets
+
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.config import settings, integration_status
 from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
-    RegisterRequest, LoginRequest, ProjectCreate,
+    RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining
 from app.auth import security
 from app.auth.deps import get_current_user
 from app.db import session as db
+from app import public
+from app.urls import project_slug_from_domain, project_public_home
 
 app = FastAPI(title="ImVisible API", version="1.0")
 
@@ -27,6 +32,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Managed Hosting — เสิร์ฟบล็อกลูกค้าจาก DB (/blog/{slug}, custom domain, sitemap, llms.txt)
+app.include_router(public.router)
+
 
 @app.on_event("startup")
 async def _startup():
@@ -34,6 +42,13 @@ async def _startup():
     if db.enabled():
         try:
             await db.create_all()
+        except Exception:
+            pass
+        # เพิ่มคอลัมน์ Managed Hosting ให้ตารางเดิม + backfill slug (idempotent)
+        # สำคัญ: กันช่วงที่ ORM มีคอลัมน์ใหม่แต่ตารางยังไม่มี → ทุก query จะพัง
+        try:
+            from app import migrate
+            await migrate.run()
         except Exception:
             pass
 
@@ -90,7 +105,27 @@ async def me(user=Depends(get_current_user)):
 # ---------- Projects (เชื่อม DB จริง) ----------
 def _proj_dict(p):
     return {"id": p.id, "name": p.name, "domain": p.domain, "country": p.country,
-            "mode": p.mode, "freshness_days": p.freshness_days}
+            "mode": p.mode, "freshness_days": p.freshness_days,
+            "slug": p.slug, "publish_mode": p.publish_mode, "custom_domain": p.custom_domain,
+            "public_home": project_public_home(p)}
+
+
+def _clean_custom_domain(raw: str) -> str:
+    """ตรวจ custom domain ที่ลูกค้าส่งมา — กันตั้งเป็น *.imvisible.tech (แย่งซับโดเมนคนอื่น) + กันค่าเพี้ยน"""
+    d = (raw or "").strip().lower().split("/")[0].split(":")[0]
+    if not d:
+        return ""
+    base = settings.managed_base_domain.lower()
+    if d == base or d.endswith("." + base):
+        raise HTTPException(422, "custom domain ต้องเป็นโดเมนของลูกค้าเอง (ตั้งเป็น *.%s ไม่ได้)" % base)
+    if " " in d or "." not in d or ".." in d or d.startswith(".") or d.endswith("."):
+        raise HTTPException(422, "custom domain ไม่ถูกต้อง")
+    return d
+
+
+def _norm_publish_mode(mode: str) -> str:
+    """ลูกค้าตั้งได้แค่ managed | none (wordpress = Phase 2 ต้องมี per-project creds ก่อน)"""
+    return mode if mode in ("managed", "none") else "managed"
 
 
 @app.get("/api/projects")
@@ -105,13 +140,77 @@ async def list_projects(user=Depends(get_current_user)):
 
 @app.post("/api/projects")
 async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
+    """ลูกค้าใส่แค่ลิงก์เว็บ (url) หรือ domain → ระบบแตกเป็น name/domain/slug + ตั้งปลายทางเผยแพร่ให้เอง"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from urllib.parse import urlparse
+    from app.db.models import Project
+    domain = (req.domain or "").strip().lower()
+    if not domain and req.url:                       # "ลูกค้าใส่แค่ลิงก์"
+        u = req.url.strip()
+        if "://" not in u:
+            u = "https://" + u
+        domain = (urlparse(u).hostname or "").removeprefix("www.")
+    if not domain:
+        raise HTTPException(422, "กรุณาระบุเว็บไซต์ (url หรือ domain)")
+    name = (req.name or "").strip() or domain
+    base_slug = project_slug_from_domain(domain)
+    custom = _clean_custom_domain(req.custom_domain)
+    pmode = _norm_publish_mode(req.publish_mode or "managed")
+    async with db.session() as s:
+        if custom:                                   # กันโดเมนซ้ำกับโปรเจ็คอื่น (backstop = unique index)
+            dup = (await s.execute(select(Project.id).where(Project.custom_domain == custom))).first()
+            if dup:
+                raise HTTPException(409, "โดเมนนี้ถูกใช้กับโปรเจ็คอื่นแล้ว")
+        slug = base_slug
+        p = None
+        for _ in range(6):                           # slug unique index จับการชน (รวม race) → retry
+            cand = Project(user_id=user["id"], name=name, domain=domain, country=req.country,
+                           language=req.language or "th", mode=req.mode,
+                           publish_mode=pmode, custom_domain=custom, slug=slug)
+            s.add(cand)
+            try:
+                await s.commit()
+                p = cand
+                break
+            except IntegrityError:
+                await s.rollback()
+                slug = "%s-%s" % (base_slug, secrets.token_hex(3))
+        if p is None:
+            raise HTTPException(409, "สร้างโปรเจ็คไม่สำเร็จ (โดเมน/slug ชนกัน) ลองใหม่อีกครั้ง")
+        await s.refresh(p)
+        result = _proj_dict(p)
+    return result
+
+
+@app.put("/api/projects/{project_id}/publish")
+async def set_publish_target(project_id: int, req: PublishTargetUpdate, user=Depends(get_current_user)):
+    """ตั้งปลายทางเผยแพร่ของโปรเจ็ค: managed (เราโฮสต์ให้) / wordpress / none + custom domain"""
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import Project
+    if req.publish_mode not in ("managed", "none"):
+        raise HTTPException(422, "publish_mode ต้องเป็น managed | none")
+    custom = _clean_custom_domain(req.custom_domain)
     async with db.session() as s:
-        p = Project(user_id=user["id"], name=req.name, domain=req.domain, country=req.country, mode=req.mode)
-        s.add(p); await s.commit(); await s.refresh(p)
-    return _proj_dict(p)
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        if custom:                                   # กันแย่งโดเมนโปรเจ็คอื่น (backstop = unique index)
+            dup = (await s.execute(select(Project.id).where(
+                Project.custom_domain == custom, Project.id != project_id))).first()
+            if dup:
+                raise HTTPException(409, "โดเมนนี้ถูกใช้กับโปรเจ็คอื่นแล้ว")
+        p.publish_mode = req.publish_mode
+        p.custom_domain = custom
+        try:
+            await s.commit()
+        except IntegrityError:
+            await s.rollback()
+            raise HTTPException(409, "โดเมนนี้ถูกใช้แล้ว")
+        await s.refresh(p)
+        result = _proj_dict(p)
+    return result
 
 
 @app.post("/api/projects/{project_id}/grow")
@@ -146,6 +245,30 @@ async def project_articles(project_id: int, user=Depends(get_current_user)):
             select(Article).where(Article.project_id == project_id).order_by(Article.id.desc()))).scalars().all()
     return {"articles": [{"id": a.id, "title": a.title, "status": a.status,
                           "words": a.words, "url": a.url} for a in rows]}
+
+
+@app.get("/api/tls/check")
+async def tls_check(domain: str = ""):
+    """Caddy on-demand TLS 'ask' — คืน 200 เฉพาะโดเมนลูกค้าที่ลงทะเบียนจริง (กันคนสุ่มยิงขอ cert)"""
+    d = (domain or "").strip().lower().split(":")[0]
+    if not d:
+        raise HTTPException(400, "no domain")
+    base = settings.managed_base_domain.lower()
+    from app.db.models import Project
+    if d == base or d.endswith("." + base):          # {slug}.imvisible.tech → ต้องมี slug จริง
+        sub = d[: -(len(base) + 1)] if d.endswith("." + base) else ""
+        if db.enabled() and sub and "." not in sub:
+            async with db.session() as s:
+                p = (await s.execute(select(Project).where(Project.slug == sub))).scalars().first()
+            if p:
+                return {"ok": True, "domain": d}
+        raise HTTPException(404, "unknown subdomain")
+    if db.enabled():                                 # custom domain → ต้องผูกกับโปรเจ็คไว้
+        async with db.session() as s:
+            p = (await s.execute(select(Project).where(Project.custom_domain == d))).scalars().first()
+        if p:
+            return {"ok": True, "domain": d}
+    raise HTTPException(404, "unknown domain")
 
 
 @app.get("/api/integrations")

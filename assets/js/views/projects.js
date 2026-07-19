@@ -94,9 +94,20 @@
           promptSet: 0, freshnessDays: 120, authors: 0,
           health: { gsc: false, serp: true, ai: false, publish: false }
         });
-        if (RP.api && RP.api.reachable()) {   // สร้างในระบบจริง (DB) ด้วย → auto-loop เริ่มผลิตให้
-          RP.api.createProject({ name: name, domain: domain, mode: modeEl ? modeEl.value : 'approve', country: 'ไทย' })
-            .then(function (p) { RP.ui.toast('บันทึกลงระบบจริงแล้ว (id ' + p.id + ') ✓ ระบบจะเริ่มผลิตคอนเทนต์ให้'); })
+        if (RP.api && RP.api.reachable()) {   // สร้างในระบบจริง (DB) ด้วย → auto-loop เริ่มผลิต + โฮสต์บล็อกให้
+          var langSel = document.getElementById('np_country');
+          var language = (langSel && /อังกฤษ/.test(langSel.value)) ? 'en' : 'th';
+          RP.api.createProject({ name: name, domain: domain, mode: modeEl ? modeEl.value : 'approve',
+                                 country: 'ไทย', language: language, publish_mode: 'managed' })
+            .then(function (p) {
+              var home = p.public_home || '';
+              RP.ui.toast('สร้างในระบบจริงแล้ว ✓ ระบบจะเริ่มผลิต + โฮสต์บล็อกให้อัตโนมัติ');
+              if (home) RP.ui.modal({ title: 'บล็อกของคุณพร้อมแล้ว 🎉', sub: 'ลูกค้าใส่แค่ลิงก์ — ที่เหลือเราจัดการให้', width: 560,
+                body: '<div class="note-box mb">ระบบจะเขียนบทความตามสูตร AEO แล้วเผยแพร่ที่นี่ให้อัตโนมัติ (ไม่ต้องแตะอะไรเลย)</div>' +
+                  '<div class="soft small" style="margin-bottom:6px">บล็อกที่เราโฮสต์ให้:</div>' +
+                  '<a href="' + RP.esc(home) + '" target="_blank" class="bb" style="word-break:break-all">' + RP.esc(home) + '</a>' +
+                  '<div class="hint" style="margin-top:12px">อยากให้อยู่บนโดเมนคุณเอง (เช่น <b>blog.' + RP.esc(domain) + '</b>)? ตั้งค่า CNAME มาที่เรา 1 บรรทัด แล้วแจ้งทีม — ระบบออก HTTPS ให้อัตโนมัติ</div>' });
+            })
             .catch(function (e) { RP.ui.toast('บันทึก DB ไม่ได้ (ต้องล็อกอินจริง): ' + RP.esc(e.message || String(e))); });
         }
         ui.closeModal();

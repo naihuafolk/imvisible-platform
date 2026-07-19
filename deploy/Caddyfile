@@ -1,7 +1,14 @@
 # Caddy = reverse proxy + Auto-HTTPS (ขอ SSL Let's Encrypt ให้อัตโนมัติ)
 # ใช้ตัวแปร DOMAIN / APP_DOMAIN จาก environment (ตั้งใน docker-compose.prod.yml)
 
-# imvisible.tech → หน้าแรก = landing พรีเมียม (static) · ที่เหลือ = WordPress
+# ---- Global: อนุญาตออกใบ SSL แบบ on-demand เฉพาะโดเมนลูกค้าที่ลงทะเบียนไว้ ----
+{
+    on_demand_tls {
+        ask http://api:8000/api/tls/check
+    }
+}
+
+# imvisible.tech → หน้าแรก = landing พรีเมียม (static) · /blog/* = บล็อกลูกค้า · ที่เหลือ = WordPress
 {$DOMAIN}, www.{$DOMAIN} {
     encode gzip
     root * /srv/landing
@@ -13,7 +20,12 @@
         file_server
     }
 
-    # ที่เหลือทั้งหมด (บทความ, /wp-admin, /wp-json, /wp-content, sitemap ฯลฯ) → WordPress
+    # Managed Hosting แบบ path (ใช้ได้ทันที ไม่ต้องตั้ง DNS): imvisible.tech/blog/{slug}/...
+    handle /blog/* {
+        reverse_proxy api:8000
+    }
+
+    # ที่เหลือทั้งหมด (บทความ WP, /wp-admin, /wp-json, /wp-content, sitemap ฯลฯ) → WordPress
     handle {
         reverse_proxy wordpress:80
     }
@@ -33,4 +45,15 @@
         try_files {path} /index.html
         file_server
     }
+}
+
+# ---- โดเมนลูกค้า (managed hosting เต็มรูป) ----
+# ครอบคลุม: {slug}.imvisible.tech และ custom domain (เช่น blog.abccoffee.com ที่ตั้ง CNAME มา)
+# ออกใบ SSL อัตโนมัติแบบ on-demand — โดนกรองด้วย /api/tls/check ว่าเป็นโดเมนที่ลงทะเบียนจริง
+https:// {
+    tls {
+        on_demand
+    }
+    encode gzip
+    reverse_proxy api:8000
 }

@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     webflow_api_token: str = ""
     webflow_collection_id: str = ""
 
+    # 5b) Managed Hosting — โฮสต์บล็อกลูกค้าให้เอง (ลูกค้าใส่แค่ลิงก์ก็ใช้ได้)
+    managed_base_domain: str = "imvisible.tech"   # เสิร์ฟที่ {slug}.imvisible.tech และ /blog/{slug}
+    managed_scheme: str = "https"
+
     # 6) IndexNow
     indexnow_key: str = ""
     indexnow_host: str = ""

@@ -6,12 +6,15 @@
 """
 import asyncio
 import re
+from types import SimpleNamespace
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.worker.celery_app import celery_app
 from app.connectors import mining, content, serp, citation, publish
 from app.db import session as db
+from app import urls
 
 
 def _run(coro):
@@ -20,6 +23,10 @@ def _run(coro):
 
 def _wordcount(html: str) -> int:
     return len(re.sub(r"<[^>]+>", " ", html or "").split())
+
+
+def _plain(html: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or "")).strip()
 
 
 # =========================================================
@@ -73,22 +80,39 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
         proj = await s.get(Project, project_id)
         if not proj:
             return {"error": "project %s not found" % project_id}
+        # ให้แน่ใจว่าโปรเจ็คมี slug (โปรเจ็คเก่า/สร้างก่อนฟีเจอร์ Managed Hosting)
+        if not (proj.slug or "").strip():
+            base = urls.project_slug_from_domain(proj.domain or proj.name)
+            proj.slug = base
+            try:                                    # slug unique index จับการชน → fallback base-{id} (unique แน่นอน)
+                await s.commit()
+            except IntegrityError:
+                await s.rollback()
+                proj = await s.get(Project, project_id)
+                proj.slug = "%s-%d" % (base, project_id)
+                await s.commit()
+        # เก็บค่าที่ต้องใช้ลง local (กัน attribute expire หลังปิด session)
+        p = SimpleNamespace(name=proj.name, domain=proj.domain, slug=proj.slug,
+                            custom_domain=getattr(proj, "custom_domain", "") or "",
+                            language=proj.language, mode=proj.mode,
+                            publish_mode=getattr(proj, "publish_mode", "managed") or "managed")
         existing = set((await s.execute(
             select(Article.title).where(Article.project_id == project_id))).scalars().all())
 
     # 1) ขุดคำถามจริงจากชื่อโปรเจ็ค (M1) — กัน external API ล่มทำทั้ง task พัง
-    seed = (proj.name or proj.domain or "").strip()
+    seed = (p.name or p.domain or "").strip()
     try:
         mined = await mining.mine(seed)
     except Exception as e:  # noqa: BLE001
-        return {"project": proj.name, "produced": 0, "note": "mining failed: " + str(e)[:120]}
+        return {"project": p.name, "produced": 0, "note": "mining failed: " + str(e)[:120]}
     topics = [q.get("q") for q in mined.get("questions", []) if q.get("q") and q.get("q") not in existing]
     topics = topics[:max_new]
     if not topics:
-        return {"project": proj.name, "produced": 0, "note": "ไม่มีหัวข้อใหม่ให้ผลิต"}
+        return {"project": p.name, "produced": 0, "note": "ไม่มีหัวข้อใหม่ให้ผลิต"}
 
     all_q = [q.get("q") for q in mined.get("questions", []) if q.get("q")]
-    lang = "English" if str(proj.language).lower().startswith("en") else "ภาษาไทย"
+    lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
+    auto = (p.mode == "auto")
     results = []
     for topic in topics:
         try:
@@ -101,31 +125,56 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
             except Exception:
                 comp_text = ""
             gen = await content.generate(topic, "บทความยาว", 1500,   # 2) เขียนด้วย AI (M2 · เครื่องยนต์ 3 stage)
-                                         questions=all_q, domain=proj.domain, language=lang,
-                                         competitors=comp_text, target_url="https://" + proj.domain)
+                                         questions=all_q, domain=p.domain, language=lang,
+                                         competitors=comp_text, target_url="https://" + p.domain)
             html = gen.get("html", "")
-            auto = (proj.mode == "auto")
             async with db.session() as s:
                 art = Article(project_id=project_id, title=topic, html=html,
+                              schema_json=gen.get("schema", "") or "",
+                              description=_plain(html)[:300],
                               words=_wordcount(html), fmt="บทความยาว",
                               status="published" if auto else "draft")
                 s.add(art); await s.commit(); await s.refresh(art)
-                art_id = art.id
-            item = {"topic": topic, "article_id": art_id, "provider": gen.get("provider")}
-            if auto:                                                  # 3) เผยแพร่ + แจ้ง index (M4)
+                art.slug = urls.article_slug(topic, art.id)
+                if auto and p.publish_mode == "managed":   # managed = เสิร์ฟจาก DB → ตั้ง URL สาธารณะเลย
+                    art.url = urls.public_url_for(p, art)
+                await s.commit()
+                art_id, art_slug, art_url = art.id, art.slug, art.url
+            item = {"topic": topic, "article_id": art_id, "provider": gen.get("provider"),
+                    "publish_mode": p.publish_mode}
+            if not auto:                                              # โหมด approve → เก็บเป็นร่าง
+                item["status"] = "draft (รออนุมัติ)"
+            elif p.publish_mode == "wordpress":                       # 3a) เผยแพร่ขึ้น WordPress ลูกค้า (M4)
                 pub = await publish.publish_and_index(topic, html, "publish", None)
                 link = (pub.get("wordpress") or {}).get("link", "")
                 if link:
                     async with db.session() as s:
                         a = await s.get(Article, art_id)
-                        if a: a.url = link; await s.commit()
+                        if a:
+                            a.url = link; await s.commit()
                 item["published"] = link or "(no link)"
-            else:
-                item["status"] = "draft (รออนุมัติ)"
+            elif p.publish_mode == "managed":                         # 3b) Managed = สดจาก DB + แจ้ง index
+                item["published"] = art_url
+                try:
+                    from urllib.parse import urlparse
+                    host = urlparse(art_url).hostname or ""
+                    if host.endswith(publish_host_base()):   # ping เฉพาะโดเมนที่เราคุม key ได้
+                        await publish.indexnow_submit(art_url)
+                        item["indexnow"] = "pinged"
+                except Exception:
+                    pass
+            else:                                                     # none = เก็บใน DB เฉย ๆ
+                item["published"] = "(mode=none)"
             results.append(item)
         except Exception as e:  # noqa: BLE001
             results.append({"topic": topic, "error": str(e)})
-    return {"project": proj.name, "mode": proj.mode, "produced": len(results), "items": results}
+    return {"project": p.name, "mode": p.mode, "publish_mode": p.publish_mode,
+            "produced": len(results), "items": results}
+
+
+def publish_host_base() -> str:
+    from app.config import settings
+    return settings.managed_base_domain
 
 
 @celery_app.task(name="app.worker.tasks.grow_all_projects")

@@ -29,6 +29,9 @@
     _post: function (path, body) {
       return fetch(api.base + path, { method: 'POST', headers: api._headers(), body: JSON.stringify(body) }).then(chk);
     },
+    _put: function (path, body) {
+      return fetch(api.base + path, { method: 'PUT', headers: api._headers(), body: JSON.stringify(body) }).then(chk);
+    },
 
     health: function () { return api._get('/health'); },
     integrations: function () { return api._get('/api/integrations'); },
@@ -49,7 +52,8 @@
     projects: function () { return api._get('/api/projects'); },
     createProject: function (o) { return api._post('/api/projects', o); },
     grow: function (pid) { return api._post('/api/projects/' + pid + '/grow', {}); },
-    projectArticles: function (pid) { return api._get('/api/projects/' + pid + '/articles'); }
+    projectArticles: function (pid) { return api._get('/api/projects/' + pid + '/articles'); },
+    setPublishTarget: function (pid, o) { return api._put('/api/projects/' + pid + '/publish', o); }
   };
 
   function chk(r) {

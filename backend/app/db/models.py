@@ -33,6 +33,12 @@ class Project(Base):
     language: Mapped[str] = mapped_column(String(50), default="th")
     mode: Mapped[str] = mapped_column(String(20), default="approve")   # approve | auto
     freshness_days: Mapped[int] = mapped_column(Integer, default=120)
+    # --- ปลายทางเผยแพร่ (Phase 1: Managed Hosting) ---
+    # ความ unique ของ slug + custom_domain บังคับด้วย unique index ใน migrate.py
+    # (สร้างหลัง backfill — กัน hijack/ชน + กัน MultipleResultsFound)
+    slug: Mapped[str] = mapped_column(String(120), default="")                  # โฮสต์ที่ {slug}.imvisible.tech / /blog/{slug}
+    publish_mode: Mapped[str] = mapped_column(String(20), default="managed")    # managed | wordpress | none
+    custom_domain: Mapped[str] = mapped_column(String(255), default="")         # เช่น blog.abccoffee.com (CNAME มาที่เรา)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     articles: Mapped[list["Article"]] = relationship(back_populates="project")
@@ -43,9 +49,12 @@ class Article(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     title: Mapped[str] = mapped_column(String(500))
+    slug: Mapped[str] = mapped_column(String(200), default="", index=True)   # ส่วนท้าย URL สาธารณะ
+    description: Mapped[str] = mapped_column(String(400), default="")        # meta description / excerpt
     cluster: Mapped[str] = mapped_column(String(200), default="")
     fmt: Mapped[str] = mapped_column(String(50), default="บทความยาว")
     html: Mapped[str] = mapped_column(Text, default="")
+    schema_json: Mapped[str] = mapped_column(Text, default="")               # JSON-LD (Article/FAQPage) สำหรับ render หน้า AEO
     words: Mapped[int] = mapped_column(Integer, default=0)
     aeo_score: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20), default="draft")   # draft|factcheck|ready|scheduled|published

@@ -52,7 +52,16 @@ class LoginRequest(BaseModel):
 
 
 class ProjectCreate(BaseModel):
-    name: str
-    domain: str
+    name: str = ""
+    domain: str = ""
+    url: str = ""                    # ลูกค้าใส่แค่ลิงก์เว็บ → ระบบแตกเป็น domain/name/slug ให้เอง
     country: str = "ไทย"
+    language: str = "th"
     mode: str = "approve"
+    publish_mode: str = "managed"    # managed (เราโฮสต์ให้) | wordpress | none
+    custom_domain: str = ""          # เช่น blog.abccoffee.com (ตั้ง CNAME มาที่เรา)
+
+
+class PublishTargetUpdate(BaseModel):
+    publish_mode: str = "managed"    # managed | wordpress | none
+    custom_domain: str = ""

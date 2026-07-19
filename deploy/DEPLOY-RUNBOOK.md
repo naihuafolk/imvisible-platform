@@ -107,3 +107,70 @@ python3 publish_content.py               # ลงจริง (2 หน้า + 
 - [ ] ให้ระบบผลิตคอนเทนต์ต่อเนื่อง (Freshness) → authority สะสมเอง
 
 > จุดยืน: **ไม่โกง** — ทุกตัวเลข/รีวิว/เคส ต้องมาจากของจริงเท่านั้น (นี่คือจุดขายของแบรนด์)
+
+---
+
+## 🏢 STEP 9 — Managed Hosting (ลูกค้าใส่แค่ลิงก์ = เราโฮสต์บล็อกให้)
+
+> ฟีเจอร์ครบวงจร: ลูกค้าใส่ URL → ระบบเขียน AEO + **เผยแพร่เอง** ที่ `imvisible.tech/blog/{slug}`
+> (อัปเกรดเป็น `blog.ลูกค้า.com` ได้ด้วย CNAME 1 บรรทัด) — โค้ดใหม่: `backend/app/public.py`, `urls.py`, `migrate.py`, publish routing ใน `tasks.py`, `deploy/Caddyfile`
+
+**9.1 ดึงโค้ด + validate Caddy ก่อน (สำคัญ — กัน config พังทั้งเว็บ)**
+```bash
+cd ~/imvisible-platform && git pull
+cd deploy
+# ตรวจ Caddyfile ว่าถูกต้องก่อน reload (ถ้าไม่ผ่าน อย่าเพิ่ง up)
+docker compose -f docker-compose.prod.yml exec caddy caddy validate --config /etc/caddy/Caddyfile \
+  || echo "!! Caddyfile ไม่ผ่าน — คอมเมนต์บล็อก https:// ท้ายไฟล์ออกก่อน แล้ว validate ใหม่"
+```
+
+**9.2 rebuild backend (api/worker/beat) + reload caddy**
+```bash
+docker compose -f docker-compose.prod.yml up -d --build api worker beat caddy
+sleep 6
+# ตรวจว่า api ขึ้นตาราง/คอลัมน์ใหม่ให้แล้ว (startup รัน migrate อัตโนมัติ)
+docker compose -f docker-compose.prod.yml logs api 2>&1 | tail -20
+```
+
+**9.3 รัน migration ซ้ำแบบ manual (belt-and-suspenders — idempotent รันซ้ำได้)**
+```bash
+docker compose -f docker-compose.prod.yml exec api python -m app.migrate
+# ควรเห็น OK ... + backfill projects/articles slug + "migration done ✓"
+```
+
+**9.4 ทดสอบ end-to-end (path-based — ใช้ได้ทันที ไม่ต้องตั้ง DNS)**
+```bash
+# ดู slug ของโปรเจ็คแรกจาก DB
+docker compose -f docker-compose.prod.yml exec db psql -U imvisible -d imvisible -c \
+  "select id,slug,publish_mode,custom_domain from projects order by id;"
+# เปิดบล็อก (แทน {slug})
+curl -sI https://imvisible.tech/blog/{slug}            # 200 = หน้าอินเด็กซ์บล็อก
+curl -s  https://imvisible.tech/blog/{slug}/sitemap.xml | head -3
+curl -s  https://imvisible.tech/blog/{slug}/llms.txt   | head -5
+```
+> หรือทำผ่านแดชบอร์ด: สร้างโปรเจ็คใหม่ → จะมี modal โชว์ลิงก์บล็อกที่เราโฮสต์ให้ → กด "ผลิตเดี๋ยวนี้" (ถ้าโหมด auto จะเผยแพร่ทันที · โหมด approve เก็บเป็นร่างก่อน)
+
+**9.5 (ออปชัน) ให้บล็อกอยู่บนโดเมนลูกค้า — 2 แบบ**
+
+*แบบ A — ซับโดเมนของเรา `{slug}.imvisible.tech` (ตั้ง DNS ฝั่งเราครั้งเดียว):*
+```
+ที่ DNS ของ imvisible.tech เพิ่ม wildcard:
+   ชนิด A   ชื่อ *   ค่า <IP ของ ECS>      # *.imvisible.tech → เครื่องเรา
+```
+Caddy จะออก HTTPS ให้แต่ละซับโดเมนอัตโนมัติ (on-demand · ผ่าน /api/tls/check)
+
+*แบบ B — โดเมนลูกค้าเอง `blog.ลูกค้า.com` (ลูกค้าตั้ง CNAME):*
+1. ในแดชบอร์ด/หรือ API: ตั้ง custom_domain ให้โปรเจ็ค
+   ```bash
+   # ผ่าน API (ต้องมี token ลูกค้า):
+   curl -X PUT https://app.imvisible.tech/api/projects/{id}/publish \
+     -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+     -d '{"publish_mode":"managed","custom_domain":"blog.abccoffee.com"}'
+   ```
+2. ลูกค้าเพิ่ม DNS ฝั่งเขา **1 บรรทัด**:  `CNAME  blog  →  cname.imvisible.tech`
+   (ให้ `cname.imvisible.tech` เป็น CNAME/A ชี้มาที่ IP ของเรา)
+3. เปิด `https://blog.abccoffee.com` → Caddy ขอ SSL ให้เอง (เพราะ /api/tls/check เห็น custom_domain นี้แล้ว) → เสิร์ฟบล็อกที่ root
+
+**9.6 หมายเหตุความปลอดภัย**
+- `/api/tls/check` ปล่อยออกใบ SSL **เฉพาะ** ซับโดเมนที่มี slug จริง หรือ custom_domain ที่ลงทะเบียนไว้ (กันคนสุ่มยิงขอ cert)
+- publish_mode: `managed` (เราโฮสต์) · `wordpress` (ขึ้นเว็บลูกค้า — STEP 4 creds) · `none` (เก็บใน DB เฉย ๆ)
