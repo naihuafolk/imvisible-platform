@@ -79,10 +79,14 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
     if not topics:
         return {"project": proj.name, "produced": 0, "note": "ไม่มีหัวข้อใหม่ให้ผลิต"}
 
+    all_q = [q.get("q") for q in mined.get("questions", []) if q.get("q")]
+    lang = "English" if str(proj.language).lower().startswith("en") else "ภาษาไทย"
     results = []
     for topic in topics:
         try:
-            gen = await content.generate(topic, "บทความยาว", 1500)   # 2) เขียนด้วย AI (M2)
+            gen = await content.generate(topic, "บทความยาว", 1500,   # 2) เขียนด้วย AI (M2 · เครื่องยนต์ 3 stage)
+                                         questions=all_q, domain=proj.domain, language=lang,
+                                         target_url="https://" + proj.domain)
             html = gen.get("html", "")
             auto = (proj.mode == "auto")
             async with db.session() as s:
