@@ -58,7 +58,10 @@
     getChannels: function (pid) { return api._get('/api/projects/' + pid + '/channels'); },
     setChannel: function (pid, o) { return api._put('/api/projects/' + pid + '/channels', o); },
     articleDistribution: function (aid) { return api._get('/api/articles/' + aid + '/distribution'); },
-    redistribute: function (aid) { return api._post('/api/articles/' + aid + '/distribute', {}); }
+    redistribute: function (aid) { return api._post('/api/articles/' + aid + '/distribute', {}); },
+    // ---- Distribution Discovery (หาช่องกระจาย + ร่างคำตอบชุมชน) ----
+    discover: function (pid) { return api._post('/api/projects/' + pid + '/discover', {}); },
+    draftReply: function (pid, o) { return api._post('/api/projects/' + pid + '/draft-reply', o); }
   };
 
   function chk(r) {

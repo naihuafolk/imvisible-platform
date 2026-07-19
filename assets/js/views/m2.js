@@ -213,7 +213,8 @@
           '<div class="row gap-s">' +
           '<button class="btn btn-sm btn-green rp-grow" data-id="' + p.id + '">🚀 ผลิตเดี๋ยวนี้</button>' +
           '<button class="btn btn-sm rp-arts" data-id="' + p.id + '">ดูบทความจริง</button>' +
-          '<button class="btn btn-sm rp-chan" data-id="' + p.id + '">🔗 เชื่อมช่องทาง</button></div></div>' +
+          '<button class="btn btn-sm rp-chan" data-id="' + p.id + '">🔗 เชื่อมช่องทาง</button>' +
+          '<button class="btn btn-sm rp-discover" data-id="' + p.id + '">🔍 หาช่องกระจาย</button></div></div>' +
           (home ? '<div class="soft small" style="margin-top:6px">🌐 บล็อกที่เราโฮสต์ให้: <a href="' + esc(home) + '" target="_blank">' + esc(home) + '</a></div>' : '') +
           '<div class="rp-arts-out" data-for="' + p.id + '" style="margin-top:8px"></div></div></div>';
       }).join('');
@@ -303,6 +304,55 @@
     });
   }
 
+  /* ---- Distribution Discovery: หาช่องกระจาย (Pantip/ชุมชน/ไดเรกทอรี) + AI ร่างคำตอบ ---- */
+  function discoveryModal(pid) {
+    ui.modal({ title: 'หาช่องกระจาย (Discovery)', sub: 'auto หากระทู้/ชุมชน/ไดเรกทอรีที่ตรงธุรกิจ · คุณโพสต์เอง (ไม่สแปม)', width: 720,
+      body: '<div id="disc_out"><div class="soft small">กำลังค้นหาโอกาสกระจายจริงจาก Google… (อาจใช้เวลาสักครู่)</div></div>' });
+    RP.api.discover(pid).then(function (r) { renderDiscovery(pid, r); })
+      .catch(function (e) {
+        var o = document.getElementById('disc_out');
+        if (o) o.innerHTML = '<div class="hint">หาไม่ได้: ' + esc(e.message || String(e)) + ' (ต้องตั้งคีย์ SERP/DataForSEO)</div>';
+      });
+  }
+
+  function discSection(secKey, title, items, withDraft) {
+    if (!items || !items.length)
+      return '<div class="panel mb"><div class="panel-head">' + esc(title) + '</div><div class="panel-body"><div class="soft small">ไม่พบ (ลองผลิตบทความให้ตรง niche เพิ่ม)</div></div></div>';
+    return '<div class="panel mb"><div class="panel-head">' + esc(title) + ' <span class="soft small">· ' + items.length + ' รายการ</span></div><div class="panel-body">' +
+      items.map(function (it, i) {
+        return '<div style="padding:9px 0;border-bottom:1px solid var(--border)">' +
+          '<div><a href="' + esc(it.url || '#') + '" target="_blank" class="bb">' + esc(it.title || it.url || '(ไม่มีชื่อ)') + '</a> ' +
+          '<span class="soft small">· ' + esc(it.domain || '') + '</span></div>' +
+          (it.snippet ? '<div class="soft small">' + esc(it.snippet) + '</div>' : '') +
+          (withDraft ? '<div style="margin-top:5px"><button class="btn btn-sm disc-draft" data-sec="' + secKey + '" data-idx="' + i + '">✍️ ร่างคำตอบ</button><div class="disc-draft-out" style="margin-top:6px"></div></div>' : '') +
+          '</div>';
+      }).join('') + '</div></div>';
+  }
+
+  function renderDiscovery(pid, r) {
+    var o = document.getElementById('disc_out'); if (!o) return;
+    o.innerHTML =
+      '<div class="hint mb">คีย์ที่ใช้: <b>' + esc((r.keywords_used || []).join(', ')) + '</b> · <strong>auto หาให้ · คุณโพสต์เอง</strong> ตอบให้มีประโยชน์จริง ไม่ยัดขาย = ไม่โดนแบน</div>' +
+      discSection('pantip', '💬 Pantip', r.pantip, true) +
+      discSection('communities', '👥 ชุมชน (Reddit/Blockdit/กลุ่ม)', r.communities, true) +
+      discSection('directories', '📇 ไดเรกทอรี (ไปลงรายชื่อเอง)', r.directories, false);
+    Array.prototype.forEach.call(o.querySelectorAll('.disc-draft'), function (b) {
+      b.onclick = function () {
+        var sec = b.getAttribute('data-sec'), idx = parseInt(b.getAttribute('data-idx'), 10);
+        var it = (r[sec] || [])[idx] || {};
+        var out = b.nextElementSibling;
+        out.innerHTML = '<div class="soft small">กำลังร่างคำตอบ…</div>'; b.disabled = true;
+        RP.api.draftReply(pid, { question: it.title || '', snippet: it.snippet || '', url: it.url || '' })
+          .then(function (d) {
+            b.disabled = false; b.textContent = '✍️ ร่างใหม่';
+            out.innerHTML = '<div class="note-box" style="white-space:pre-wrap">' + esc(d.text || '') + '</div>' +
+              '<div class="soft small" style="margin-top:4px">โมเดล: ' + esc(d.provider || '') + ' · ก็อปไปตรวจ+โพสต์เอง ให้เป็นธรรมชาติ (อย่าก็อปดิบ)</div>';
+          })
+          .catch(function (e) { b.disabled = false; out.innerHTML = '<div class="soft small">ร่างไม่ได้: ' + esc(e.message || String(e)) + '</div>'; });
+      };
+    });
+  }
+
   function wireReal(root) {
     Array.prototype.forEach.call(root.querySelectorAll('.rp-grow'), function (b) {
       b.onclick = function () {
@@ -314,6 +364,9 @@
     });
     Array.prototype.forEach.call(root.querySelectorAll('.rp-chan'), function (b) {
       b.onclick = function () { channelModal(b.getAttribute('data-id')); };
+    });
+    Array.prototype.forEach.call(root.querySelectorAll('.rp-discover'), function (b) {
+      b.onclick = function () { discoveryModal(b.getAttribute('data-id')); };
     });
     Array.prototype.forEach.call(root.querySelectorAll('.rp-arts'), function (b) {
       b.onclick = function () {

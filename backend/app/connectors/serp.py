@@ -74,6 +74,33 @@ async def rank_check(keyword: str, domain: str,
     }
 
 
+async def search(query: str, n: int = 8,
+                 location_code: int | None = None,
+                 language_code: str | None = None) -> list[dict]:
+    """SERP search ทั่วไป — คืน organic results (title/url/domain/snippet)
+    ใช้หา 'โอกาสกระจาย' จริง: กระทู้ Pantip / ชุมชน / ไดเรกทอรี ที่ตรง niche ลูกค้า"""
+    payload = [{
+        "keyword": query,
+        "location_code": location_code or settings.serp_location_code,
+        "language_code": language_code or settings.serp_language_code,
+        "device": "desktop",
+        "depth": 20,
+    }]
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(BASE, headers=_auth_header(), json=payload)
+        r.raise_for_status()
+        data = r.json()
+    try:
+        items = data["tasks"][0]["result"][0]["items"]
+    except (KeyError, IndexError, TypeError):
+        return []
+    organic = [it for it in items if it.get("type") == "organic"]
+    return [{
+        "title": it.get("title"), "url": it.get("url"),
+        "domain": it.get("domain"), "snippet": it.get("description"),
+    } for it in organic[:n]]
+
+
 async def top_competitors(keyword: str, n: int = 5,
                           location_code: int | None = None,
                           language_code: str | None = None) -> list[dict]:

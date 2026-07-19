@@ -68,7 +68,13 @@ class PublishTargetUpdate(BaseModel):
 
 
 class ChannelUpdate(BaseModel):
-    kind: str                        # line | facebook
+    kind: str                        # line | facebook | telegram | x | linkedin | discord | mastodon | webhook
     ref: str = ""                    # facebook: page_id · line: userId/groupId (หรือ 'broadcast')
     token: str = ""                  # โทเคน (ส่งมาเฉพาะตอนตั้ง/เปลี่ยน · ว่าง = คงเดิม)
     enabled: bool = True
+
+
+class DraftRequest(BaseModel):
+    question: str                    # กระทู้/คำถามในชุมชนที่จะร่างคำตอบให้
+    snippet: str = ""
+    url: str = ""                    # ลิงก์บทความอ้างอิง (ใส่ถ้าเกี่ยวข้องจริง)

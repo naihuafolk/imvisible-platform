@@ -14,7 +14,7 @@ from app.config import settings, integration_status
 from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
-    RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate,
+    RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social
 from app.auth import security
@@ -329,6 +329,44 @@ async def redistribute(article_id: int, user=Depends(get_current_user)):
         return {"queued": True, "task_id": str(task.id)}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, "ต่อคิวไม่ได้ (worker/redis พร้อมไหม): " + str(e))
+
+
+# ---------- Distribution Discovery (หาช่องกระจายต่อลูกค้า + ร่างคำตอบ · ขาว) ----------
+@app.post("/api/projects/{project_id}/discover")
+async def discover_channels(project_id: int, user=Depends(get_current_user)):
+    """หา 'โอกาสกระจาย' ต่อลูกค้า: กระทู้ Pantip / ชุมชน / ไดเรกทอรี ที่ตรง niche (SERP จริง)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project, Article
+    from app.connectors import discovery
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        name, domain = p.name, p.domain
+        lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
+        titles = (await s.execute(select(Article.title).where(
+            Article.project_id == project_id).order_by(Article.id.desc()).limit(3))).scalars().all()
+    kws = [name] + [t for t in titles if t]
+    try:
+        return await discovery.discover(name, domain, kws, lang)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "หาโอกาสกระจายไม่ได้ (ตรวจคีย์ SERP/DataForSEO): " + str(e)[:150])
+
+
+@app.post("/api/projects/{project_id}/draft-reply")
+async def draft_reply_ep(project_id: int, req: DraftRequest, user=Depends(get_current_user)):
+    """AI ร่างคำตอบชุมชนแบบจริงใจ (คนเอาไปตรวจ+โพสต์เอง · ไม่ auto-ยิง = ไม่โดนแบน)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project
+    from app.connectors import discovery
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        brand = p.name
+        lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
+    try:
+        return await discovery.draft_reply(req.question, req.snippet, req.url, brand, lang)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ร่างคำตอบไม่ได้ (ตรวจคีย์ LLM): " + str(e)[:150])
 
 
 @app.get("/api/tls/check")
