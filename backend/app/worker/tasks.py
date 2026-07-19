@@ -168,7 +168,7 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                             a.url = link; await s.commit()
                 item["published"] = link or "(no link)"
                 item["distributed"] = await _distribute(project_id, art_id, topic, _plain(html)[:160],
-                                                         link or art_url, "wordpress", bool(pub.get("indexnow")))
+                                                         link or art_url, "wordpress", bool(pub.get("indexnow")), cover)
             elif p.publish_mode == "managed":                         # 3b) Managed = สดจาก DB + แจ้ง index
                 item["published"] = art_url
                 indexnow_ok = False
@@ -181,7 +181,7 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                 except Exception:
                     pass
                 item["distributed"] = await _distribute(project_id, art_id, topic, _plain(html)[:160],
-                                                         art_url, "blog", indexnow_ok)
+                                                         art_url, "blog", indexnow_ok, cover)
             else:                                                     # none = เก็บใน DB เฉย ๆ
                 item["published"] = "(mode=none)"
             results.append(item)
@@ -197,7 +197,7 @@ def publish_host_base() -> str:
 
 
 async def _distribute(project_id: int, article_id: int, title: str, desc: str,
-                      page_url: str, publish_channel: str, indexnow_ok: bool) -> list:
+                      page_url: str, publish_channel: str, indexnow_ok: bool, cover: str = "") -> list:
     """กระจายบทความไปช่องของลูกค้า + บันทึกทุก event (โปร่งใส ลูกค้าเห็นได้)"""
     from app.db.models import DistributionChannel, DistributionEvent
     events = [(publish_channel, "posted", page_url, "เผยแพร่แล้ว")]
@@ -214,7 +214,7 @@ async def _distribute(project_id: int, article_id: int, title: str, desc: str,
         for kind, token, ref in chan_list:
             if not token:
                 events.append((kind, "skipped", "", "ยังไม่ได้เชื่อมโทเคน")); continue
-            res = await social.dispatch(kind, token, ref, text, page_url)
+            res = await social.dispatch(kind, token, ref, text, page_url, cover)
             events.append((kind, "posted" if res.get("ok") else "failed",
                            res.get("url", ""), (res.get("detail", "") or "")[:390]))
 
@@ -242,11 +242,11 @@ async def _redistribute(project_id: int, article_id: int) -> dict:
         art = await s.get(Article, article_id)
         if not art or art.project_id != project_id:
             return {"error": "article not found"}
-        title, desc, url = art.title, (art.description or ""), art.url
+        title, desc, url, cover = art.title, (art.description or ""), art.url, (art.cover_url or "")
     if not url:
         return {"error": "บทความนี้ยังไม่ถูกเผยแพร่ (ไม่มี URL)"}
     ch = "wordpress" if "/wp" in url or url.count("/") <= 3 else "blog"
-    return {"distributed": await _distribute(project_id, article_id, title, desc[:160], url, ch, False)}
+    return {"distributed": await _distribute(project_id, article_id, title, desc[:160], url, ch, False, cover)}
 
 
 @celery_app.task(name="app.worker.tasks.grow_all_projects")

@@ -226,7 +226,8 @@
 
   var CH_LABEL = { blog: 'บล็อก', wordpress: 'WordPress', indexnow: 'IndexNow',
     line: 'LINE OA', facebook: 'Facebook', telegram: 'Telegram', x: 'X', linkedin: 'LinkedIn',
-    discord: 'Discord', mastodon: 'Mastodon', webhook: 'Webhook', distribution: 'การกระจาย' };
+    discord: 'Discord', mastodon: 'Mastodon', webhook: 'Webhook',
+    instagram: 'Instagram', pinterest: 'Pinterest', distribution: 'การกระจาย' };
 
   function distStatus(st) {
     if (st === 'posted') return ui.badge('โพสต์แล้ว', 'green');
@@ -267,7 +268,11 @@
       fields: [['token', 'OAuth2 User Token', 'password', 'ต้องมีสิทธิ์ tweet.write']] },
     { kind: 'linkedin', name: 'LinkedIn', note: 'ต้องขออนุมัติ',
       fields: [['ref', 'Author URN', 'text', 'urn:li:person:xxx หรือ urn:li:organization:xxx'], ['token', 'Access Token', 'password', 'วางโทเคน']] },
-    { kind: 'webhook', name: 'Webhook (Zapier/Make)', note: 'ต่อไปได้ทุกที่ · IG/TikTok/Pinterest ผ่าน Zapier',
+    { kind: 'instagram', name: 'Instagram', note: 'Business account · ต้องมีรูปในบทความ',
+      fields: [['ref', 'IG User ID', 'text', 'Instagram Business Account ID'], ['token', 'Access Token', 'password', 'Page token (instagram_content_publish)']] },
+    { kind: 'pinterest', name: 'Pinterest', note: 'ต้องมีรูปในบทความ',
+      fields: [['ref', 'Board ID', 'text', 'เลข Board ID'], ['token', 'Access Token', 'password', 'วางโทเคน']] },
+    { kind: 'webhook', name: 'Webhook (Zapier/Make)', note: 'ต่อไปได้ทุกที่ · TikTok ฯลฯ ผ่าน Zapier',
       fields: [['token', 'Webhook URL', 'password', 'https://hooks.zapier.com/... (https เท่านั้น)']] }
   ];
 

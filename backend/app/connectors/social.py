@@ -144,8 +144,44 @@ async def post_webhook(webhook_url: str, text: str, link: str, title: str = "") 
     return {"ok": False, "url": "", "detail": "Webhook %s: %s" % (r.status_code, (r.text or "")[:160])}
 
 
-async def dispatch(kind: str, token: str, ref: str, text: str, link: str) -> dict:
-    """ยิงไปช่องเดียวตามชนิด — คืน {ok, url, detail} (ไม่โยน exception ออก)"""
+PIN_PINS = "https://api.pinterest.com/v5/pins"
+
+
+async def post_instagram(ig_user_id: str, token: str, image_url: str, caption: str) -> dict:
+    """IG Business — 2 ขั้น: สร้าง media container → publish · ต้องมีรูป (image_url)"""
+    if not image_url:
+        return {"ok": False, "url": "", "detail": "Instagram ต้องมีรูป (บทความนี้ยังไม่มีรูปปก)"}
+    async with httpx.AsyncClient(timeout=60) as c:
+        r1 = await c.post("%s/%s/media" % (FB_GRAPH, ig_user_id),
+                          data={"image_url": image_url, "caption": (caption or "")[:2100], "access_token": token})
+    if r1.status_code != 200:
+        return {"ok": False, "url": "", "detail": "IG media %s: %s" % (r1.status_code, (r1.text or "")[:140])}
+    cid = ((r1.json() or {}).get("id") or "")
+    async with httpx.AsyncClient(timeout=60) as c:
+        r2 = await c.post("%s/%s/media_publish" % (FB_GRAPH, ig_user_id),
+                          data={"creation_id": cid, "access_token": token})
+    if r2.status_code == 200:
+        return {"ok": True, "url": "", "detail": "โพสต์ Instagram แล้ว"}
+    return {"ok": False, "url": "", "detail": "IG publish %s: %s" % (r2.status_code, (r2.text or "")[:140])}
+
+
+async def post_pinterest(board_id: str, token: str, image_url: str, title: str, link: str, desc: str) -> dict:
+    """Pinterest v5 create pin · ต้องมีรูป (image_url) + board_id"""
+    if not image_url:
+        return {"ok": False, "url": "", "detail": "Pinterest ต้องมีรูป (บทความนี้ยังไม่มีรูปปก)"}
+    body = {"board_id": board_id, "title": (title or "")[:100], "description": (desc or "")[:500],
+            "link": link or "", "media_source": {"source_type": "image_url", "url": image_url}}
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.post(PIN_PINS, headers={"Authorization": "Bearer " + token,
+                                            "Content-Type": "application/json"}, json=body)
+    if r.status_code in (200, 201):
+        pid = ((r.json() or {}).get("id") or "")
+        return {"ok": True, "url": ("https://www.pinterest.com/pin/%s/" % pid) if pid else "", "detail": "โพสต์ Pinterest แล้ว"}
+    return {"ok": False, "url": "", "detail": "Pinterest %s: %s" % (r.status_code, (r.text or "")[:140])}
+
+
+async def dispatch(kind: str, token: str, ref: str, text: str, link: str, image: str = "") -> dict:
+    """ยิงไปช่องเดียวตามชนิด — คืน {ok, url, detail} (ไม่โยน exception ออก) · image = รูปปก (สำหรับ IG/Pinterest)"""
     try:
         if kind == "line":
             return await post_line(token, ref, (text or "") + "\n" + (link or ""))
@@ -163,10 +199,15 @@ async def dispatch(kind: str, token: str, ref: str, text: str, link: str) -> dic
             return await post_mastodon(ref, token, text, link)
         if kind == "webhook":
             return await post_webhook(token, text, link, ref)
+        if kind == "instagram":
+            return await post_instagram(ref, token, image, (text or "") + "\n" + (link or ""))
+        if kind == "pinterest":
+            return await post_pinterest(ref, token, image, text, link, text)
         return {"ok": False, "url": "", "detail": "ยังไม่รองรับช่อง '%s'" % kind}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "url": "", "detail": ("%s error: %s" % (kind, str(e)))[:190]}
 
 
-# ชนิดที่รองรับ + ต้องใส่อะไรบ้าง (ใช้ตรวจฝั่ง API + สร้างฟอร์มฝั่งแดชบอร์ด)
-SUPPORTED = ("line", "facebook", "telegram", "x", "linkedin", "discord", "mastodon", "webhook")
+# ชนิดที่รองรับ (ใช้ตรวจฝั่ง API + สร้างฟอร์มฝั่งแดชบอร์ด) · ig/pinterest ต้องมีรูปปก
+SUPPORTED = ("line", "facebook", "telegram", "x", "linkedin", "discord", "mastodon", "webhook",
+             "instagram", "pinterest")
