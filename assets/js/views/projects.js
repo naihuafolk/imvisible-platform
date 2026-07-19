@@ -94,6 +94,11 @@
           promptSet: 0, freshnessDays: 120, authors: 0,
           health: { gsc: false, serp: true, ai: false, publish: false }
         });
+        if (RP.api && RP.api.reachable()) {   // สร้างในระบบจริง (DB) ด้วย → auto-loop เริ่มผลิตให้
+          RP.api.createProject({ name: name, domain: domain, mode: modeEl ? modeEl.value : 'approve', country: 'ไทย' })
+            .then(function (p) { RP.ui.toast('บันทึกลงระบบจริงแล้ว (id ' + p.id + ') ✓ ระบบจะเริ่มผลิตคอนเทนต์ให้'); })
+            .catch(function (e) { RP.ui.toast('บันทึก DB ไม่ได้ (ต้องล็อกอินจริง): ' + RP.esc(e.message || String(e))); });
+        }
         ui.closeModal();
         ui.toast('สร้างโปรเจ็ค <b>' + esc(name) + '</b> แล้ว — เชื่อมต่อที่เหลือในหน้าตั้งค่าเพื่อเริ่มวัดผล ✓');
         RP.go('projects'); mountNow();
