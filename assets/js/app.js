@@ -70,10 +70,13 @@
   }
 
   function userChip() {
-    var u = (RP.auth && RP.auth.user()) || { email: 'ผู้ใช้เดโม' };
+    var u = (RP.auth && RP.auth.user()) || { email: 'ผู้ใช้เดโม', real: false };
     var initial = (u.email || 'U').charAt(0).toUpperCase();
+    var badge = u.real
+      ? '<span style="color:var(--green-600);font-weight:700">● บัญชีจริง</span>'
+      : '<span style="color:var(--amber-600);font-weight:700">● โหมดตัวอย่าง</span>';
     return '<div class="user-chip"><div class="ua">' + initial + '</div>' +
-      '<div class="uinfo"><div class="un">' + RP.esc(u.email) + '</div><div class="ur">' + RP.esc(RP.data.account.plan) + '</div></div>' +
+      '<div class="uinfo"><div class="un">' + RP.esc(u.email) + '</div><div class="ur">' + badge + '</div></div>' +
       '<button class="icon-btn" id="logoutBtn" title="ออกจากระบบ" style="width:32px;height:32px">⎋</button></div>';
   }
 
@@ -198,7 +201,7 @@
     startApp();
   }
 
-  function startApp() {
+  function renderShell() {
     document.getElementById('sidebar').innerHTML = renderSidebar();
     wireNav(); wireUser();
     document.getElementById('scrim').onclick = closeMobileNav;
@@ -207,9 +210,21 @@
     window.addEventListener('hashchange', mountRoute);
     if (!location.hash) location.hash = '#/dashboard';
     mountRoute();
+  }
 
-    // ครั้งแรก: แสดง onboarding ตามลำดับ
-    if (RP.auth && !RP.auth.onboarded()) setTimeout(function () { if (RP.showOnboarding) RP.showOnboarding(); }, 350);
+  function startApp() {
+    // บัญชีจริง → โหลดโปรเจ็ค/สถานะจริงจาก backend ก่อนค่อยเรนเดอร์
+    if (RP.auth && RP.auth.isReal() && RP.loadRealData) {
+      RP.loadRealData(function (ok, n) {
+        if (!ok && (!RP.auth.isReal())) { RP.showLogin(startApp); return; }  // token หมดอายุ → login ใหม่
+        renderShell();
+        if (ok && !n && RP.showRealOnboarding) setTimeout(function () { RP.showRealOnboarding(); }, 300);
+      });
+      return;
+    }
+    // โหมดตัวอย่าง (เดโม)
+    renderShell();
+    if (RP.auth && !RP.auth.onboarded() && RP.showOnboarding) setTimeout(function () { RP.showOnboarding(); }, 350);
   }
 
   function wireUser() {

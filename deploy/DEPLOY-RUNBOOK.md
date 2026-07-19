@@ -124,13 +124,19 @@ docker compose -f docker-compose.prod.yml exec caddy caddy validate --config /et
   || echo "!! Caddyfile ไม่ผ่าน — คอมเมนต์บล็อก https:// ท้ายไฟล์ออกก่อน แล้ว validate ใหม่"
 ```
 
-**9.2 rebuild backend (api/worker/beat) + reload caddy**
+**9.2 rebuild backend (api/worker/beat) + โหลด Caddy config ใหม่**
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build api worker beat caddy
+docker compose -f docker-compose.prod.yml up -d --build api worker beat
+# สำคัญ: ใช้ restart (ไม่ใช่ reload) — 'caddy reload' ผ่าน exec บางที adapt สำเร็จแต่ไม่ apply จริง
+docker compose -f docker-compose.prod.yml restart caddy
 sleep 6
 # ตรวจว่า api ขึ้นตาราง/คอลัมน์ใหม่ให้แล้ว (startup รัน migrate อัตโนมัติ)
 docker compose -f docker-compose.prod.yml logs api 2>&1 | tail -20
+# ยืนยัน Caddy โหลด /blog/* แล้ว (ต้องเห็น 'handle /blog/*' หรือ HTML ของ renderer)
+docker compose -f docker-compose.prod.yml exec caddy grep -n blog /etc/caddy/Caddyfile
+curl -s https://$DOMAIN/blog/<slug> | head -c 200 ; echo
 ```
+> ⚠️ ถ้า `curl` ยังได้หน้า WordPress (เห็น `Rank Math`) แทน renderer เรา → `docker compose -f docker-compose.prod.yml restart caddy` อีกครั้งแล้วเทสซ้ำ (reload ไม่ apply เป็น quirk ที่เจอจริง)
 
 **9.3 รัน migration ซ้ำแบบ manual (belt-and-suspenders — idempotent รันซ้ำได้)**
 ```bash
