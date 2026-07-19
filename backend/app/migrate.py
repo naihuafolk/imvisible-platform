@@ -22,6 +22,7 @@ COLUMN_DDL = [
     "ALTER TABLE articles ADD COLUMN IF NOT EXISTS slug VARCHAR(200) DEFAULT ''",
     "ALTER TABLE articles ADD COLUMN IF NOT EXISTS description VARCHAR(400) DEFAULT ''",
     "ALTER TABLE articles ADD COLUMN IF NOT EXISTS schema_json TEXT DEFAULT ''",
+    "ALTER TABLE articles ADD COLUMN IF NOT EXISTS cover_url TEXT DEFAULT ''",
 ]
 
 # unique index สร้าง "หลัง backfill" เท่านั้น (ตอนแรกทุกแถว slug='' จะชนกันถ้าสร้างก่อน)

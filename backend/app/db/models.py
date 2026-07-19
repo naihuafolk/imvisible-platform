@@ -51,6 +51,7 @@ class Article(Base):
     title: Mapped[str] = mapped_column(String(500))
     slug: Mapped[str] = mapped_column(String(200), default="", index=True)   # ส่วนท้าย URL สาธารณะ
     description: Mapped[str] = mapped_column(String(400), default="")        # meta description / excerpt
+    cover_url: Mapped[str] = mapped_column(Text, default="")                 # รูปปก (Seedream/ModelArk) + og:image (signed URL อาจยาว → Text)
     cluster: Mapped[str] = mapped_column(String(200), default="")
     fmt: Mapped[str] = mapped_column(String(50), default="บทความยาว")
     html: Mapped[str] = mapped_column(Text, default="")

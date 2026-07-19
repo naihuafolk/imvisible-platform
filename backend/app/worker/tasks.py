@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.worker.celery_app import celery_app
-from app.connectors import mining, content, serp, citation, publish, social
+from app.connectors import mining, content, serp, citation, publish, social, media
 from app.db import session as db
 from app import urls, crypto
 
@@ -27,6 +27,19 @@ def _wordcount(html: str) -> int:
 
 def _plain(html: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or "")).strip()
+
+
+async def _gen_cover(topic: str) -> str:
+    """สร้างรูปปกด้วย Seedream (ModelArk) — crash-safe: ล้ม = คืน '' (บทความยังผลิตได้ปกติ ไม่มีรูปเฉยๆ)"""
+    try:
+        if not media.enabled():
+            return ""
+        prompt = ("Editorial magazine cover illustration for a blog article about: %s. "
+                  "Modern, clean, minimal, professional, blue and white color palette, "
+                  "abstract geometric shapes, no text, no letters, high quality." % topic)
+        return await media.generate_image(prompt) or ""
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 # =========================================================
@@ -128,10 +141,11 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                                          questions=all_q, domain=p.domain, language=lang,
                                          competitors=comp_text, target_url="https://" + p.domain)
             html = gen.get("html", "")
+            cover = await _gen_cover(topic)                           # รูปปก (crash-safe: ล้ม='')
             async with db.session() as s:
                 art = Article(project_id=project_id, title=topic, html=html,
                               schema_json=gen.get("schema", "") or "",
-                              description=_plain(html)[:300],
+                              description=_plain(html)[:300], cover_url=cover,
                               words=_wordcount(html), fmt="บทความยาว",
                               status="published" if auto else "draft")
                 s.add(art); await s.commit(); await s.refresh(art)

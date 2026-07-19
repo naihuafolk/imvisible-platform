@@ -139,6 +139,8 @@ font-family:"Sarabun","Noto Sans Thai","Sukhumvit Set","Segoe UI",-apple-system,
 ::selection{background:var(--sel)}
 a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline;text-underline-offset:3px}
 img{max-width:100%;height:auto;border-radius:12px}
+.cover{margin:0 0 30px}.cover img{width:100%;border-radius:var(--radius);display:block;aspect-ratio:16/9;object-fit:cover}
+.card .thumb{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;margin-bottom:12px;display:block}
 .site{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--paper) 85%,transparent);
 backdrop-filter:saturate(1.5) blur(10px);-webkit-backdrop-filter:saturate(1.5) blur(10px);border-bottom:1px solid var(--line)}
 .site .in{max-width:1040px;margin:0 auto;padding:13px 22px}
@@ -204,7 +206,7 @@ article hr{border:0;border-top:1px solid var(--line);margin:2.3em 0}
 """
 
 
-def _head(title, desc, canonical, lang, jsonld_list, og_type="article", published=None, modified=None):
+def _head(title, desc, canonical, lang, jsonld_list, og_type="article", published=None, modified=None, image=""):
     # escape "</" -> "<\/" (valid JSON) กัน </script> ในหัวข้อ/คำอธิบายมาปิด script block ก่อน (กัน JSON-LD พัง/injection)
     ld = "\n".join('<script type="application/ld+json">%s</script>' % j.replace("</", "<\\/")
                    for j in jsonld_list if j)
@@ -213,6 +215,8 @@ def _head(title, desc, canonical, lang, jsonld_list, og_type="article", publishe
         times += '<meta property="article:published_time" content="%s">' % _esc(published.isoformat())
     if modified:
         times += '<meta property="article:modified_time" content="%s">' % _esc(modified.isoformat())
+    img = ('<meta property="og:image" content="%s"><meta name="twitter:image" content="%s">'
+           % (_esc(image), _esc(image))) if image else ""
     return (
         '<!doctype html><html lang="%s"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -220,11 +224,11 @@ def _head(title, desc, canonical, lang, jsonld_list, og_type="article", publishe
         '<link rel="canonical" href="%s"><meta property="og:site_name" content="ImVisible">'
         '<meta property="og:type" content="%s"><meta property="og:title" content="%s">'
         '<meta property="og:description" content="%s"><meta property="og:url" content="%s">'
-        '<meta name="twitter:card" content="summary_large_image">'
+        '<meta name="twitter:card" content="summary_large_image">%s'
         '<link rel="alternate" hreflang="%s" href="%s"><link rel="alternate" hreflang="x-default" href="%s">'
         '%s<style>%s</style>%s</head>'
         % (lang, _esc(title), _esc(desc), _esc(canonical), og_type, _esc(title),
-           _esc(desc), _esc(canonical), lang, _esc(canonical), _esc(canonical), times, _CSS, ld)
+           _esc(desc), _esc(canonical), img, lang, _esc(canonical), _esc(canonical), times, _CSS, ld)
     )
 
 
@@ -311,14 +315,18 @@ def render_article_page(proj, art, related=None) -> str:
         rel_html = '<section class="rel"><div class="lb">อ่านต่อ</div><div class="grid">%s</div></section>' % cards
 
     header = "" if has_h1 else "<h1>%s</h1>" % _esc(art.title)
+    cover = getattr(art, "cover_url", "") or ""
+    cover_html = ('<figure class="cover"><img src="%s" alt="%s" loading="lazy"></figure>'
+                  % (_esc(cover), _esc(art.title))) if cover else ""
     return (
         _head(art.title, _desc(art), canonical, lang,
-              _article_jsonld(proj, art, canonical, home, lang), "article", published=dt, modified=dt)
+              _article_jsonld(proj, art, canonical, home, lang), "article",
+              published=dt, modified=dt, image=cover)
         + "<body>" + _chrome(proj, home)
         + '<main><div class="wrap">'
         + '<div class="crumb"><a href="%s">หน้าแรก</a> › %s</div>' % (_esc(home), _esc(cluster))
         + '<span class="eyebrow">%s</span>' % _esc(cluster)
-        + header + byline + toc_html
+        + header + byline + cover_html + toc_html
         + "<article>" + body + "</article>"
         + abox + rel_html
         + _footer(proj) + "</div></main></body></html>"
@@ -336,9 +344,12 @@ def render_index_page(proj, arts) -> str:
     }, ensure_ascii=False)
     if arts:
         cards = "".join(
-            '<a class="card" href="%s"><div class="ey">%s</div><div class="t">%s</div>'
+            '<a class="card" href="%s">%s<div class="ey">%s</div><div class="t">%s</div>'
             '<div class="x">%s</div><div class="mt">อ่าน ~%d นาที</div></a>'
-            % (_esc(a.url or public_url_for(proj, a)), _esc(getattr(a, "cluster", "") or "บทความ"),
+            % (_esc(a.url or public_url_for(proj, a)),
+               ('<img class="thumb" src="%s" alt="" loading="lazy">' % _esc(getattr(a, "cover_url", "") or ""))
+               if getattr(a, "cover_url", "") else "",
+               _esc(getattr(a, "cluster", "") or "บทความ"),
                _esc(a.title), _esc(_desc(a)), _reading_time(getattr(a, "words", 0)))
             for a in arts)
         body = '<div class="cards">%s</div>' % cards
