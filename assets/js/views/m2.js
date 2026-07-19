@@ -224,7 +224,8 @@
   }
 
   var CH_LABEL = { blog: 'บล็อก', wordpress: 'WordPress', indexnow: 'IndexNow',
-    line: 'LINE OA', facebook: 'Facebook', x: 'X', linkedin: 'LinkedIn' };
+    line: 'LINE OA', facebook: 'Facebook', telegram: 'Telegram', x: 'X', linkedin: 'LinkedIn',
+    discord: 'Discord', mastodon: 'Mastodon', webhook: 'Webhook', distribution: 'การกระจาย' };
 
   function distStatus(st) {
     if (st === 'posted') return ui.badge('โพสต์แล้ว', 'green');
@@ -249,7 +250,25 @@
     return (c && c.connected) ? '<span style="color:var(--green-600);font-weight:700">● เชื่อมแล้ว</span>' : '<span class="soft">○ ยังไม่เชื่อม</span>';
   }
 
-  function chField(l, inp) { return '<div style="margin-bottom:8px"><div class="soft small" style="margin-bottom:3px">' + esc(l) + '</div>' + inp + '</div>'; }
+  // นิยามช่องทั้งหมด — [key, label, type, placeholder] · key = token | ref
+  var CH_DEFS = [
+    { kind: 'telegram', name: 'Telegram', note: 'ฟรี · ง่ายสุด ⭐',
+      fields: [['token', 'Bot Token', 'password', 'วางโทเคนจาก @BotFather'], ['ref', 'ปลายทาง', 'text', 'chat_id หรือ @channelname']] },
+    { kind: 'line', name: 'LINE OA', note: 'ฟรี',
+      fields: [['token', 'Channel Access Token', 'password', 'วางโทเคน (เว้นว่าง=คงเดิม)'], ['ref', 'ปลายทาง', 'text', 'userId/groupId หรือ broadcast']] },
+    { kind: 'facebook', name: 'Facebook Page', note: 'ฟรี · ต้อง App Review',
+      fields: [['ref', 'Page ID', 'text', 'เลข Page ID'], ['token', 'Page Access Token', 'password', 'วางโทเคน (เว้นว่าง=คงเดิม)']] },
+    { kind: 'discord', name: 'Discord', note: 'ฟรี · webhook',
+      fields: [['token', 'Webhook URL', 'password', 'https://discord.com/api/webhooks/...']] },
+    { kind: 'mastodon', name: 'Mastodon', note: 'ฟรี',
+      fields: [['ref', 'Instance', 'text', 'เช่น mastodon.social'], ['token', 'Access Token', 'password', 'วางโทเคน']] },
+    { kind: 'x', name: 'X (Twitter)', note: 'API เสียเงิน ~$100/เดือน',
+      fields: [['token', 'OAuth2 User Token', 'password', 'ต้องมีสิทธิ์ tweet.write']] },
+    { kind: 'linkedin', name: 'LinkedIn', note: 'ต้องขออนุมัติ',
+      fields: [['ref', 'Author URN', 'text', 'urn:li:person:xxx หรือ urn:li:organization:xxx'], ['token', 'Access Token', 'password', 'วางโทเคน']] },
+    { kind: 'webhook', name: 'Webhook (Zapier/Make)', note: 'ต่อไปได้ทุกที่ · IG/TikTok/Pinterest ผ่าน Zapier',
+      fields: [['token', 'Webhook URL', 'password', 'https://hooks.zapier.com/... (https เท่านั้น)']] }
+  ];
 
   function channelModal(pid) {
     RP.api.getChannels(pid).then(function (r) { openChannelModal(pid, r.channels || []); })
@@ -257,28 +276,31 @@
   }
 
   function openChannelModal(pid, chs) {
-    var body =
-      '<div class="hint mb">เชื่อมโซเชียล<strong>ของคุณเอง</strong> → ทุกบทความใหม่ระบบโพสต์ขึ้นแบรนด์คุณอัตโนมัติ (โทเคนเก็บแบบ<strong>เข้ารหัส</strong>)</div>' +
-      '<div class="panel mb"><div class="panel-head">LINE OA · ' + chStatus(chs, 'line') + '</div><div class="panel-body">' +
-      chField('Channel Access Token', '<input class="input" id="ch_line_tok" type="password" placeholder="วางโทเคน (เว้นว่าง = คงเดิม)" style="width:100%">') +
-      chField('ปลายทาง', '<input class="input" id="ch_line_ref" placeholder="userId/groupId — หรือ broadcast (ส่งผู้ติดตามทุกคน)" style="width:100%">') +
-      '<button class="btn btn-primary btn-sm" id="ch_line_save">บันทึก LINE</button></div></div>' +
-      '<div class="panel mb"><div class="panel-head">Facebook Page · ' + chStatus(chs, 'facebook') + '</div><div class="panel-body">' +
-      chField('Page ID', '<input class="input" id="ch_fb_ref" placeholder="เลข Page ID" style="width:100%">') +
-      chField('Page Access Token', '<input class="input" id="ch_fb_tok" type="password" placeholder="วางโทเคน (เว้นว่าง = คงเดิม)" style="width:100%">') +
-      '<button class="btn btn-primary btn-sm" id="ch_fb_save">บันทึก Facebook</button></div></div>' +
-      '<div class="hint">X (API เสียเงิน) / LinkedIn (ต้องขออนุมัติ) — ยังไม่รองรับตอนนี้ · เราไม่ทำ link-spam</div>';
-    ui.modal({ title: 'เชื่อมช่องทางกระจาย', sub: 'โพสต์บทความใหม่ขึ้นโซเชียลแบรนด์คุณอัตโนมัติ', width: 620, body: body });
-    var ls = document.getElementById('ch_line_save');
-    if (ls) ls.onclick = function () {
-      RP.api.setChannel(pid, { kind: 'line', ref: (document.getElementById('ch_line_ref').value || '').trim(), token: document.getElementById('ch_line_tok').value || '', enabled: true })
-        .then(function () { RP.ui.toast('บันทึก LINE แล้ว ✓'); }).catch(function (e) { RP.ui.toast('บันทึกไม่ได้: ' + esc(e.message || String(e))); });
-    };
-    var fs = document.getElementById('ch_fb_save');
-    if (fs) fs.onclick = function () {
-      RP.api.setChannel(pid, { kind: 'facebook', ref: (document.getElementById('ch_fb_ref').value || '').trim(), token: document.getElementById('ch_fb_tok').value || '', enabled: true })
-        .then(function () { RP.ui.toast('บันทึก Facebook แล้ว ✓'); }).catch(function (e) { RP.ui.toast('บันทึกไม่ได้: ' + esc(e.message || String(e))); });
-    };
+    function fInput(kind, f) {
+      var id = 'ch_' + kind + '_' + f[0];
+      return '<div style="margin-bottom:8px"><div class="soft small" style="margin-bottom:3px">' + esc(f[1]) + '</div>' +
+        '<input class="input" id="' + id + '" type="' + f[2] + '" placeholder="' + esc(f[3]) + '" style="width:100%"></div>';
+    }
+    var body = '<div class="hint mb">เชื่อมโซเชียล<strong>ของคุณเอง</strong> → บทความใหม่โพสต์ขึ้นทุกช่องอัตโนมัติ (โทเคน<strong>เข้ารหัสเก็บ</strong> · เว้นว่าง=คงเดิม · ไม่ยิงสแปม)</div>' +
+      CH_DEFS.map(function (d) {
+        return '<div class="panel mb"><div class="panel-head">' + esc(d.name) +
+          ' <span class="soft small">· ' + esc(d.note) + '</span> · ' + chStatus(chs, d.kind) + '</div><div class="panel-body">' +
+          d.fields.map(function (f) { return fInput(d.kind, f); }).join('') +
+          '<button class="btn btn-primary btn-sm ch-save" data-kind="' + d.kind + '">บันทึก ' + esc(d.name) + '</button></div></div>';
+      }).join('');
+    ui.modal({ title: 'เชื่อมช่องทางกระจาย (8 ช่อง)', sub: 'โพสต์บทความใหม่ขึ้นทุกช่องของคุณอัตโนมัติ', width: 640, body: body });
+    Array.prototype.forEach.call(document.querySelectorAll('.ch-save'), function (b) {
+      b.onclick = function () {
+        var kind = b.getAttribute('data-kind');
+        var tokEl = document.getElementById('ch_' + kind + '_token');
+        var refEl = document.getElementById('ch_' + kind + '_ref');
+        b.disabled = true; b.textContent = 'บันทึก…';
+        RP.api.setChannel(pid, { kind: kind, token: tokEl ? (tokEl.value || '') : '',
+                                 ref: refEl ? (refEl.value || '').trim() : '', enabled: true })
+          .then(function () { b.disabled = false; b.textContent = 'บันทึกแล้ว ✓'; RP.ui.toast('บันทึกช่อง ' + kind + ' แล้ว ✓'); })
+          .catch(function (e) { b.disabled = false; b.textContent = 'ลองอีกครั้ง'; RP.ui.toast('บันทึกไม่ได้: ' + esc(e.message || String(e))); });
+      };
+    });
   }
 
   function wireReal(root) {

@@ -16,7 +16,7 @@ from app.schemas import (
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate,
 )
-from app.connectors import serp, gsc, citation, content, publish, mining
+from app.connectors import serp, gsc, citation, content, publish, mining, social
 from app.auth import security
 from app.auth.deps import get_current_user
 from app.db import session as db
@@ -276,8 +276,8 @@ async def set_channel(project_id: int, req: ChannelUpdate, user=Depends(get_curr
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import DistributionChannel
     from app import crypto
-    if req.kind not in ("line", "facebook"):
-        raise HTTPException(422, "รองรับเฉพาะ line | facebook ตอนนี้")
+    if req.kind not in social.SUPPORTED:
+        raise HTTPException(422, "ช่องทางไม่รองรับ (รองรับ: %s)" % ", ".join(social.SUPPORTED))
     async with db.session() as s:
         await _own_project(s, project_id, user)
         c = (await s.execute(select(DistributionChannel).where(
