@@ -47,7 +47,9 @@
     me: function () { return api._get('/api/auth/me'); },
     // ---- Projects (DB จริง) ----
     projects: function () { return api._get('/api/projects'); },
-    createProject: function (o) { return api._post('/api/projects', o); }
+    createProject: function (o) { return api._post('/api/projects', o); },
+    grow: function (pid) { return api._post('/api/projects/' + pid + '/grow', {}); },
+    projectArticles: function (pid) { return api._get('/api/projects/' + pid + '/articles'); }
   };
 
   function chk(r) {

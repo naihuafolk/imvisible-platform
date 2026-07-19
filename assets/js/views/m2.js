@@ -141,6 +141,7 @@
           'พร้อมผูก Author Persona และผ่าน Fact-Check + Plagiarism ก่อนเผยแพร่'
       }) +
       liveGenCard() +
+      liveRealCard() +
       '<div class="grid grid-4 mb">' + kpis + '</div>' +
       ui.card({
         title: 'คิวผลิตคอนเทนต์',
@@ -176,9 +177,76 @@
           var fmtSel = root.querySelector('#m2_fmt');
           RP.live(RP.api.generate(topic, fmtSel ? fmtSel.value : 'บทความยาว', 1500), genModal);
         };
+        var lr = root.querySelector('#m2_loadreal');
+        if (lr) lr.onclick = function () { loadReal(root); };
       }
     };
   };
+
+  /* ---- Live: โปรเจ็ค & บทความจริงจาก DB (ของจริง ไม่ใช่เดโม) ---- */
+  function liveRealCard() {
+    return ui.card({
+      title: '🔴 Live — โปรเจ็ค & บทความจริงจากระบบ',
+      sub: 'ดึงจาก backend จริง — โปรเจ็คที่สร้าง + บทความที่ออโต้ลูปผลิต/เผยแพร่ (ต้องเข้าสู่ระบบจริง)',
+      cls: 'mb',
+      action: (RP.api && RP.api.reachable()) ? ui.badge('● ต่อ backend', 'green') : ui.badge('backend ปิด', 'amber'),
+      body:
+        '<div class="row wrap" style="gap:10px;margin-bottom:6px">' +
+        '<button class="btn btn-primary" id="m2_loadreal">โหลดโปรเจ็ค & บทความจริง</button>' +
+        '<span class="soft small" style="align-self:center">ต้องล็อกอินจริง (JWT) + มีโปรเจ็คใน DB</span></div>' +
+        '<div id="m2_realout"></div>'
+    });
+  }
+
+  function loadReal(root) {
+    var out = root.querySelector('#m2_realout');
+    out.innerHTML = '<div class="soft small">กำลังโหลด…</div>';
+    RP.api.projects().then(function (res) {
+      var projs = res.projects || [];
+      if (!projs.length) { out.innerHTML = '<div class="hint">ยังไม่มีโปรเจ็คใน DB — สร้างในหน้าจัดการโปรเจ็ค หรือรัน grow_test</div>'; return; }
+      out.innerHTML = projs.map(function (p) {
+        return '<div class="panel mb"><div class="panel-body">' +
+          '<div class="row between wrap" style="gap:8px">' +
+          '<div class="bb">' + esc(p.name) + ' <span class="soft small">· ' + esc(p.domain) + ' · โหมด ' + esc(p.mode) + '</span></div>' +
+          '<div class="row gap-s">' +
+          '<button class="btn btn-sm btn-green rp-grow" data-id="' + p.id + '">🚀 ผลิตเดี๋ยวนี้</button>' +
+          '<button class="btn btn-sm rp-arts" data-id="' + p.id + '">ดูบทความจริง</button></div></div>' +
+          '<div class="rp-arts-out" data-for="' + p.id + '" style="margin-top:8px"></div></div></div>';
+      }).join('');
+      wireReal(root);
+    }).catch(function (e) {
+      out.innerHTML = '<div class="hint">โหลดไม่ได้: ' + esc(e.message || String(e)) + ' (ต้องล็อกอินจริง ไม่ใช่บัญชีเดโม)</div>';
+    });
+  }
+
+  function wireReal(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('.rp-grow'), function (b) {
+      b.onclick = function () {
+        RP.ui.toast('สั่งระบบผลิตคอนเทนต์…');
+        RP.api.grow(b.getAttribute('data-id'))
+          .then(function () { RP.ui.toast('เข้าคิวแล้ว ✓ ระบบกำลังขุด→เขียน→เผยแพร่ (กด "ดูบทความจริง" อีกสักครู่)'); })
+          .catch(function (e) { RP.ui.toast('สั่งไม่ได้: ' + esc(e.message || String(e))); });
+      };
+    });
+    Array.prototype.forEach.call(root.querySelectorAll('.rp-arts'), function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-id');
+        var box = root.querySelector('.rp-arts-out[data-for="' + id + '"]');
+        box.innerHTML = '<div class="soft small">กำลังโหลด…</div>';
+        RP.api.projectArticles(id).then(function (res) {
+          var arts = res.articles || [];
+          if (!arts.length) { box.innerHTML = '<div class="soft small">ยังไม่มีบทความ (ลองกด ผลิตเดี๋ยวนี้ แล้วรอสักครู่)</div>'; return; }
+          box.innerHTML = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>บทความ (AI เขียนจริง)</th><th class="center">สถานะ</th><th class="right">คำ</th><th class="center">ลิงก์</th></tr></thead><tbody>' +
+            arts.map(function (a) {
+              return '<tr><td class="tbl-title">' + esc(a.title) + '</td>' +
+                '<td class="center">' + ui.badge(esc(a.status), a.status === 'published' ? 'green' : '') + '</td>' +
+                '<td class="num">' + (a.words || 0) + '</td>' +
+                '<td class="center">' + (a.url ? '<a href="' + esc(a.url) + '" target="_blank">เปิด</a>' : '—') + '</td></tr>';
+            }).join('') + '</tbody></table></div>';
+        }).catch(function (e) { box.innerHTML = '<div class="soft small">โหลดไม่ได้: ' + esc(e.message || String(e)) + '</div>'; });
+      };
+    });
+  }
 
   function liveGenCard() {
     var opts = RP.data.m2.formats.map(function (f) { return '<option>' + esc(f) + '</option>'; }).join('');
