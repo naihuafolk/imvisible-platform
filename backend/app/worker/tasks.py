@@ -111,7 +111,10 @@ async def _analyze_project(project_id: int) -> dict:
         except Exception:  # noqa: BLE001
             pass
 
-    plan = await site.build_plan(ctx, questions, lang)
+    try:                                                  # แผนล้ม = ยังบันทึกบริบทที่วิเคราะห์ได้แล้ว (ห้ามทิ้งงานที่ทำสำเร็จ)
+        plan = await site.build_plan(ctx, questions, lang)
+    except Exception:  # noqa: BLE001
+        plan = []
     ctx_text = site.context_text(ctx)
     bt = ctx.get("brand_terms")
     brands_txt = ", ".join(str(b) for b in bt[:5]) if isinstance(bt, list) else str(bt or "")[:200]
