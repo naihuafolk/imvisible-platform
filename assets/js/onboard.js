@@ -31,7 +31,8 @@
       keywords: 0, clusters: 0, competitors: [], brandTerms: [], promptSet: 0,
       freshnessDays: p.freshness_days || 120, authors: 0,
       public_home: p.public_home || '', publish_mode: p.publish_mode || 'managed', custom_domain: p.custom_domain || '',
-      health: { gsc: false, serp: true, ai: false, publish: p.publish_mode !== 'none' }
+      // ยังไม่ได้วัดสถานะเชื่อมต่อจริงต่อโปรเจ็ค → false ทั้งหมด (ห้ามโชว์ไฟเขียวที่ไม่ได้ตรวจ)
+      health: { gsc: false, serp: false, ai: false, publish: false }
     };
   }
 
@@ -40,7 +41,9 @@
     if (!(RP.api && RP.api.token && RP.api.reachable())) { if (cb) cb(false, 0); return; }
     RP.api.projects().then(function (res) {
       var list = (res.projects || []).map(mapProj);
-      if (list.length) { RP.data.project.list = list; RP.data.project.current = list[0].id; }
+      // บัญชีจริง: แทนที่ "เสมอ" แม้ยังไม่มีโปรเจ็ค — ห้ามให้โปรเจ็คตัวอย่างหลงเหลือในบัญชีจริงเด็ดขาด
+      RP.data.project.list = list;
+      RP.data.project.current = list.length ? list[0].id : '';
       RP.data.__real = true;
       RP.api.integrations().then(function (ir) {
         var st = {}; (ir.integrations || []).forEach(function (i) { st[i.id] = i.connected; });

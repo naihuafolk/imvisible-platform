@@ -56,15 +56,16 @@
 
   function checklistBody(list) {
     if (!list.length) return '<div class="soft">ยังไม่มีรายการตรวจสอบ</div>';
-    var out = '';
+    // บัญชีจริง: นี่คือ "ข้อกำหนดของสูตร AEO" ไม่ใช่ผลตรวจบัญชีคุณ → ห้ามโชว์ ✓ พร้อม (จะอ่านเหมือนผ่านแล้ว)
+    var real = RP.isReal();
+    var out = real ? '<div class="soft small" style="margin-bottom:8px">ข้อกำหนดที่ทุกบทความต้องมี (ระบบใช้เป็นเกณฑ์ตอนเขียน) — ไม่ใช่ผลตรวจบัญชีของคุณ</div>' : '';
     for (var i = 0; i < list.length; i++) {
       var c = list[i];
-      var mark = c.on
-        ? '<span class="badge green">✓</span>'
-        : '<span class="soft">○</span>';
+      var mark = real ? '<span class="soft">•</span>'
+        : (c.on ? '<span class="badge green">✓</span>' : '<span class="soft">○</span>');
       out += '<div class="list-row">' + mark +
         '<div class="grow"><div class="t">' + esc(c.t) + '</div></div>' +
-        '<div class="s">' + (c.on ? '<span class="muted small">พร้อม</span>' : '<span class="muted small">ยังไม่ผ่าน</span>') + '</div>' +
+        '<div class="s">' + (real ? '' : (c.on ? '<span class="muted small">พร้อม</span>' : '<span class="muted small">ยังไม่ผ่าน</span>')) + '</div>' +
       '</div>';
     }
     return out;

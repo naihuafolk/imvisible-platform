@@ -37,7 +37,20 @@
       '</div></div>';
   }
 
-  function curProj() { return RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0]; }
+  // บัญชีจริงอาจยังไม่มีโปรเจ็คเลย → list ว่างได้ ห้าม deref ตรง ๆ
+  function projList() { return (RP.data && RP.data.project && RP.data.project.list) || []; }
+  function curProj() {
+    var list = projList();
+    if (!list.length) return null;
+    var cur = RP.data.project.current;
+    var f = list.filter(function (x) { return x.id === cur; })[0];
+    return f || null;
+  }
+  function noProjectBox(title) {
+    return RP.noData(title || 'ยังไม่มีโปรเจ็ค',
+      'สร้างโปรเจ็คแรกของคุณก่อน แล้วค่อยตั้งค่าเป้าหมาย/คู่แข่ง/การวัดผลของโปรเจ็คนั้น',
+      '<button class="btn btn-primary" id="s_goProjects">＋ สร้างโปรเจ็คแรก</button>');
+  }
   function chips(arr, empty) {
     if (!arr || !arr.length) return '<span class="soft small">' + (empty || 'ยังไม่มี') + '</span>';
     return '<div class="tag-list">' + arr.map(function (x) { return '<span class="chip">' + esc(x) + '</span>'; }).join('') + '</div>';
@@ -46,23 +59,40 @@
   /* ---------- TAB 1: การเชื่อมต่อ ---------- */
   function tabConnect() {
     var a = RP.data.account;
-    var done = RP.data.onboarding.filter(function (o) { return o.done; }).length;
-    var total = RP.data.onboarding.length;
-    var progress =
-      '<div class="card mb"><div class="card-pad">' +
-      '<div class="row between wrap"><div class="bb">ความพร้อมก่อนวัดผลจริง (Onboarding)</div>' +
-      '<span class="badge ' + (done === total ? 'green' : 'amber') + '">' + done + '/' + total + ' ขั้นตอน</span></div>' +
-      '<div style="margin:10px 0">' + ui.bar(done / total * 100, done === total ? 'green' : '') + '</div>' +
-      '<div class="grid grid-2" style="gap:4px 18px">' +
-      RP.data.onboarding.map(function (o) {
-        return '<div class="list-row" style="padding:6px 0"><span style="color:' + (o.done ? 'var(--green-600)' : 'var(--amber-600)') + ';font-weight:800">' +
-          (o.done ? '✓' : '○') + '</span><div class="grow t small">' + esc(o.t) + '</div></div>';
-      }).join('') + '</div></div></div>';
+    var steps = RP.data.onboarding || [];
+    var progress;
+    if (RP.isReal()) {
+      // บัญชีจริง: ห้ามติ๊กถูกว่า "ตั้งค่าเสร็จแล้ว" จากข้อมูลตัวอย่าง — บอกสิ่งที่ยังต้องเชื่อมแทน
+      progress =
+        '<div class="card mb"><div class="card-pad">' +
+        '<div class="bb">ความพร้อมก่อนวัดผลจริง</div>' +
+        '<div class="hint" style="margin-top:10px">ระบบจะเริ่มวัดผลจริงได้เมื่อเชื่อมต่อครบ: SERP API (อันดับ Google), ' +
+        'Google Search Console, API วัด AI Citation และปลายทางเผยแพร่ · ' +
+        'สถานะด้านล่างมาจากบัญชีของคุณจริง ๆ เท่านั้น — กด "ดึงสถานะจริงจาก backend" เพื่ออัปเดต</div>' +
+        '</div></div>';
+    } else {
+      var done = steps.filter(function (o) { return o.done; }).length;
+      var total = steps.length || 1;
+      progress =
+        '<div class="card mb"><div class="card-pad">' +
+        '<div class="row between wrap"><div class="bb">ความพร้อมก่อนวัดผลจริง (Onboarding) ' + RP.sampleBadge('ตัวอย่าง') + '</div>' +
+        '<span class="badge ' + (done === total ? 'green' : 'amber') + '">' + done + '/' + total + ' ขั้นตอน</span></div>' +
+        '<div style="margin:10px 0">' + ui.bar(done / total * 100, done === total ? 'green' : '') + '</div>' +
+        '<div class="grid grid-2" style="gap:4px 18px">' +
+        steps.map(function (o) {
+          return '<div class="list-row" style="padding:6px 0"><span style="color:' + (o.done ? 'var(--green-600)' : 'var(--amber-600)') + ';font-weight:800">' +
+            (o.done ? '✓' : '○') + '</span><div class="grow t small">' + esc(o.t) + '</div></div>';
+        }).join('') + '</div></div></div>';
+    }
 
     function intCard(i) {
       var lc = liveConnected(i.id);
-      var conn = lc === null ? i.connected : lc;
-      var src = lc === null ? i.detail : (conn ? 'เชื่อมแล้ว (จาก backend)' : 'ยังไม่ตั้งคีย์ (จาก backend)');
+      // บัญชีจริงที่ยังไม่เคยดึงสถานะ = ยังไม่ได้วัด → ห้ามโชว์ไฟเขียวจากข้อมูลตัวอย่าง
+      var unverified = (lc === null) && RP.isReal() && !RP.data.__real;
+      var conn = lc === null ? (unverified ? false : i.connected) : lc;
+      var src = lc === null
+        ? (unverified ? 'ยังไม่ได้ตรวจสอบสถานะ — กด "ดึงสถานะจริงจาก backend"' : i.detail)
+        : (conn ? 'เชื่อมแล้ว (จาก backend)' : 'ยังไม่ตั้งคีย์ (จาก backend)');
       return '<div class="card card-pad">' +
         '<div class="row between wrap" style="gap:8px"><div class="bb">' + esc(i.name) + '</div>' +
         ui.badge(conn ? '● เชื่อมแล้ว' : 'ต้องเชื่อม', conn ? 'green' : 'amber') + '</div>' +
@@ -84,6 +114,7 @@
   /* ---------- TAB 2: ตั้งค่าโปรเจ็คนี้ ---------- */
   function tabProject() {
     var p = curProj();
+    if (!p) return noProjectBox('ยังไม่มีโปรเจ็ค');
     function row(l, v) { return '<div class="list-row"><div class="grow"><div class="soft small">' + esc(l) + '</div><div class="t">' + v + '</div></div></div>'; }
     var left = ui.card({ title: 'ข้อมูลโปรเจ็ค', body:
       '<div style="margin-bottom:10px"><div class="soft small" style="margin-bottom:4px">ชื่อโปรเจ็ค</div><input class="input" id="s_name" value="' + esc(p.name) + '" style="width:100%"></div>' +
@@ -111,6 +142,21 @@
   /* ---------- TAB 3: บัญชี & ทีม ---------- */
   function tabAccount() {
     var a = RP.data.account;
+    if (RP.isReal()) {
+      // บัญชีจริง: ยังไม่ได้เชื่อมระบบบิลลิ่ง/ทีมจริง → ห้ามโชว์แพ็กเกจหรือรายชื่อสมาชิกที่สมมติขึ้น
+      var planReal = ui.card({ title: 'แพ็กเกจปัจจุบัน', flush: true, body:
+        RP.noData('แพ็กเกจ ยังไม่มีข้อมูล',
+          'จะแสดงเมื่อเชื่อมระบบบิลลิ่ง — เราไม่แสดงแพ็กเกจหรือรอบบิลที่ยังไม่ได้ตรวจสอบจริง',
+          '<button class="btn btn-sm" id="s_upgrade">ดูแพ็กเกจ/ติดต่อทีมขาย</button>')
+      });
+      var teamReal = ui.card({ title: 'สมาชิกทีม & สิทธิ์', sub: 'เหมาะกับ Agency ที่ให้ลูกค้าเข้าดูรายงานได้', flush: true,
+        action: '<button class="btn btn-sm btn-primary" id="s_invite">＋ เชิญสมาชิก</button>',
+        body: RP.noData('ทีม ยังไม่มีข้อมูล',
+          'จะแสดงเมื่อเชื่อมระบบบิลลิ่ง/เชิญสมาชิกจริง — รายชื่อในระบบจะขึ้นเฉพาะคนที่ตอบรับคำเชิญแล้ว')
+      });
+      return planReal + '<div class="mb"></div>' + teamReal +
+        '<div class="note-box" style="margin-top:14px">💡 <b>White-Label (Pro/Enterprise):</b> ใส่โลโก้/โดเมนของเอเจนซีเอง ส่งรายงานให้ลูกค้าในนามแบรนด์คุณ — ลูกค้าเห็นเฉพาะโปรเจ็คของตัวเองด้วยสิทธิ์ "ดูอย่างเดียว"</div>';
+    }
     var plan = ui.card({ title: 'แพ็กเกจปัจจุบัน', body:
       '<div class="row between wrap" style="gap:10px"><div><div class="bb" style="font-size:20px;color:var(--purple-700)">' + esc(a.plan) + '</div>' +
       '<div class="soft small">' + esc(a.billingCycle) + ' · ' + a.projectQuota + ' โปรเจ็ค' + (a.whiteLabel ? ' · White-Label' : '') + '</div></div>' +
@@ -155,7 +201,10 @@
       mrow('ทราฟฟิก / Conversion / ROI', 'GA4 + ฟอร์ม/CRM', 'ของจริง — วัด Lead/ยอดขาย', 'green') +
       mrow('บทความ / คะแนน AEO', 'ข้อเท็จจริงจากระบบ', 'ของจริง — นับ/คำนวณจริง', 'green') +
       '</tbody></table></div>';
-    return '<div class="warn-box mb" style="border-left-color:var(--amber-500);background:var(--amber-bg)">⚠️ <b>ความจริงที่ต้องรู้:</b> ตัวเลขที่เห็นในเดโมตอนนี้เป็น <b>ข้อมูลจำลอง</b> เพื่อสาธิต UX — เมื่อเชื่อม API/บัญชีจริงในแท็บ "การเชื่อมต่อ" ตัวเลขจะถูกแทนที่ด้วยข้อมูลที่ <b>ดึงสดจากแหล่งจริง</b> ทั้งหมด</div>' +
+    var topNote = RP.isReal()
+      ? '<div class="hint mb">📌 <b>บัญชีของคุณแสดงเฉพาะข้อมูลจริงเท่านั้น</b> — ตัวเลขจะขึ้นเมื่อเชื่อม API/บัญชีในแท็บ "การเชื่อมต่อ" และระบบเก็บผลได้แล้ว ระหว่างนี้เราจะแสดงว่า "ยังไม่มีข้อมูล" ไม่ใส่ตัวเลขสมมติ</div>'
+      : '<div class="warn-box mb" style="border-left-color:var(--amber-500);background:var(--amber-bg)">⚠️ <b>ความจริงที่ต้องรู้:</b> ตัวเลขที่เห็นในเดโมตอนนี้เป็น <b>ข้อมูลจำลอง</b> เพื่อสาธิต UX — เมื่อเชื่อม API/บัญชีจริงในแท็บ "การเชื่อมต่อ" ตัวเลขจะถูกแทนที่ด้วยข้อมูลที่ <b>ดึงสดจากแหล่งจริง</b> ทั้งหมด</div>';
+    return topNote +
       '<div class="grid grid-3 mb">' +
       block('🔎', 'ฝั่ง SEO', 'green', 'ของจริง · ตรวจสอบได้', 'วัดจาก <b>SERP API</b> (ยิงคีย์เวิร์ด+ประเทศ+ภาษา ได้ผลอันดับ Google จริง) และ <b>Google Search Console</b> (คลิก/impression/อันดับ ตัวเลขจริงจาก Google เอง) — คุณเปิด Google เสิร์ชเองก็ตรวจได้ทันที ไม่มีทางปลอม') +
       block('🤖', 'ฝั่ง AEO (AI Citation)', 'amber', 'ของจริง · แต่เป็นค่าประมาณ', '<b>Prompt Sampling</b>: ระบบยิงชุดคำถามจริงไปที่ ChatGPT/Gemini/Perplexity ตามรอบ แล้ว "อ่านคำตอบ" ว่าเอ่ยถึง/อ้างอิงโดเมนเราไหม → นับ % = Share of Voice · เป็นการวัดจริง (ถามจริง อ่านจริง) แต่เป็น <b>ตัวอย่างเชิงสถิติ</b> เพราะ AI ตอบต่างกันตามผู้ใช้/เวลา และไม่มี API ทางการบอก citation ตรง ๆ') +
@@ -191,8 +240,11 @@
       };
     });
     // tab-specific
+    var gp = root.querySelector('#s_goProjects');
+    if (gp) gp.onclick = function () { if (RP.go) RP.go('projects'); };
     var save = root.querySelector('#s_save'); if (save) save.onclick = function () {
       var p = curProj();
+      if (!p) { ui.toast('ยังไม่มีโปรเจ็คให้บันทึก — สร้างโปรเจ็คก่อน'); return; }
       var n = root.querySelector('#s_name'); if (n) p.name = n.value.trim() || p.name;
       var d = root.querySelector('#s_domain'); if (d) p.domain = d.value.trim() || p.domain;
       var m = root.querySelector('#s_mode'); if (m) p.mode = m.value;
@@ -201,6 +253,7 @@
     Array.prototype.forEach.call(root.querySelectorAll('.int-btn'), function (b) {
       b.onclick = function () {
         var i = RP.data.account.integrations.filter(function (x) { return x.id === b.getAttribute('data-id'); })[0];
+        if (!i) return;
         ui.toast(i.connected ? 'เปิดหน้าจัดการ <b>' + esc(i.name) + '</b>' : 'เปิดหน้าเชื่อมต่อ <b>' + esc(i.name) + '</b> (ใส่ API key / OAuth)');
       };
     });
@@ -241,7 +294,9 @@
     var p = curProj();
     var html =
       ui.pageHead({ eyebrow: 'ระบบ · Settings', title: 'การตั้งค่า',
-        desc: 'ตั้งค่าการเชื่อมต่อ (API/บัญชี) ที่จำเป็นก่อนระบบจะวัดผลได้จริง ตั้งค่าเฉพาะโปรเจ็ค จัดการทีม/แพ็กเกจ และดูว่า "การวัดผลทำงานยังไงของจริง" — โปรเจ็คปัจจุบัน: <b>' + esc(p.name) + '</b>' }) +
+        desc: 'ตั้งค่าการเชื่อมต่อ (API/บัญชี) ที่จำเป็นก่อนระบบจะวัดผลได้จริง ตั้งค่าเฉพาะโปรเจ็ค จัดการทีม/แพ็กเกจ และดูว่า "การวัดผลทำงานยังไงของจริง"' +
+          (p ? ' — โปรเจ็คปัจจุบัน: <b>' + esc(p.name) + '</b>' : ' — <b>ยังไม่มีโปรเจ็ค</b>') }) +
+      RP.sampleNotice('หน้าการตั้งค่า (แพ็กเกจ · ทีม · สถานะ Onboarding)') +
       wrapTabs() +
       '<div id="setBody">' + bodyFor(curTab) + '</div>';
     return { html: html, mount: function (root) { wire(root); } };

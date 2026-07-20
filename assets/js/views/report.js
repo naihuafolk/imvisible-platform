@@ -46,25 +46,48 @@
     });
 
     // ---- 3) ตัวชี้วัดความสำเร็จ (KPI) ----
+    // บัญชีจริง: แสดงได้เฉพาะ "เป้าหมาย" (เป็นแผน ไม่ใช่ผลวัด)
+    // คอลัมน์ "ปัจจุบัน" + แถบความคืบหน้า = ตัวเลขที่ยังไม่ได้วัดจริง → ห้ามโชว์
     var kpiTargets = d.kpiTargets || [];
-    var kpiRows = '';
+    var kpiSampleRows = '';
+    var kpiTargetRows = '';
     kpiTargets.forEach(function (k) {
-      kpiRows +=
+      kpiSampleRows +=
         '<tr>' +
           '<td class="bb">' + esc(k.kpi) + '</td>' +
           '<td>' + esc(k.target) + '</td>' +
           '<td class="num">' + esc(k.curTxt) + '</td>' +
           '<td>' + ui.bar(k.pct) + ' ' + esc(String(k.pct)) + '%</td>' +
         '</tr>';
+      kpiTargetRows +=
+        '<tr>' +
+          '<td class="bb">' + esc(k.kpi) + '</td>' +
+          '<td>' + esc(k.target) + '</td>' +
+          '<td class="soft">ยังไม่ได้วัด</td>' +
+        '</tr>';
     });
+
+    var kpiSampleBody = tbl(
+      '<th>KPI</th><th>เป้าหมาย</th><th>ปัจจุบัน</th><th>ความคืบหน้า</th>',
+      kpiSampleRows
+    );
+
+    var kpiBody =
+      (RP.isReal()
+        ? tbl('<th>KPI</th><th>เป้าหมาย</th><th>ปัจจุบัน</th>', kpiTargetRows)
+        : '') +
+      RP.realOr(kpiSampleBody, {
+        title: 'ยังไม่มีผลวัดจริงของโปรเจ็คคุณ',
+        hint: 'คอลัมน์ "ปัจจุบัน" และความคืบหน้าจะขึ้นเมื่อระบบเก็บอันดับ / Citation / ทราฟฟิกของโปรเจ็คคุณได้จริง — เราไม่แสดงตัวเลขสมมติ ตัวเลขในตารางด้านบนเป็น "เป้าหมาย" เท่านั้น',
+        cta: '<button class="btn btn-sm btn-primary" id="rpKpiProjects">＋ ตั้งค่าโปรเจ็คของคุณ</button>'
+      });
+
     var kpiCard = ui.card({
       title: 'ตัวชี้วัดความสำเร็จ (KPI) — เป้าหมาย 6 เดือน',
+      action: RP.sampleBadge('ตัวเลขตัวอย่าง'),
       flush: true,
       cls: 'mb',
-      body: tbl(
-        '<th>KPI</th><th>เป้าหมาย</th><th>ปัจจุบัน</th><th>ความคืบหน้า</th>',
-        kpiRows
-      )
+      body: kpiBody
     });
 
     // ---- 4) กลยุทธ์ที่ทำให้เห็นผลจริง ----
@@ -188,6 +211,8 @@
         title: 'รายงาน & Roadmap',
         desc: 'สรุปแผนพัฒนา ตัวชี้วัดความสำเร็จ ต้นทุน สถาปัตยกรรม โมเดลธุรกิจ และความเสี่ยง (อ้างอิงหัวข้อ 7–11 ของเอกสารโครงการ)'
       }) +
+      RP.sampleNotice('ตัวชี้วัด (KPI) ของหน้านี้') +
+      RP.collectingNotice('ตัวชี้วัด (KPI) ของโปรเจ็คคุณ') +
       factsHtml +
       roadmapCard +
       kpiCard +
@@ -198,6 +223,13 @@
       riskCard +
       refCard;
 
-    return { html: html, mount: null };
+    return {
+      html: html,
+      mount: function (root) {
+        if (!root) return;
+        var b = root.querySelector('#rpKpiProjects');
+        if (b) b.onclick = function () { RP.go('projects'); };
+      }
+    };
   };
 })(window.RP);

@@ -109,44 +109,106 @@
 
   function pfStat(l, v) { return '<div><div class="soft small">' + esc(l) + '</div><div class="bb" style="font-size:22px">' + v + '</div></div>'; }
 
+  /* บัญชีจริง: เห็นเฉพาะโปรเจ็คจากฐานข้อมูลจริง (id ขึ้นต้นด้วย db) — ห้ามให้โปรเจ็คตัวอย่างหลุดเข้าบัญชีจริง */
+  function visibleProjects() {
+    var list = (RP.data.project && RP.data.project.list) || [];
+    if (!RP.isReal()) return list;
+    return list.filter(function (p) { return p && /^db/.test(String(p.id)); });
+  }
+
+  function currentProject() {
+    var list = visibleProjects();
+    var cur = (RP.data.project && RP.data.project.current) || '';
+    return list.filter(function (x) { return x.id === cur; })[0] || null;
+  }
+
+  /* บัญชีจริง: ตัวเลขที่ระบบยังไม่ได้วัด → ขีด ไม่ใช่เลขสมมติ */
+  function pfNum(v) {
+    if (RP.isReal()) return '<span class="soft" title="ยังไม่มีข้อมูลจริง">—</span>';
+    return v;
+  }
+
+  function newProjectCta(label) {
+    return '<button class="btn btn-sm btn-primary" id="pfNew">' + esc(label || '＋ สร้างโปรเจ็คแรก') + '</button>';
+  }
+
   function portfolioCard() {
-    var list = RP.data.project.list;
-    var kw = RP.sum(list, function (p) { return p.keywords; });
-    var cl = RP.sum(list, function (p) { return p.clusters; });
+    var list = visibleProjects();
+    var real = RP.isReal();
+
+    if (!list.length) {
+      return ui.card({
+        title: 'ภาพรวมทุกโปรเจ็ค', sub: 'บัญชีเดียวดูแลได้หลายเว็บ / หลายลูกค้า', cls: 'mb',
+        action: '<button class="btn btn-sm" id="pfManage">จัดการโปรเจ็ค →</button>',
+        body: RP.noData('ยังไม่มีโปรเจ็ค',
+          'สร้างโปรเจ็คแรก (ชื่อแบรนด์ + โดเมน) เพื่อเริ่มเก็บข้อมูลจริง — เราจะไม่แสดงตัวเลขใด ๆ จนกว่าระบบจะวัดผลได้จริง',
+          newProjectCta())
+      });
+    }
+
+    var kw = RP.sum(list, function (p) { return p.keywords || 0; });
+    var cl = RP.sum(list, function (p) { return p.clusters || 0; });
     var tiles = '<div class="row wrap" style="gap:30px">' +
-      pfStat('โปรเจ็คทั้งหมด', list.length) + pfStat('คีย์เวิร์ดติดตามรวม', fmt.n(kw)) +
-      pfStat('คลัสเตอร์รวม', cl) +
-      pfStat('แพ็กเกจ', RP.isReal() ? '<span class="soft">—</span>' : esc(RP.data.account.plan)) + '</div>';
+      pfStat('โปรเจ็คทั้งหมด', list.length) + pfStat('คีย์เวิร์ดติดตามรวม', pfNum(fmt.n(kw))) +
+      pfStat('คลัสเตอร์รวม', pfNum(cl)) +
+      pfStat('แพ็กเกจ', real ? '<span class="soft">—</span>' : esc(RP.data.account.plan)) + '</div>';
+
     var rows = list.map(function (p) {
-      var cur = p.id === RP.data.project.current, h = p.health;
-      var dots = [h.gsc, h.serp, h.ai, h.publish].map(function (x) {
-        return '<span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:' + (x ? 'var(--green-500)' : 'var(--border)') + '"></span>';
-      }).join(' ');
+      var cur = p.id === RP.data.project.current, h = p.health || {};
+      var dots;
+      if (real) {
+        // ยังไม่ได้ตรวจสถานะการเชื่อมต่อในหน้านี้ → ห้ามวาดไฟเขียวที่ไม่ได้วัด
+        dots = '<span class="soft small">ยังไม่ได้ตรวจ</span>';
+      } else {
+        dots = [h.gsc, h.serp, h.ai, h.publish].map(function (x) {
+          return '<span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:' + (x ? 'var(--green-500)' : 'var(--border)') + '"></span>';
+        }).join(' ');
+      }
       return '<tr><td><span class="bb">' + esc(p.name) + '</span>' + (cur ? ' ' + ui.badge('กำลังใช้', 'green') : '') +
         '<div class="soft small">' + esc(p.domain) + '</div></td>' +
-        '<td class="num">' + fmt.n(p.keywords) + '</td><td class="soft">' + (p.mode === 'auto' ? 'Full-Auto' : 'Human Approve') + '</td>' +
+        '<td class="num">' + pfNum(fmt.n(p.keywords || 0)) + '</td><td class="soft">' + (p.mode === 'auto' ? 'Full-Auto' : 'Human Approve') + '</td>' +
         '<td>' + dots + '</td><td class="right">' + (cur ? '<span class="soft small">ปัจจุบัน</span>' : '<button class="link-btn pf-open" data-id="' + p.id + '">เปิด ›</button>') + '</td></tr>';
     }).join('');
+
+    var note = real
+      ? '<div class="card-pad soft small" style="padding-top:0">🔌 สถานะการเชื่อมต่อ (GSC · SERP · AI Citation · เผยแพร่): <b>ยังไม่ได้ตรวจสอบในหน้านี้</b> — ดูสถานะจริงได้ที่ ⚙️ การตั้งค่า › การเชื่อมต่อ · ' +
+        'จำนวนคีย์เวิร์ด/คลัสเตอร์จะขึ้นหลังระบบเก็บข้อมูลรอบแรก</div>'
+      : '';
+
     return ui.card({
       title: 'ภาพรวมทุกโปรเจ็ค', sub: 'บัญชีเดียวดูแลได้หลายเว็บ / หลายลูกค้า', cls: 'mb', flush: true,
       action: '<button class="btn btn-sm" id="pfManage">จัดการโปรเจ็ค →</button>',
-      body: '<div class="card-pad">' + tiles + '</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>โปรเจ็ค</th><th>คีย์เวิร์ด</th><th>โหมด</th><th>สถานะเชื่อมต่อ</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      body: '<div class="card-pad">' + tiles + '</div>' + note +
+        '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>โปรเจ็ค</th><th>คีย์เวิร์ด</th><th>โหมด</th><th>สถานะเชื่อมต่อ</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
     });
   }
 
   function reDash() { var f = RP.views.dashboard(); var c = document.getElementById('content'); c.innerHTML = '<div class="view">' + f.html + '</div>'; f.mount(c); }
 
   RP.views.dashboard = function () {
-    var p = RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0];
+    var p = currentProject();
 
-    var projectBar = '<div class="card mb"><div class="card-pad row between wrap" style="gap:14px">' +
-      '<div class="row" style="gap:12px">' +
-      '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--grad-start),var(--grad-end));display:grid;place-items:center;color:#fff;font-size:20px">🏥</div>' +
-      '<div><div class="bb" style="font-size:17px">โปรเจ็ค: ' + esc(p.name) + '</div>' +
-      '<div class="soft small">' + esc(p.domain) + ' · โหมด ' + (p.mode === 'auto' ? 'Full-Auto' : 'Auto + Human Approve') + '</div></div>' +
-      '</div>' +
-      '<button class="btn btn-green" id="newCluster">＋ สร้างคลัสเตอร์ใหม่ (Auto)</button>' +
-      '</div></div>';
+    var projectBar;
+    if (!p) {
+      // ไม่มีโปรเจ็คที่แสดงได้ (บัญชีจริงที่ยังไม่สร้างโปรเจ็ค) → ห้ามโชว์ชื่อ/โดเมนสมมติเป็นตัวตนลูกค้า
+      projectBar = '<div class="card mb"><div class="card-pad row between wrap" style="gap:14px">' +
+        '<div class="row" style="gap:12px">' +
+        '<div style="width:44px;height:44px;border-radius:12px;background:var(--border);display:grid;place-items:center;font-size:20px">🗂️</div>' +
+        '<div><div class="bb" style="font-size:17px">ยังไม่มีโปรเจ็ค</div>' +
+        '<div class="soft small">สร้างโปรเจ็ค (ชื่อแบรนด์ + โดเมน) ก่อน แล้วระบบจึงเริ่มเก็บข้อมูลจริงให้</div></div>' +
+        '</div>' +
+        '<button class="btn btn-primary" id="pbNew">＋ สร้างโปรเจ็ค</button>' +
+        '</div></div>';
+    } else {
+      projectBar = '<div class="card mb"><div class="card-pad row between wrap" style="gap:14px">' +
+        '<div class="row" style="gap:12px">' +
+        '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--grad-start),var(--grad-end));display:grid;place-items:center;color:#fff;font-size:20px">🏥</div>' +
+        '<div><div class="bb" style="font-size:17px">โปรเจ็ค: ' + esc(p.name) + '</div>' +
+        '<div class="soft small">' + esc(p.domain) + ' · โหมด ' + (p.mode === 'auto' ? 'Full-Auto' : 'Auto + Human Approve') + '</div></div>' +
+        '</div>' +
+        '<button class="btn btn-green" id="newCluster">＋ สร้างคลัสเตอร์ใหม่ (Auto)</button>' +
+        '</div></div>';
+    }
 
     var kpiGrid = gateCard(
       '<div class="grid grid-4 mb">' + RP.data.kpis.map(function (k) { return ui.kpi(k); }).join('') + '</div>',
@@ -216,6 +278,8 @@
         if (gm5) gm5.onclick = function () { RP.go('m5'); };
         var gsGo = root.querySelector('#gsGo'); if (gsGo) gsGo.onclick = function () { RP.go('settings'); };
         var pfM = root.querySelector('#pfManage'); if (pfM) pfM.onclick = function () { RP.go('projects'); };
+        var pfN = root.querySelector('#pfNew'); if (pfN) pfN.onclick = function () { RP.go('projects'); };
+        var pbN = root.querySelector('#pbNew'); if (pbN) pbN.onclick = function () { RP.go('projects'); };
         var ndC = root.querySelector('#ndCluster'); if (ndC) ndC.onclick = function () { RP.go('m1'); };
         Array.prototype.forEach.call(root.querySelectorAll('.gate-setup'), function (b) {
           b.onclick = function () { RP.go('settings'); };

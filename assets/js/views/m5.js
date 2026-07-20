@@ -142,7 +142,18 @@
     });
   }
 
-  function curProj() { return RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0]; }
+  /* หาโปรเจ็คปัจจุบันแบบปลอดภัย — บัญชีจริงอาจยังไม่มีโปรเจ็คเลย (list = [])
+     ห้ามคืนโปรเจ็คตัวอย่างให้บัญชีจริงเด็ดขาด เพราะจะกลายเป็นการตรวจโดเมนของคนอื่น */
+  function curProj() {
+    var proj = RP.data && RP.data.project;
+    var list = (proj && proj.list) || [];
+    var cur = (proj && proj.current) || '';
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i] && list[i].id === cur) return list[i];
+    }
+    return list.length ? list[0] : null;
+  }
 
   /* คำแบรนด์ที่ใช้ตรวจว่า AI อ้างถึงเราไหม
      โปรเจ็คจริงมักมี brandTerms = [] → fallback เป็นชื่อโปรเจ็ค + โดเมน (ไม่งั้นผลจะเป็น 0 เสมอ) */
@@ -165,21 +176,39 @@
     return out.filter(function (x) { return !!x; });
   }
 
+  function noProjectTools() {
+    return ui.card({
+      title: 'โหมด Live — ดึงข้อมูลจริงจาก backend',
+      sub: 'ยังไม่มีโปรเจ็คให้ตรวจ', cls: 'mb',
+      action: RP.api.enabled() ? ui.badge('● Live เปิด', 'green') : ui.badge('Live ปิด', 'amber'),
+      body: RP.noData(
+        'ยังไม่มีโปรเจ็ค',
+        'สร้างโปรเจ็คก่อนถึงจะตรวจได้ — เครื่องมือ Live (ตรวจอันดับ Google / ดึง Search Console / รัน Prompt Sampling) ต้องผูกกับโดเมนของคุณเอง เราจะไม่ตรวจโดเมนที่คุณไม่ได้เป็นเจ้าของ',
+        '<button class="btn btn-primary" id="m5_newproj">+ สร้างโปรเจ็ค</button>'
+      )
+    });
+  }
+
   function liveTools() {
     var p = curProj();
+    if (!p) return noProjectTools();
     var noBrand = !((p && p.brandTerms) || []).length;
     var sampleQs = RP.isReal() ? '' : RP.data.m5.prompts.map(function (x) { return x.q; }).join('\n');
+    var dom = String((p && p.domain) || '').trim();
     return ui.card({
-      title: 'โหมด Live — ดึงข้อมูลจริงจาก backend', sub: 'ใช้โดเมน/แบรนด์ของโปรเจ็คปัจจุบัน: ' + esc(p.domain), cls: 'mb',
+      title: 'โหมด Live — ดึงข้อมูลจริงจาก backend',
+      sub: dom ? ('ใช้โดเมน/แบรนด์ของโปรเจ็คปัจจุบัน: ' + esc(dom)) : 'โปรเจ็คนี้ยังไม่ได้ตั้งโดเมน',
+      cls: 'mb',
       action: RP.api.enabled() ? ui.badge('● Live เปิด', 'green') : ui.badge('Live ปิด', 'amber'),
       body:
+        (dom ? '' : '<div class="warn-box mb">⚠️ โปรเจ็คนี้ยังไม่ได้ตั้งโดเมน — ตั้งโดเมนในหน้าตั้งค่าโปรเจ็คก่อน ระบบจึงจะตรวจอันดับ/GSC ให้ได้</div>') +
         '<div class="row wrap" style="gap:10px">' +
         '<div class="field" style="flex:1;min-width:240px"><span class="ico">🔎</span><input id="m5_kw" placeholder="พิมพ์คีย์เวิร์ดเพื่อตรวจอันดับ Google จริง เช่น ครีมกันแดด ยี่ห้อไหนดี"></div>' +
-        '<button class="btn btn-primary" id="m5_rank">ตรวจอันดับ Google สด</button>' +
-        '<button class="btn" id="m5_gsc">ดึง Search Console สด</button></div>' +
+        '<button class="btn btn-primary" id="m5_rank"' + (dom ? '' : ' disabled') + '>ตรวจอันดับ Google สด</button>' +
+        '<button class="btn" id="m5_gsc"' + (dom ? '' : ' disabled') + '>ดึง Search Console สด</button></div>' +
         '<div style="margin-top:12px"><div class="soft small" style="margin-bottom:5px">ชุดคำถามสำหรับ Prompt Sampling (บรรทัดละ 1 คำถาม)</div>' +
         '<textarea id="m5_qs" rows="4" style="width:100%" placeholder="เช่น&#10;ครีมกันแดดหน้าไม่วอก แนะนำ&#10;คลินิกเลเซอร์หน้าใส ที่ไหนดี">' + esc(sampleQs) + '</textarea>' +
-        '<div class="row wrap" style="gap:10px;margin-top:8px"><button class="btn" id="m5_cite">รัน Prompt Sampling สด</button>' +
+        '<div class="row wrap" style="gap:10px;margin-top:8px"><button class="btn" id="m5_cite"' + (dom ? '' : ' disabled') + '>รัน Prompt Sampling สด</button>' +
         '<span class="soft small" style="align-self:center">คำแบรนด์ที่ใช้ตรวจ: ' + esc(brandTermsOf(p).join(', ') || '—') + '</span></div></div>' +
         (noBrand ? '<div class="warn-box" style="margin-top:10px">⚠️ โปรเจ็คนี้ยังไม่ได้ตั้ง "คำแบรนด์" — ระบบจะใช้ชื่อโปรเจ็คและโดเมนแทนชั่วคราว แนะนำให้ไปตั้งคำแบรนด์จริง (รวมชื่อภาษาไทย/ชื่อเล่นของแบรนด์) ที่หน้าตั้งค่า เพื่อให้ผลการตรวจแม่นขึ้น</div>' : '') +
         '<div class="hint" style="margin-top:10px">ปุ่มเหล่านี้ยิงไปที่ backend จริง (SERP / GSC / AI) — ต้องเปิดโหมด Live + รัน backend + ตั้งคีย์ API ก่อน มิฉะนั้นจะแจ้งให้ไปตั้งค่า</div>'
@@ -226,7 +255,7 @@
       ui.pageHead({ eyebrow: 'M5 · AI Visibility & Rank Tracker', title: 'วัดผล & Rank Tracker',
         desc: 'วัดผลทั้ง 2 ฝั่งในที่เดียว — ฝั่ง <b>SEO</b> ติดตามอันดับ Google รายวันและทราฟฟิกจาก Search Console · ฝั่ง <b>AEO</b> ใช้ Prompt Sampling ยิงคำถามไปที่ ChatGPT / Gemini / Perplexity เพื่อวัดว่าแบรนด์เราถูกอ้างอิงกี่เปอร์เซ็นต์ (Share of Voice)' }) +
       RP.sampleNotice('หน้าวัดผล & Rank Tracker นี้') +
-      RP.collectingNotice('อันดับ Google และ AI Citation ของโปรเจ็คนี้') +
+      (curProj() ? RP.collectingNotice('อันดับ Google และ AI Citation ของโปรเจ็คนี้') : '') +
       liveTools() +
       seoKpis() +
       '<div class="grid grid-2 mb">' + seoCard() + citationCard() + '</div>' +
@@ -238,14 +267,21 @@
       html: html,
       mount: function (root) {
         var p = curProj();
+        var np = root.querySelector('#m5_newproj');
+        if (np) np.onclick = function () { RP.go('projects'); };
+
+        /* ไม่มีโปรเจ็ค / ไม่มีโดเมน = ห้ามยิง API เด็ดขาด (กันการตรวจโดเมนของคนอื่น) */
+        var dom = String((p && p.domain) || '').trim();
+        if (!dom) return;
+
         var rk = root.querySelector('#m5_rank');
         if (rk) rk.onclick = function () {
           var kw = (root.querySelector('#m5_kw').value || '').trim();
           if (!kw) { RP.ui.toast('พิมพ์คีย์เวิร์ดก่อนครับ'); return; }
-          RP.live(RP.api.rankCheck(kw, p.domain), rankModal);
+          RP.live(RP.api.rankCheck(kw, dom), rankModal);
         };
         var gs = root.querySelector('#m5_gsc');
-        if (gs) gs.onclick = function () { RP.live(RP.api.gsc('sc-domain:' + p.domain), gscModal); };
+        if (gs) gs.onclick = function () { RP.live(RP.api.gsc('sc-domain:' + dom), gscModal); };
         var ct = root.querySelector('#m5_cite');
         if (ct) ct.onclick = function () {
           var ta = root.querySelector('#m5_qs');
@@ -254,7 +290,7 @@
           if (!qs.length) { RP.ui.toast('ใส่ชุดคำถามอย่างน้อย 1 บรรทัดก่อนครับ'); return; }
           var terms = brandTermsOf(p);
           if (!terms.length) { RP.ui.toast('ตั้งคำแบรนด์ของโปรเจ็คในหน้าตั้งค่าก่อนครับ'); return; }
-          RP.live(RP.api.citation(qs, terms, p.domain), citeModal);
+          RP.live(RP.api.citation(qs, terms, dom), citeModal);
         };
       }
     };
