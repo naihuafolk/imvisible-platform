@@ -14,21 +14,36 @@
     }).join('') + '</div>';
   }
 
+  /* บัญชีจริง: สถานะการเชื่อมต่อยังไม่ได้วัดในหน้านี้ → ห้ามโชว์ไฟเขียวสมมติ */
+  function healthRow(h) {
+    if (!RP.isReal()) return healthDots(h);
+    return '<div class="soft small" style="margin:10px 0">🔌 สถานะการเชื่อมต่อ (GSC · SERP · AI Citation · เผยแพร่): ' +
+      '<b>ยังไม่ได้ตรวจสอบในหน้านี้</b> — ดูสถานะจริงได้ที่ ⚙️ การตั้งค่า › การเชื่อมต่อ</div>';
+  }
+
+  /* บัญชีจริง: ตัวเลขที่ระบบยังไม่ได้เก็บ → แสดงขีด ไม่แสดงเลขสมมติ */
+  function realNum(v) {
+    if (!RP.isReal()) return v;
+    return '<span class="soft" title="ยังไม่มีข้อมูลจริง">—</span>';
+  }
+
   function projectCard(p) {
     var isCur = p.id === RP.data.project.current;
+    var real = RP.isReal();
     var setup = p.status === 'setup';
     var connected = (p.health.gsc ? 1 : 0) + (p.health.serp ? 1 : 0) + (p.health.ai ? 1 : 0) + (p.health.publish ? 1 : 0);
     return '<div class="card card-pad" style="' + (isCur ? 'border-color:var(--brand-500);box-shadow:0 0 0 2px rgba(99,102,241,.15)' : '') + '">' +
       '<div class="row between wrap" style="gap:8px">' +
       '<div class="bb" style="font-size:16px">' + esc(p.name) + (isCur ? ' ' + ui.badge('กำลังใช้งาน', 'green') : '') + '</div>' +
-      ui.badge('แพ็กเกจ ' + p.plan, 'purple') + '</div>' +
+      (real || !p.plan ? '' : ui.badge('แพ็กเกจ ' + p.plan, 'purple')) + '</div>' +
       '<div class="soft small" style="margin-top:2px">🌐 ' + esc(p.domain) + ' · ' + esc(p.country) + ' · สร้างเมื่อ ' + esc(p.created) + '</div>' +
-      (setup ? '<div class="hint" style="margin-top:10px">⚠️ ตั้งค่ายังไม่ครบ (' + connected + '/4) — เชื่อม AI Citation + ปลายทางเผยแพร่ให้ครบก่อนเริ่มวัดผล</div>' : '') +
-      healthDots(p.health) +
+      (!real && setup ? '<div class="hint" style="margin-top:10px">⚠️ ตั้งค่ายังไม่ครบ (' + connected + '/4) — เชื่อม AI Citation + ปลายทางเผยแพร่ให้ครบก่อนเริ่มวัดผล</div>' : '') +
+      healthRow(p.health) +
       '<div class="row wrap" style="gap:18px;margin:6px 0 12px">' +
-      stat('คีย์เวิร์ดติดตาม', fmt.n(p.keywords)) + stat('คลัสเตอร์', p.clusters) +
+      stat('คีย์เวิร์ดติดตาม', realNum(fmt.n(p.keywords))) + stat('คลัสเตอร์', realNum(p.clusters)) +
       stat('โหมด', p.mode === 'auto' ? 'Full-Auto' : 'Human Approve') + stat('Freshness', p.freshnessDays + ' วัน') +
       '</div>' +
+      (real ? '<div class="hint" style="margin:0 0 12px">ยังไม่มีข้อมูล — ระบบจะแสดงจำนวนคีย์เวิร์ด/คลัสเตอร์จริงหลังเก็บข้อมูลรอบแรก (ปกติ 1–7 วันหลังเชื่อมต่อครบ)</div>' : '') +
       '<div class="row gap-s wrap">' +
       (isCur ? '<button class="btn btn-sm" disabled style="opacity:.6">● ใช้งานอยู่</button>'
              : '<button class="btn btn-primary btn-sm use-proj" data-id="' + p.id + '">เปิดใช้งานโปรเจ็คนี้</button>') +
@@ -38,14 +53,26 @@
   }
   function stat(l, v) { return '<div><div class="soft" style="font-size:11px">' + esc(l) + '</div><div class="bb">' + v + '</div></div>'; }
 
+  /* รายการโปรเจ็คที่ "แสดงได้จริง": บัญชีจริงเห็นเฉพาะโปรเจ็คจากฐานข้อมูล (id ขึ้นต้น db) */
+  function visibleList() {
+    var list = RP.data.project.list || [];
+    if (!RP.isReal()) return list;
+    return list.filter(function (p) { return /^db/.test(String(p.id)); });
+  }
+
   function quotaCard() {
-    var a = RP.data.account, used = RP.data.project.list.length, q = a.projectQuota;
-    var full = used >= q;
+    var a = RP.data.account, used = visibleList().length, q = a.projectQuota;
+    var real = RP.isReal();
+    var full = !real && used >= q;   // บัญชีจริง: ยังไม่รู้โควตาจริง → ไม่ล็อกปุ่มด้วยตัวเลขสมมติ
     return '<div class="card mb"><div class="card-pad row between wrap" style="gap:14px">' +
       '<div style="flex:1;min-width:260px">' +
-      '<div class="row gap-s" style="margin-bottom:6px"><span class="bb">แพ็กเกจ ' + esc(a.plan) + '</span>' + ui.badge(a.billingCycle, 'blue') + '</div>' +
-      '<div class="soft small" style="margin-bottom:8px">ใช้ไป <b>' + used + '</b> จาก <b>' + q + '</b> โปรเจ็ค' + (full ? ' — เต็มโควตาแล้ว' : '') + '</div>' +
-      ui.bar(used / q * 100, full ? 'amber' : '') + '</div>' +
+      (real
+        ? '<div class="bb" style="margin-bottom:6px">โปรเจ็คของคุณ</div>' +
+          '<div class="soft small">มีอยู่ <b>' + used + '</b> โปรเจ็ค · แพ็กเกจ/โควตายังไม่มีข้อมูล — จะแสดงเมื่อเชื่อมระบบบิลลิ่งแล้ว</div>'
+        : '<div class="row gap-s" style="margin-bottom:6px"><span class="bb">แพ็กเกจ ' + esc(a.plan) + '</span>' + ui.badge(a.billingCycle, 'blue') + RP.sampleBadge() + '</div>' +
+          '<div class="soft small" style="margin-bottom:8px">ใช้ไป <b>' + used + '</b> จาก <b>' + q + '</b> โปรเจ็ค' + (full ? ' — เต็มโควตาแล้ว' : '') + '</div>' +
+          ui.bar(used / q * 100, full ? 'amber' : '')) +
+      '</div>' +
       '<div class="row gap-s wrap">' +
       '<button class="btn" id="loadDb">⤓ โหลดจากฐานข้อมูล</button>' +
       '<button class="btn btn-green new-proj"' + (full ? ' disabled style="opacity:.55"' : '') + '>＋ สร้างโปรเจ็คใหม่</button>' +
@@ -85,15 +112,23 @@
         if (!name || !domain) { ui.toast('กรุณากรอกชื่อโปรเจ็คและโดเมน'); return; }
         var modeEl = document.querySelector('input[name="np_mode"]:checked');
         var id = 'p' + (RP.data.project.list.length + 1);
-        RP.data.project.list.push({
-          id: id, name: name, domain: domain, mode: modeEl ? modeEl.value : 'approve',
-          country: 'ไทย', lang: 'ภาษาไทย', plan: 'Pro', status: 'setup', created: 'เมื่อสักครู่',
-          keywords: 0, clusters: 0,
-          competitors: splitc(document.getElementById('np_comp').value),
-          brandTerms: splitc(document.getElementById('np_brand').value),
-          promptSet: 0, freshnessDays: 120, authors: 0,
-          health: { gsc: false, serp: true, ai: false, publish: false }
-        });
+        var real = RP.isReal();
+        // บัญชีจริง + ต่อ backend ไม่ได้ → ห้ามบอกว่า "สร้างแล้ว" ทั้งที่ยังไม่ได้สร้างจริง
+        if (real && !(RP.api && RP.api.reachable())) {
+          ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — <b>ยังไม่ได้สร้างโปรเจ็ค</b> กรุณาลองใหม่อีกครั้ง');
+          return;
+        }
+        if (!real) {   // โหมดตัวอย่างเท่านั้น: เพิ่มการ์ดสมมติในหน่วยความจำ
+          RP.data.project.list.push({
+            id: id, name: name, domain: domain, mode: modeEl ? modeEl.value : 'approve',
+            country: 'ไทย', lang: 'ภาษาไทย', plan: 'Pro', status: 'setup', created: 'เมื่อสักครู่',
+            keywords: 0, clusters: 0,
+            competitors: splitc(document.getElementById('np_comp').value),
+            brandTerms: splitc(document.getElementById('np_brand').value),
+            promptSet: 0, freshnessDays: 120, authors: 0,
+            health: { gsc: false, serp: true, ai: false, publish: false }
+          });
+        }
         if (RP.api && RP.api.reachable()) {   // สร้างในระบบจริง (DB) ด้วย → auto-loop เริ่มผลิต + โฮสต์บล็อกให้
           var langSel = document.getElementById('np_country');
           var language = (langSel && /อังกฤษ/.test(langSel.value)) ? 'en' : 'th';
@@ -101,6 +136,7 @@
                                  country: 'ไทย', language: language, publish_mode: 'managed' })
             .then(function (p) {
               var home = p.public_home || '';
+              if (RP.loadRealData) RP.loadRealData(function () { mountNow(); });   // ดึงรายการโปรเจ็คจริงกลับมาแสดง
               RP.ui.toast('สร้างในระบบจริงแล้ว ✓ ระบบจะเริ่มผลิต + โฮสต์บล็อกให้อัตโนมัติ');
               if (home) RP.ui.modal({ title: 'บล็อกของคุณพร้อมแล้ว 🎉', sub: 'ลูกค้าใส่แค่ลิงก์ — ที่เหลือเราจัดการให้', width: 560,
                 body: '<div class="note-box mb">ระบบจะเขียนบทความตามสูตร AEO แล้วเผยแพร่ที่นี่ให้อัตโนมัติ (ไม่ต้องแตะอะไรเลย)</div>' +
@@ -111,7 +147,8 @@
             .catch(function (e) { RP.ui.toast('บันทึก DB ไม่ได้ (ต้องล็อกอินจริง): ' + RP.esc(e.message || String(e))); });
         }
         ui.closeModal();
-        ui.toast('สร้างโปรเจ็ค <b>' + esc(name) + '</b> แล้ว — เชื่อมต่อที่เหลือในหน้าตั้งค่าเพื่อเริ่มวัดผล ✓');
+        ui.toast(real ? 'กำลังสร้างโปรเจ็ค <b>' + esc(name) + '</b> ในระบบ…'
+                      : 'สร้างโปรเจ็ค <b>' + esc(name) + '</b> แล้ว — เชื่อมต่อที่เหลือในหน้าตั้งค่าเพื่อเริ่มวัดผล ✓');
         RP.go('projects'); mountNow();
       };
   }
@@ -123,12 +160,17 @@
   function mountNow() { /* re-render current view */ if (location.hash === '#/projects') { var f = RP.views.projects(); var c = document.getElementById('content'); c.innerHTML = '<div class="view">' + f.html + '</div>'; f.mount(c); } }
 
   RP.views.projects = function () {
-    var cards = RP.data.project.list.map(projectCard).join('');
+    var list = visibleList();   // บัญชีจริง = เฉพาะโปรเจ็คจากฐานข้อมูล ไม่โชว์โปรเจ็คตัวอย่าง
+    var cards = list.length
+      ? '<div class="grid grid-2">' + list.map(projectCard).join('') + '</div>'
+      : RP.noData('ยังไม่มีโปรเจ็ค', 'สร้างโปรเจ็คแรกด้วยปุ่ม “＋ สร้างโปรเจ็คใหม่” ด้านบน — ระบบจะเริ่มเก็บข้อมูลจริงหลังเชื่อมต่อครบ');
     var html =
       ui.pageHead({ eyebrow: 'ระบบ · Multi-Project', title: 'จัดการโปรเจ็ค',
         desc: 'หนึ่งบัญชีดูแลได้หลายเว็บ/หลายลูกค้า — แต่ละโปรเจ็คมีคีย์เวิร์ด คู่แข่ง ปลายทางเผยแพร่ และการวัดผลของตัวเอง (จำนวนโปรเจ็คตามแพ็กเกจ)' }) +
+      RP.sampleNotice('หน้าจัดการโปรเจ็ค (โปรเจ็คตัวอย่าง คีย์เวิร์ด คลัสเตอร์ แพ็กเกจ และสถานะการเชื่อมต่อ)') +
+      RP.collectingNotice('ของแต่ละโปรเจ็ค (คีย์เวิร์ด/คลัสเตอร์/สถานะการเชื่อมต่อ)') +
       quotaCard() +
-      '<div class="grid grid-2">' + cards + '</div>';
+      cards;
     return {
       html: html,
       mount: function (root) {
@@ -140,7 +182,8 @@
           RP.api.projects().then(function (res) {
             if (!res.projects || !res.projects.length) { RP.ui.toast('ยังไม่มีโปรเจ็คใน DB — ลองรัน scripts/seed.py'); return; }
             RP.data.project.list = res.projects.map(function (p) {
-              return { id: 'db' + p.id, name: p.name, domain: p.domain, mode: p.mode, country: p.country || 'ไทย', lang: 'ภาษาไทย', plan: 'Pro', status: 'active', created: 'จากฐานข้อมูล', keywords: 0, clusters: 0, competitors: [], brandTerms: [], promptSet: 0, freshnessDays: p.freshness_days || 120, authors: 0, health: { gsc: false, serp: false, ai: false, publish: false } };
+              // plan ว่างไว้ตั้งใจ — backend ยังไม่ส่งแพ็กเกจจริงมา จึงไม่เดาว่าเป็น "Pro"
+              return { id: 'db' + p.id, name: p.name, domain: p.domain, mode: p.mode, country: p.country || 'ไทย', lang: 'ภาษาไทย', plan: '', status: 'active', created: 'จากฐานข้อมูล', keywords: 0, clusters: 0, competitors: [], brandTerms: [], promptSet: 0, freshnessDays: p.freshness_days || 120, authors: 0, health: { gsc: false, serp: false, ai: false, publish: false } };
             });
             RP.data.project.current = RP.data.project.list[0].id;
             RP.ui.toast('โหลด ' + res.projects.length + ' โปรเจ็คจากฐานข้อมูลแล้ว ✓');

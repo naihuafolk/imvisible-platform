@@ -9,7 +9,7 @@
 
   function seoKpis() {
     var s = d.seo;
-    return '<div class="grid grid-4 mb">' +
+    var sample = '<div class="grid grid-4 mb">' +
       ui.kpi({ label: 'คีย์เวิร์ดที่ติดตาม', value: fmt.n(s.keywordsTracked), foot: 'ผ่าน SERP API รายวัน' }) +
       ui.kpi({ label: 'ติดหน้า 1 Google', value: fmt.n(s.page1), tone: 'brand',
         foot: '<span class="trend-up">▲ +' + (s.page1 - s.page1Prev) + '</span> จากเดือนก่อน' }) +
@@ -17,37 +17,54 @@
       ui.kpi({ label: 'อันดับเฉลี่ย', value: s.avgPosition.toFixed(1), tone: 'brand',
         foot: '<span class="trend-up">▲ ดีขึ้น ' + (s.avgPositionPrev - s.avgPosition).toFixed(1) + '</span>' }) +
       '</div>';
+    return RP.realOr(sample, {
+      title: 'ยังไม่มีข้อมูลอันดับ',
+      hint: 'เรายังไม่ได้เก็บอันดับของโปรเจ็คนี้ ระบบจะแสดงอันดับจริงหลังเก็บข้อมูลต่อเนื่อง 1–7 วัน หรือกด "ตรวจอันดับ Google สด" ด้านบนเพื่อดูผลจริงทันทีทีละคีย์เวิร์ด'
+    });
   }
 
   function seoCard() {
     var s = d.seo;
     var clicksNow = s.clicks90[s.clicks90.length - 1];
     var impNow = s.impressions90[s.impressions90.length - 1];
+    var sample =
+      '<div class="row between wrap mb"><div><div class="soft small">คลิกรวม 90 วัน</div>' +
+      '<div class="bb" style="font-size:26px;color:var(--brand-700)">' + fmt.n(clicksNow) + '</div></div>' +
+      ui.spark(s.clicks90, { w: 220, h: 56, color: 'var(--brand-600)' }) + '</div>' +
+      '<div class="divider"></div>' +
+      '<div class="row between wrap"><div><div class="soft small">Impressions (พันครั้ง)</div>' +
+      '<div class="bb" style="font-size:22px">' + fmt.n(impNow) + 'K</div></div>' +
+      ui.spark(s.impressions90, { w: 220, h: 56, color: '#17b978' }) + '</div>';
     return ui.card({
-      title: 'ฝั่ง SEO — Google Search Console (90 วัน)', sub: 'คลิก & การมองเห็น',
-      body:
-        '<div class="row between wrap mb"><div><div class="soft small">คลิกรวม 90 วัน</div>' +
-        '<div class="bb" style="font-size:26px;color:var(--brand-700)">' + fmt.n(clicksNow) + '</div></div>' +
-        ui.spark(s.clicks90, { w: 220, h: 56, color: 'var(--brand-600)' }) + '</div>' +
-        '<div class="divider"></div>' +
-        '<div class="row between wrap"><div><div class="soft small">Impressions (พันครั้ง)</div>' +
-        '<div class="bb" style="font-size:22px">' + fmt.n(impNow) + 'K</div></div>' +
-        ui.spark(s.impressions90, { w: 220, h: 56, color: '#17b978' }) + '</div>'
+      title: RP.isReal()
+        ? 'ฝั่ง SEO — Google Search Console'
+        : 'ฝั่ง SEO — Google Search Console (90 วัน)',
+      sub: RP.isReal() ? 'ต้องเชื่อมต่อ Search Console ก่อน' : 'คลิก & การมองเห็น',
+      action: RP.sampleBadge('ข้อมูลตัวอย่าง'),
+      body: RP.realOr(sample, {
+        title: 'ยังไม่มีข้อมูลจาก Search Console',
+        hint: 'กราฟนี้จะแสดงเฉพาะตัวเลขที่ดึงจากบัญชี Google Search Console ของคุณจริง ๆ เท่านั้น — เชื่อมต่อ GSC ในหน้าตั้งค่า แล้วกดปุ่ม "ดึง Search Console สด" ด้านบน'
+      })
     });
   }
 
   function citationCard() {
     var c = RP.data.m5.citation;
+    var sample =
+      '<div class="row" style="gap:22px;align-items:center">' +
+      '<div class="ring" style="--p:' + c.sov + '"><span class="ring-val">' + c.sov + '%</span></div>' +
+      '<div style="flex:1">' +
+      '<div class="soft small">แนวโน้ม Citation SoV (10 สัปดาห์)</div>' +
+      ui.spark(c.sovTrend, { w: 260, h: 56, color: 'var(--purple-600)' }) +
+      '<div class="small" style="margin-top:6px"><span class="trend up">▲ ' + (c.sov - c.sovPrev) + '%</span> จากเดือนก่อน · เป้าหมาย 15–25%</div>' +
+      '</div></div>';
     return ui.card({
       title: 'ฝั่ง AEO — AI Citation Share of Voice', sub: 'สัดส่วนที่ AI หยิบเราไปอ้างอิง',
-      body:
-        '<div class="row" style="gap:22px;align-items:center">' +
-        '<div class="ring" style="--p:' + c.sov + '"><span class="ring-val">' + c.sov + '%</span></div>' +
-        '<div style="flex:1">' +
-        '<div class="soft small">แนวโน้ม Citation SoV (10 สัปดาห์)</div>' +
-        ui.spark(c.sovTrend, { w: 260, h: 56, color: 'var(--purple-600)' }) +
-        '<div class="small" style="margin-top:6px"><span class="trend up">▲ ' + (c.sov - c.sovPrev) + '%</span> จากเดือนก่อน · เป้าหมาย 15–25%</div>' +
-        '</div></div>'
+      action: RP.sampleBadge('ข้อมูลตัวอย่าง'),
+      body: RP.realOr(sample, {
+        title: 'ยังไม่มีค่า Share of Voice',
+        hint: 'SoV คำนวณจากผลการรัน Prompt Sampling จริงหลายรอบ — รันชุดคำถามด้วยปุ่ม "รัน Prompt Sampling สด" ด้านบนอย่างน้อย 1 ครั้ง แล้วค่าจะเริ่มสะสมเป็นแนวโน้ม'
+      })
     });
   }
 
@@ -62,13 +79,18 @@
         '</div></div>' +
         '<div class="bb" style="width:44px;text-align:right;color:var(--brand-700)">' + e.us + '%</div></div>';
     }).join('');
+    var sample = rows +
+      '<div class="chart-legend" style="margin-top:10px">' +
+      '<span><i style="background:var(--brand-600)"></i> เรา (ABC)</span>' +
+      '<span><i style="background:#f59e0b"></i> คู่แข่ง</span>' +
+      '<span><i style="background:var(--border)"></i> ไม่มีใครถูกอ้าง</span></div>';
     return ui.card({
       title: 'การมองเห็นแยกตาม AI Engine', sub: 'เรา vs คู่แข่ง vs ไม่มีใครถูกอ้าง',
-      body: rows +
-        '<div class="chart-legend" style="margin-top:10px">' +
-        '<span><i style="background:var(--brand-600)"></i> เรา (ABC)</span>' +
-        '<span><i style="background:#f59e0b"></i> คู่แข่ง</span>' +
-        '<span><i style="background:var(--border)"></i> ไม่มีใครถูกอ้าง</span></div>'
+      action: RP.sampleBadge('ข้อมูลตัวอย่าง'),
+      body: RP.realOr(sample, {
+        title: 'ยังไม่มีผลแยกตาม AI Engine',
+        hint: 'ตัวเลขแยก ChatGPT / Gemini / Perplexity จะขึ้นหลังรัน Prompt Sampling จริงกับโปรเจ็คนี้ — เราจะไม่เดาสัดส่วนให้'
+      })
     });
   }
 
@@ -81,7 +103,14 @@
         '<div class="bar ' + (x.us ? '' : 'green') + '"><span style="width:' + (x.sov / max * 100) + '%"></span></div></div>' +
         '<div class="bb" style="width:40px;text-align:right">' + x.sov + '%</div></div>';
     }).join('');
-    return ui.card({ title: 'Share of Voice เทียบคู่แข่ง', sub: 'ใครถูก AI อ้างอิงมากที่สุดในหมวดนี้', body: rows });
+    return ui.card({
+      title: 'Share of Voice เทียบคู่แข่ง', sub: 'ใครถูก AI อ้างอิงมากที่สุดในหมวดนี้',
+      action: RP.sampleBadge('ข้อมูลตัวอย่าง'),
+      body: RP.realOr(rows, {
+        title: 'ยังไม่มีข้อมูลเทียบคู่แข่ง',
+        hint: 'ต้องตั้งรายชื่อคู่แข่งในหน้าตั้งค่าโปรเจ็ค แล้วรัน Prompt Sampling จริง ระบบจึงจะนับได้ว่าใครถูก AI อ้างอิงมากกว่ากัน'
+      })
+    });
   }
 
   function promptCard() {
@@ -97,20 +126,49 @@
         '</tr>';
     }).join('');
     var citedCount = d.prompts.filter(function (p) { return p.chatgpt || p.gemini || p.perplexity; }).length;
+    var sample = '<div class="tbl-wrap"><table class="tbl">' +
+      '<thead><tr><th>คำถามเป้าหมาย</th><th class="center">ChatGPT</th><th class="center">Gemini</th><th class="center">Perplexity</th><th class="center">สถานะ</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div>';
     return ui.card({
       title: 'Prompt Sampling — วัด AI Citation', sub: 'ยิงชุดคำถามเป้าหมายไปที่ AI แล้ววัดว่าถูกอ้างอิงไหม',
       flush: true,
-      action: '<span class="badge blue">ถูกอ้าง ' + citedCount + '/' + d.prompts.length + ' คำถาม</span>',
-      body: '<div class="tbl-wrap"><table class="tbl">' +
-        '<thead><tr><th>คำถามเป้าหมาย</th><th class="center">ChatGPT</th><th class="center">Gemini</th><th class="center">Perplexity</th><th class="center">สถานะ</th></tr></thead>' +
-        '<tbody>' + rows + '</tbody></table></div>'
+      action: RP.isReal()
+        ? RP.sampleBadge('')
+        : '<span class="badge blue">ถูกอ้าง ' + citedCount + '/' + d.prompts.length + ' คำถาม</span> ' + RP.sampleBadge('ข้อมูลตัวอย่าง'),
+      body: RP.realOr(sample, {
+        title: 'ยังไม่มีผล Prompt Sampling',
+        hint: 'ตารางนี้จะแสดงเฉพาะผลที่ยิงคำถามไปที่ AI จริงเท่านั้น — ใส่ชุดคำถามในกล่องด้านบน แล้วกด "รัน Prompt Sampling สด" ผลแต่ละเอนจินจะขึ้นทันทีหลังรันเสร็จ'
+      })
     });
   }
 
   function curProj() { return RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0]; }
 
+  /* คำแบรนด์ที่ใช้ตรวจว่า AI อ้างถึงเราไหม
+     โปรเจ็คจริงมักมี brandTerms = [] → fallback เป็นชื่อโปรเจ็ค + โดเมน (ไม่งั้นผลจะเป็น 0 เสมอ) */
+  function brandTermsOf(p) {
+    var out = [];
+    var i, t;
+    var src = (p && p.brandTerms) || [];
+    for (i = 0; i < src.length; i++) {
+      t = String(src[i] || '').trim();
+      if (t) out.push(t);
+    }
+    if (out.length) return out;
+    if (p && p.name) out.push(String(p.name).trim());
+    if (p && p.domain) {
+      out.push(String(p.domain).trim());
+      // ชื่อแบรนด์คร่าว ๆ จากโดเมน เช่น abc-beautyclinic.com → abc-beautyclinic
+      t = String(p.domain).replace(/^www\./, '').split('.')[0];
+      if (t && out.indexOf(t) < 0) out.push(t);
+    }
+    return out.filter(function (x) { return !!x; });
+  }
+
   function liveTools() {
     var p = curProj();
+    var noBrand = !((p && p.brandTerms) || []).length;
+    var sampleQs = RP.isReal() ? '' : RP.data.m5.prompts.map(function (x) { return x.q; }).join('\n');
     return ui.card({
       title: 'โหมด Live — ดึงข้อมูลจริงจาก backend', sub: 'ใช้โดเมน/แบรนด์ของโปรเจ็คปัจจุบัน: ' + esc(p.domain), cls: 'mb',
       action: RP.api.enabled() ? ui.badge('● Live เปิด', 'green') : ui.badge('Live ปิด', 'amber'),
@@ -118,8 +176,12 @@
         '<div class="row wrap" style="gap:10px">' +
         '<div class="field" style="flex:1;min-width:240px"><span class="ico">🔎</span><input id="m5_kw" placeholder="พิมพ์คีย์เวิร์ดเพื่อตรวจอันดับ Google จริง เช่น ครีมกันแดด ยี่ห้อไหนดี"></div>' +
         '<button class="btn btn-primary" id="m5_rank">ตรวจอันดับ Google สด</button>' +
-        '<button class="btn" id="m5_gsc">ดึง Search Console สด</button>' +
-        '<button class="btn" id="m5_cite">รัน Prompt Sampling สด</button></div>' +
+        '<button class="btn" id="m5_gsc">ดึง Search Console สด</button></div>' +
+        '<div style="margin-top:12px"><div class="soft small" style="margin-bottom:5px">ชุดคำถามสำหรับ Prompt Sampling (บรรทัดละ 1 คำถาม)</div>' +
+        '<textarea id="m5_qs" rows="4" style="width:100%" placeholder="เช่น&#10;ครีมกันแดดหน้าไม่วอก แนะนำ&#10;คลินิกเลเซอร์หน้าใส ที่ไหนดี">' + esc(sampleQs) + '</textarea>' +
+        '<div class="row wrap" style="gap:10px;margin-top:8px"><button class="btn" id="m5_cite">รัน Prompt Sampling สด</button>' +
+        '<span class="soft small" style="align-self:center">คำแบรนด์ที่ใช้ตรวจ: ' + esc(brandTermsOf(p).join(', ') || '—') + '</span></div></div>' +
+        (noBrand ? '<div class="warn-box" style="margin-top:10px">⚠️ โปรเจ็คนี้ยังไม่ได้ตั้ง "คำแบรนด์" — ระบบจะใช้ชื่อโปรเจ็คและโดเมนแทนชั่วคราว แนะนำให้ไปตั้งคำแบรนด์จริง (รวมชื่อภาษาไทย/ชื่อเล่นของแบรนด์) ที่หน้าตั้งค่า เพื่อให้ผลการตรวจแม่นขึ้น</div>' : '') +
         '<div class="hint" style="margin-top:10px">ปุ่มเหล่านี้ยิงไปที่ backend จริง (SERP / GSC / AI) — ต้องเปิดโหมด Live + รัน backend + ตั้งคีย์ API ก่อน มิฉะนั้นจะแจ้งให้ไปตั้งค่า</div>'
     });
   }
@@ -163,6 +225,8 @@
     var html =
       ui.pageHead({ eyebrow: 'M5 · AI Visibility & Rank Tracker', title: 'วัดผล & Rank Tracker',
         desc: 'วัดผลทั้ง 2 ฝั่งในที่เดียว — ฝั่ง <b>SEO</b> ติดตามอันดับ Google รายวันและทราฟฟิกจาก Search Console · ฝั่ง <b>AEO</b> ใช้ Prompt Sampling ยิงคำถามไปที่ ChatGPT / Gemini / Perplexity เพื่อวัดว่าแบรนด์เราถูกอ้างอิงกี่เปอร์เซ็นต์ (Share of Voice)' }) +
+      RP.sampleNotice('หน้าวัดผล & Rank Tracker นี้') +
+      RP.collectingNotice('อันดับ Google และ AI Citation ของโปรเจ็คนี้') +
       liveTools() +
       seoKpis() +
       '<div class="grid grid-2 mb">' + seoCard() + citationCard() + '</div>' +
@@ -184,8 +248,13 @@
         if (gs) gs.onclick = function () { RP.live(RP.api.gsc('sc-domain:' + p.domain), gscModal); };
         var ct = root.querySelector('#m5_cite');
         if (ct) ct.onclick = function () {
-          var qs = RP.data.m5.prompts.map(function (x) { return x.q; });
-          RP.live(RP.api.citation(qs, p.brandTerms || [], p.domain), citeModal);
+          var ta = root.querySelector('#m5_qs');
+          var raw = ta ? (ta.value || '') : '';
+          var qs = raw.split('\n').map(function (x) { return x.trim(); }).filter(function (x) { return !!x; });
+          if (!qs.length) { RP.ui.toast('ใส่ชุดคำถามอย่างน้อย 1 บรรทัดก่อนครับ'); return; }
+          var terms = brandTermsOf(p);
+          if (!terms.length) { RP.ui.toast('ตั้งคำแบรนด์ของโปรเจ็คในหน้าตั้งค่าก่อนครับ'); return; }
+          RP.live(RP.api.citation(qs, terms, p.domain), citeModal);
         };
       }
     };

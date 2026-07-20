@@ -5,6 +5,17 @@
   'use strict';
   var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
 
+  /* บล็อกที่ยังเป็นข้อมูลตัวอย่าง → บัญชีจริงเห็น "ยังไม่มีข้อมูล" ในการ์ดแทน */
+  function gateCard(sampleHtml, title, hint, cta) {
+    var out = RP.realOr(sampleHtml, { title: title, hint: hint, cta: cta });
+    if (!RP.isReal()) return out;
+    return '<div class="card mb">' + out + '</div>';
+  }
+
+  function setupCta(label) {
+    return '<button class="btn btn-sm btn-primary gate-setup">' + esc(label || 'ไปที่การตั้งค่าการเชื่อมต่อ →') + '</button>';
+  }
+
   function statusBadge(c) {
     if (c.status === 'loop') return ui.badge('● Loop ทำงานอยู่', 'green');
     if (c.status === 'producing') return ui.badge('กำลังผลิตคอนเทนต์', 'purple');
@@ -74,6 +85,16 @@
 
   function gettingStartedCard() {
     var steps = RP.data.onboarding;
+    // บัญชีจริง: ห้ามติ๊กถูกว่า "ตั้งค่าเสร็จแล้ว" จากข้อมูลตัวอย่าง — บอกสิ่งที่ต้องทำแทน
+    if (RP.isReal()) {
+      return ui.card({
+        title: '🚀 เริ่มต้นใช้งาน', sub: 'ตรวจสถานะการเชื่อมต่อจริงได้ในหน้าการตั้งค่า', cls: 'mb',
+        action: '<button class="btn btn-sm btn-primary" id="gsGo">ไปที่การตั้งค่า →</button>',
+        body: '<div class="hint">ระบบจะเริ่มวัดผลจริงได้เมื่อเชื่อมต่อครบ: SERP API (อันดับ Google), ' +
+          'Google Search Console, API วัด AI Citation และปลายทางเผยแพร่ · ' +
+          'เราแสดงเฉพาะสถานะจริงจากบัญชีของคุณเท่านั้น</div>'
+      });
+    }
     var done = steps.filter(function (s) { return s.done; }).length;
     if (done >= steps.length) return '';
     var rows = steps.map(function (s) {
@@ -94,7 +115,8 @@
     var cl = RP.sum(list, function (p) { return p.clusters; });
     var tiles = '<div class="row wrap" style="gap:30px">' +
       pfStat('โปรเจ็คทั้งหมด', list.length) + pfStat('คีย์เวิร์ดติดตามรวม', fmt.n(kw)) +
-      pfStat('คลัสเตอร์รวม', cl) + pfStat('แพ็กเกจ', esc(RP.data.account.plan)) + '</div>';
+      pfStat('คลัสเตอร์รวม', cl) +
+      pfStat('แพ็กเกจ', RP.isReal() ? '<span class="soft">—</span>' : esc(RP.data.account.plan)) + '</div>';
     var rows = list.map(function (p) {
       var cur = p.id === RP.data.project.current, h = p.health;
       var dots = [h.gsc, h.serp, h.ai, h.publish].map(function (x) {
@@ -126,8 +148,12 @@
       '<button class="btn btn-green" id="newCluster">＋ สร้างคลัสเตอร์ใหม่ (Auto)</button>' +
       '</div></div>';
 
-    var kpiGrid = '<div class="grid grid-4 mb">' +
-      RP.data.kpis.map(function (k) { return ui.kpi(k); }).join('') + '</div>';
+    var kpiGrid = gateCard(
+      '<div class="grid grid-4 mb">' + RP.data.kpis.map(function (k) { return ui.kpi(k); }).join('') + '</div>',
+      'ยังไม่มีตัวเลข KPI',
+      'ตัวเลขบทความที่เผยแพร่ คีย์เวิร์ดติดหน้า 1 AI Citation และทราฟฟิก จะขึ้นหลังเชื่อม SERP API + Google Search Console แล้วระบบเก็บข้อมูลประมาณ 1–7 วัน',
+      setupCta()
+    );
 
     var loopCard = ui.card({
       title: 'AI Growth Loop', sub: 'วงจรอัตโนมัติที่หมุนเองและฉลาดขึ้นทุกรอบ (Closed-Loop)',
@@ -135,15 +161,37 @@
     });
 
     var tableCard = ui.card({
-      title: 'คลัสเตอร์ทั้งหมด', sub: RP.data.clusters.length + ' คลัสเตอร์ · เรียงตามความสำคัญ',
+      title: 'คลัสเตอร์ทั้งหมด',
+      sub: RP.isReal() ? 'แสดงเฉพาะคลัสเตอร์จริงในโปรเจ็คของคุณ' : (RP.data.clusters.length + ' คลัสเตอร์ · เรียงตามความสำคัญ'),
       flush: true, cls: 'mb',
-      action: '<button class="btn btn-sm" id="goM5">ดูรายงานอันดับ →</button>',
-      body: clusterTable()
+      action: RP.sampleBadge() + ' <button class="btn btn-sm" id="goM5">ดูรายงานอันดับ →</button>',
+      body: RP.realOr(clusterTable(), {
+        title: 'ยังไม่มีคลัสเตอร์',
+        hint: 'สร้างคลัสเตอร์แรกเพื่อเริ่มผลิตคอนเทนต์ · อันดับเฉลี่ยและสถานะ "ถูก AI อ้างอิง" จะแสดงหลังระบบเก็บข้อมูลอันดับจริง 1–7 วัน',
+        cta: '<button class="btn btn-sm btn-primary" id="ndCluster">＋ สร้างคลัสเตอร์ใหม่</button>'
+      })
     });
 
     var twoCol = '<div class="grid mb" style="grid-template-columns:1.5fr 1fr">' +
-      ui.card({ title: 'AI Citation Share of Voice', sub: 'ส่วนแบ่งการถูกอ้างอิงบน AI เทียบคู่แข่ง', body: sovPanel() }) +
-      ui.card({ title: 'รายงานสัปดาห์นี้ (M6)', sub: 'สรุปอัตโนมัติจาก Learning Loop', body: weeklyPanel() }) +
+      ui.card({
+        title: 'AI Citation Share of Voice',
+        sub: 'ส่วนแบ่งการถูกอ้างอิงบน AI เทียบคู่แข่ง',
+        action: RP.sampleBadge(),
+        body: RP.realOr(sovPanel(), {
+          title: 'ยังไม่มีข้อมูล Share of Voice',
+          hint: 'ต้องใส่ชื่อแบรนด์ คู่แข่ง และชุดคำถาม (Prompt Sampling) ก่อน — ระบบจะยิงคำถามจริงไปที่ ChatGPT / Gemini / Perplexity แล้วสรุปผลให้ในรอบถัดไป',
+          cta: setupCta('ตั้งค่าคู่แข่ง & ชุดคำถาม →')
+        })
+      }) +
+      ui.card({
+        title: 'รายงานสัปดาห์นี้ (M6)',
+        sub: 'สรุปอัตโนมัติจาก Learning Loop',
+        action: RP.sampleBadge(),
+        body: RP.realOr(weeklyPanel(), {
+          title: 'ยังไม่มีรายงานสัปดาห์นี้',
+          hint: 'รายงานฉบับแรกจะสรุปให้เมื่อครบ 1 สัปดาห์หลังเริ่มเผยแพร่จริง — เราไม่สรุปงานที่ระบบยังไม่ได้ทำ'
+        })
+      }) +
       '</div>';
 
     var factStrip = '<div class="grid grid-4">' + RP.data.facts.map(function (f) {
@@ -154,6 +202,8 @@
     var html =
       ui.pageHead({ eyebrow: 'RankPilot AI — Dashboard หลัก', title: 'แดชบอร์ดหลัก',
         desc: 'ภาพรวมทุกคลัสเตอร์ในโปรเจ็คเดียว — บทความที่เผยแพร่ อันดับบน Google และการถูก AI อ้างอิง พร้อมสถานะของวงจรอัตโนมัติแต่ละคลัสเตอร์' }) +
+      RP.sampleNotice('แดชบอร์ดนี้') +
+      RP.collectingNotice('ของโปรเจ็คคุณ') +
       gettingStartedCard() + portfolioCard() +
       projectBar + kpiGrid + '<div class="mb">' + loopCard + '</div>' + tableCard + twoCol + factStrip;
 
@@ -166,6 +216,10 @@
         if (gm5) gm5.onclick = function () { RP.go('m5'); };
         var gsGo = root.querySelector('#gsGo'); if (gsGo) gsGo.onclick = function () { RP.go('settings'); };
         var pfM = root.querySelector('#pfManage'); if (pfM) pfM.onclick = function () { RP.go('projects'); };
+        var ndC = root.querySelector('#ndCluster'); if (ndC) ndC.onclick = function () { RP.go('m1'); };
+        Array.prototype.forEach.call(root.querySelectorAll('.gate-setup'), function (b) {
+          b.onclick = function () { RP.go('settings'); };
+        });
         Array.prototype.forEach.call(root.querySelectorAll('.pf-open'), function (b) {
           b.onclick = function () { RP.data.project.current = b.getAttribute('data-id'); RP.ui.toast('สลับโปรเจ็คแล้ว'); reDash(); };
         });

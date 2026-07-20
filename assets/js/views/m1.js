@@ -11,7 +11,19 @@
   'use strict';
   var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
 
-  var state = { seed: 'ครีมกันแดด', cluster: null };
+  var state = { seed: 'ครีมกันแดด', cluster: null, live: null };
+
+  /* ข้อความ empty-state สำหรับบัญชีจริง (ห้ามโชว์ตัวเลขที่ไม่ได้วัดจริง) */
+  function liveCta(label) {
+    return '<button class="btn btn-primary m1-run-live">' + esc(label || 'ขุดคำถามจริง (Live)') + '</button>';
+  }
+  function emptyMine(title, hint) {
+    return {
+      title: title || 'ยังไม่มีข้อมูล',
+      hint: hint || 'ตัวเลขปริมาณค้นหา / ความยาก (KD) / คะแนนโอกาส จะแสดงเมื่อระบบขุดข้อมูลจริงให้คุณแล้ว — กดปุ่ม "ขุดคำถามจริง (Live)" โดยต้องเปิดโหมด Live และรัน backend',
+      cta: liveCta()
+    };
+  }
 
   /* ---- stable pseudo-random from string ---- */
   function hash(s) {
@@ -37,14 +49,15 @@
     return { pillar: seed, questions: questions };
   }
 
-  /* ---- สรุปตัวเลข ---- */
+  /* ---- สรุปตัวเลข (ข้อมูลตัวอย่างเท่านั้น — บัญชีจริงจะไม่เห็นบล็อกนี้) ---- */
   function summaryKpis() {
     var c = state.cluster;
+    if (!c || !c.questions.length) return '';
     var avgKd = Math.round(RP.sum(c.questions, function (q) { return q.kd; }) / c.questions.length);
     var gaps = c.questions.filter(function (q) { return q.aiGap; }).length;
     var vol = RP.sum(c.questions, function (q) { return q.vol; });
     return '<div class="grid grid-4 mb">' +
-      ui.kpi({ label: 'คำถามที่ขุดได้', value: fmt.n(c.questions.length), foot: 'จาก ' + RP.data.m1.sources.length + ' แหล่ง' }) +
+      ui.kpi({ label: 'คำถามที่ขุดได้', value: fmt.n(c.questions.length), foot: 'จาก ' + RP.data.m1.sources.length + ' แหล่ง ' + RP.sampleBadge('ข้อมูลตัวอย่าง') }) +
       ui.kpi({ label: 'โอกาสทอง (AI Gap)', value: fmt.n(gaps), tone: 'brand', foot: 'AI ยังตอบได้ไม่ดี/ไม่มีแหล่งไทย' }) +
       ui.kpi({ label: 'ปริมาณค้นหารวม', value: fmt.n(vol), foot: 'ครั้ง/เดือน (โดยประมาณ)' }) +
       ui.kpi({ label: 'ความยากเฉลี่ย (KD)', value: avgKd, tone: (avgKd <= 40 ? 'pos' : ''), foot: ui.diffLabel(avgKd).t }) +
@@ -74,17 +87,52 @@
     return '<div class="intent-col mb">' +
       '<div class="intent-head rec">' +
       '<span class="ic">🗂️</span>' +
-      '<div><div class="h">Topic Cluster: ' + esc(c.pillar) + '</div>' +
+      '<div><div class="h">Topic Cluster: ' + esc(c.pillar) + ' ' + RP.sampleBadge('ข้อมูลตัวอย่าง') + '</div>' +
       '<div class="c">หัวข้อแม่ (Pillar) + คำถามลูก (Cluster) ' + c.questions.length + ' คำถาม จัดกลุ่มอัตโนมัติ</div></div>' +
       '<span class="count">Pillar</span></div>' +
       '<div>' + rows + '</div>' +
       '</div>';
   }
 
-  function sourcesCard() {
-    var chips = RP.data.m1.sources.map(function (s) { return '<span class="chip">🌐 ' + esc(s) + '</span>'; }).join('');
+  /* ---- ผลขุดจริงจาก backend (RP.api.mine) — ไม่มีตัวเลขที่ไม่ได้วัดจริง ---- */
+  function liveResultCard() {
+    var r = state.live;
+    var rows = (r.questions || []).map(function (q) {
+      return '<div class="list-row">' +
+        (q.is_question ? ui.badge('คำถาม', 'purple') : ui.badge('คีย์เวิร์ด', '')) +
+        '<div class="grow t small">' + esc(q.q) + '</div>' +
+        '<span class="soft small">' + esc(q.source || '') + '</span></div>';
+    }).join('');
     return ui.card({
-      title: 'แหล่งขุดคำถาม (Question Mining)', sub: 'ระบบรวบรวมคำถามจริงที่คนถามจากหลายแหล่ง',
+      title: 'ผลขุดคำถามจริง — ' + esc(r.pillar || state.seed),
+      sub: 'พบ ' + (r.count != null ? r.count : (r.questions || []).length) + ' รายการ · แหล่ง: ' + esc((r.sources_used || []).join(', ')),
+      cls: 'mb',
+      action: ui.badge('● ข้อมูลจริง', 'green'),
+      body: (rows || RP.noData('ยังไม่พบคำถามสำหรับคำนี้', 'ลองใช้คำที่กว้างขึ้น หรือเปลี่ยนหัวข้อ')) +
+        '<div class="hint" style="margin-top:10px">รายการนี้คือคำถาม/คีย์เวิร์ดที่ดึงมาได้จริงเท่านั้น · ปริมาณค้นหาและความยาก (KD) จะแสดงเมื่อเชื่อมต่อแหล่งข้อมูลที่วัดค่าได้จริง</div>'
+    });
+  }
+
+  /* ---- เนื้อหาโซนผลลัพธ์: บัญชีจริง = ของจริงหรือ "ยังไม่มีข้อมูล" เท่านั้น ---- */
+  function outHtml() {
+    if (RP.isReal() && state.live) return liveResultCard() + sourcesCard();
+    return RP.realOr(
+      summaryKpis() + '<div class="grid mb" style="grid-template-columns:1.6fr 1fr">' + clusterCard() + sourcesCard() + '</div>',
+      emptyMine('ยังไม่มีข้อมูลการขุดคำถาม')
+    ) + (RP.isReal() ? sourcesCard() : '');
+  }
+
+  function sourcesCard() {
+    var live = { 'Google People Also Ask': 1, 'Google Suggest': 1 };
+    var chips = RP.data.m1.sources.map(function (s) {
+      var on = !!live[s];
+      return '<span class="chip"' + (on ? '' : ' style="opacity:.6"') + '>🌐 ' + esc(s) +
+        (RP.isReal() ? ' ' + (on ? ui.badge('ใช้ได้', 'green') : ui.badge('ยังไม่เปิด', '')) : '') + '</span>';
+    }).join('');
+    return ui.card({
+      title: 'แหล่งขุดคำถาม (Question Mining)',
+      sub: RP.isReal() ? 'ตอนนี้โหมด Live ดึงจริงได้จาก Google Suggest และ People Also Ask (ต้องมีคีย์ DataForSEO) · แหล่งอื่นยังไม่เปิดใช้งาน'
+        : 'ระบบรวบรวมคำถามจริงที่คนถามจากหลายแหล่ง',
       body: '<div class="tag-list mb">' + chips + '</div>' +
         '<div class="hint">🎯 ชี้เป้า: <b>คำถามที่ AI ยังตอบได้ไม่ดี หรือยังไม่มีแหล่งภาษาไทยอ้างอิง</b> = โอกาสติด Citation ง่ายที่สุด (ตามกลยุทธ์หน้า 5 ของโครงการ)'
     });
@@ -95,7 +143,9 @@
       title: 'M1 ทำงานอย่างไร', sub: 'ขุดคำถามจริง → จัดกลุ่ม Topic Cluster → ชี้โอกาส',
       body:
         '<div class="grid grid-3" style="gap:14px">' +
-        howStep('1', '🔎', 'ขุดคำถามจริง', 'รวบรวมจาก Google People Also Ask, Google Suggest, Pantip, Reddit, คอมเมนต์โซเชียล และจำลองการถาม AI (Prompt Mining)') +
+        howStep('1', '🔎', 'ขุดคำถามจริง', RP.isReal()
+          ? 'ตอนนี้ดึงจริงจาก Google Suggest และ Google People Also Ask · Pantip / Reddit / คอมเมนต์โซเชียล / Prompt Mining อยู่ระหว่างพัฒนา'
+          : 'รวบรวมจาก Google People Also Ask, Google Suggest, Pantip, Reddit, คอมเมนต์โซเชียล และจำลองการถาม AI (Prompt Mining)') +
         howStep('2', '🗂️', 'จัดกลุ่ม Topic Cluster', 'จัดเป็นหัวข้อแม่ (Pillar) + คำถามลูก (Cluster) อัตโนมัติ พร้อมประเมินความยาก/โอกาสของแต่ละคำ') +
         howStep('3', '🎯', 'ชี้เป้าโอกาสทอง', 'ไฮไลต์คำถามที่ AI ยังตอบได้ไม่ดี/ไม่มีแหล่งไทย — สร้างก่อนได้เปรียบ ติด Citation ง่ายสุด') +
         '</div>'
@@ -112,6 +162,8 @@
 
   /* ---- modal: รายละเอียดคำถาม (ขุดจากไหน / ทำไมเป็นโอกาส / รูปแบบที่แนะนำ) ---- */
   function openDetail(qText) {
+    /* รายละเอียดนี้อิงชุดข้อมูลตัวอย่าง — ไม่แสดงให้บัญชีจริงเด็ดขาด */
+    if (RP.isReal() || !state.cluster) return;
     var q = state.cluster.questions.filter(function (x) { return x.q === qText; })[0];
     if (!q) return;
     var variations = [
@@ -164,26 +216,38 @@
     var html =
       ui.pageHead({ eyebrow: 'M1 · Question & Keyword Intelligence', title: 'ขุดคำถาม & คีย์เวิร์ด',
         desc: 'กรอกหัวข้อธุรกิจ/สินค้าเพียงหัวข้อเดียว ระบบจะขุด "คำถามจริงที่คนถาม" จากหลายแหล่ง แล้วจัดกลุ่มเป็น <b>Topic Cluster</b> อัตโนมัติ (หัวข้อแม่ Pillar + คำถามลูก Cluster) พร้อมประเมินความยาก/โอกาส และชี้เป้าคำถามที่ AI ยังตอบได้ไม่ดี' }) +
+      RP.sampleNotice('หน้าขุดคำถาม (ปริมาณค้นหา / KD / คะแนนโอกาส)') +
+      RP.collectingNotice('คำถามและคีย์เวิร์ดของคุณ') +
       searchCard +
       liveMineCard() +
-      '<div id="mineOut">' + summaryKpis() + '<div class="grid mb" style="grid-template-columns:1.6fr 1fr">' +
-        clusterCard() + sourcesCard() + '</div></div>' +
+      '<div id="mineOut">' + outHtml() + '</div>' +
       howCard();
 
     return {
       html: html,
       mount: function (root) {
         function refresh() {
-          root.querySelector('#mineOut').innerHTML =
-            summaryKpis() + '<div class="grid mb" style="grid-template-columns:1.6fr 1fr">' + clusterCard() + sourcesCard() + '</div>';
-          wireDetails(root);
+          root.querySelector('#mineOut').innerHTML = outHtml();
+          wireOut(root, runLive);
+        }
+        function runLive() {
+          var v = (root.querySelector('#seedInput').value || '').trim() || state.seed;
+          state.seed = v;
+          RP.live(RP.api.mine(v), function (res) {
+            state.live = res;
+            mineModal(res);
+            refresh();
+          });
         }
         function doGen() {
           var v = root.querySelector('#seedInput').value.trim();
           if (!v) { RP.ui.toast('กรุณากรอกหัวข้อก่อน'); return; }
-          state.seed = v; state.cluster = mine(v);
+          state.seed = v;
+          /* บัญชีจริง: ห้ามสร้างตัวเลขสมมติ — ส่งไปขุดของจริงแทน */
+          if (RP.isReal()) { runLive(); return; }
+          state.cluster = mine(v);
           refresh();
-          RP.ui.toast('ขุดคำถามสำหรับ <b>"' + esc(v) + '"</b> แล้ว — จัดกลุ่ม Topic Cluster เรียบร้อย ✓');
+          RP.ui.toast('ตัวอย่างการขุดคำถามสำหรับ <b>"' + esc(v) + '"</b> (ข้อมูลสมมติ)');
         }
         root.querySelector('#genBtn').onclick = doGen;
         root.querySelector('#seedInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') doGen(); });
@@ -191,11 +255,8 @@
           b.onclick = function () { root.querySelector('#seedInput').value = b.getAttribute('data-seed'); doGen(); };
         });
         var mn = root.querySelector('#m1_mine');
-        if (mn) mn.onclick = function () {
-          var v = (root.querySelector('#seedInput').value || '').trim() || state.seed;
-          RP.live(RP.api.mine(v), mineModal);
-        };
-        wireDetails(root);
+        if (mn) mn.onclick = runLive;
+        wireOut(root, runLive);
       }
     };
   };
@@ -219,9 +280,12 @@
       body: '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>ประเภท</th><th>คำถาม / คีย์เวิร์ด</th><th>แหล่ง</th></tr></thead><tbody>' + rows + '</tbody></table></div>' });
   }
 
-  function wireDetails(root) {
+  function wireOut(root, runLive) {
     Array.prototype.forEach.call(root.querySelectorAll('.q-detail'), function (b) {
       b.onclick = function () { openDetail(b.getAttribute('data-q')); };
+    });
+    Array.prototype.forEach.call(root.querySelectorAll('.m1-run-live'), function (b) {
+      b.onclick = function () { runLive(); };
     });
   }
 

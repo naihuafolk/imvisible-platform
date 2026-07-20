@@ -28,7 +28,10 @@
           modeCard('auto', 'Full-Auto 100%', 'ระบบเผยแพร่เองทันทีที่ผ่านเกณฑ์คุณภาพ') +
           modeCard('approve', 'Auto + Human Approve', 'ส่งเข้าคิวรออนุมัติทางไลน์/อีเมลก่อนเผยแพร่') +
         '</div>' +
-        '<div class="hint">แนะนำเริ่มด้วย <b>Auto + Human Approve</b> — ปลอดภัยกว่าตามหน้าประเมินความเสี่ยง เพราะมีคนตรวจก่อนเผยแพร่จริง</div>';
+        '<div class="hint">แนะนำเริ่มด้วย <b>Auto + Human Approve</b> — ปลอดภัยกว่าตามหน้าประเมินความเสี่ยง เพราะมีคนตรวจก่อนเผยแพร่จริง</div>' +
+        (RP.isReal()
+          ? '<div class="hint">หมายเหตุ: การเลือกโหมดในหน้านี้ยังไม่ถูกบันทึกเข้าระบบหลังบ้านในเวอร์ชันนี้ — แจ้งทีมงานเพื่อตั้งค่าโหมดเผยแพร่จริง</div>'
+          : '');
     }
 
     // 1) โหมดเผยแพร่
@@ -52,7 +55,14 @@
     var targetsCardHtml = ui.card({
       title: 'ปลายทางที่เชื่อมต่อ',
       sub: 'เชื่อมต่อ WordPress / Webflow / เว็บลูกค้าผ่าน API',
-      body: targetRows || '<div class="soft small">ยังไม่มีปลายทางที่เชื่อมต่อ</div>'
+      action: RP.sampleBadge('ข้อมูลตัวอย่าง'),
+      body: RP.realOr(
+        targetRows || '<div class="soft small">ยังไม่มีปลายทางที่เชื่อมต่อ</div>',
+        {
+          title: 'ยังไม่ได้เชื่อมต่อปลายทาง',
+          hint: 'เรายังไม่ได้เชื่อมเว็บของคุณเข้ากับระบบ จึงยังไม่มีปลายทางให้แสดง — ทีมงานจะติดตั้ง WordPress REST API / Webflow API ให้ในขั้นตอน onboarding แล้วรายการนี้จะขึ้นเอง'
+        }
+      )
     });
 
     // 3) ปฏิทินคอนเทนต์
@@ -75,8 +85,12 @@
     var calendarCardHtml = ui.card({
       title: 'ปฏิทินคอนเทนต์ (Content Calendar)',
       sub: 'ตั้งตารางเผยแพร่ล่วงหน้าอัตโนมัติ',
-      flush: true,
-      body: calBody
+      flush: !RP.isReal(),
+      action: RP.sampleBadge('ตารางตัวอย่าง'),
+      body: RP.realOr(calBody, {
+        title: 'ยังไม่มีตารางเผยแพร่',
+        hint: 'ปฏิทินจะขึ้นหลังจากเชื่อมต่อเว็บปลายทางและอนุมัติแผนคอนเทนต์แล้ว — เราจะไม่แสดงหัวข้อหรือวันที่สมมติ'
+      })
     });
 
     // 4) คิวรออนุมัติ
@@ -107,9 +121,14 @@
     var approvalCardHtml = ui.card({
       title: 'คิวรออนุมัติ',
       sub: 'ตรวจก่อนเผยแพร่ตามโหมด Human Approve',
-      flush: true,
-      action: ui.badge('รออนุมัติ ' + fmt.n(d.pendingCount) + ' บทความ', 'amber'),
-      body: approvalBody
+      flush: !RP.isReal(),
+      action: RP.isReal()
+        ? ''
+        : ui.badge('รออนุมัติ ' + fmt.n(d.pendingCount) + ' บทความ', 'amber') + ' ' + RP.sampleBadge('คิวตัวอย่าง'),
+      body: RP.realOr(approvalBody, {
+        title: 'ยังไม่มีบทความรออนุมัติ',
+        hint: 'เมื่อระบบร่างบทความให้คุณแล้ว รายการจะขึ้นที่นี่พร้อมจำนวนคำและคะแนน AEO จริง — ตอนนี้ยังไม่มีงานในคิว จึงไม่มีอะไรให้อนุมัติ'
+      })
     });
 
     // 5) แจ้ง Index
@@ -128,7 +147,14 @@
     var indexCardHtml = ui.card({
       title: 'แจ้ง Index (IndexNow / Sitemap Ping)',
       sub: 'แจ้ง Google ทันทีที่เผยแพร่ผ่าน Indexing / Sitemap Ping และ IndexNow',
-      body: (pingRows || '<div class="soft small">ยังไม่มีการแจ้ง Index</div>') +
+      action: RP.sampleBadge('ล็อกตัวอย่าง'),
+      body: RP.realOr(
+        (pingRows || '<div class="soft small">ยังไม่มีการแจ้ง Index</div>'),
+        {
+          title: 'ยังไม่มีประวัติการแจ้ง Index',
+          hint: 'ล็อกนี้จะบันทึกเฉพาะ URL ที่ระบบ ping จริงหลังเผยแพร่ — เมื่อยังไม่มีบทความถูกเผยแพร่ผ่านระบบ จึงยังไม่มีรายการ'
+        }
+      ) +
         '<div class="note-box mb-l" style="margin-top:12px;">แจ้ง Google ผ่าน Indexing/Sitemap Ping และ IndexNow ทันทีที่บทความถูกเผยแพร่</div>'
     });
 
@@ -138,6 +164,8 @@
         title: 'เผยแพร่อัตโนมัติ',
         desc: 'เชื่อมต่อเว็บลูกค้าผ่าน API ตั้งตารางเผยแพร่ล่วงหน้า พร้อมแจ้ง Google ทันที และเลือกโหมดอนุมัติได้'
       }) +
+      RP.sampleNotice('หน้าเผยแพร่อัตโนมัติ (ปลายทาง ปฏิทิน คิวอนุมัติ และล็อกแจ้ง Index)') +
+      RP.collectingNotice('การเชื่อมต่อและการเผยแพร่ของเว็บคุณ') +
       modeCardHtml +
       '<div class="grid grid-2 mb">' + targetsCardHtml + indexCardHtml + '</div>' +
       calendarCardHtml +
@@ -159,20 +187,32 @@
               modesWrap.innerHTML = buildModes();
               wireModes();
               var label = m === 'auto' ? 'Full-Auto 100%' : 'Auto + Human Approve';
-              ui.toast('เปลี่ยนโหมดเป็น <b>' + esc(label) + '</b>');
+              ui.toast(RP.isReal()
+                ? 'เลือก <b>' + esc(label) + '</b> ไว้ในหน้าจอแล้ว (ยังไม่บันทึกเข้าระบบหลังบ้าน)'
+                : 'เปลี่ยนโหมดเป็น <b>' + esc(label) + '</b>');
             };
           });
         }
         if (modesWrap) wireModes();
 
         // 4) คิวรออนุมัติ — approve buttons
+        // บัญชีจริง: ยังไม่มี API อนุมัติจริง จึงต้องไม่บอกว่า "อนุมัติแล้ว"
+        // (ตารางนี้ถูก gate ไว้แล้ว ปุ่มจะไม่ถูก render — เก็บ guard ไว้กันพลาด)
         root.querySelectorAll('button.approve').forEach(function (btn) {
+          if (RP.isReal()) {
+            btn.disabled = true;
+            btn.setAttribute('title', 'ยังไม่รองรับในเวอร์ชันนี้ — การอนุมัติทำผ่านทีมงาน');
+            btn.onclick = function () {
+              ui.toast('การอนุมัติผ่านหน้าเว็บยังไม่รองรับในเวอร์ชันนี้');
+            };
+            return;
+          }
           btn.onclick = function () {
             var idx = btn.getAttribute('data-idx');
             var row = root.querySelector('tr[data-row="' + idx + '"]');
             var cell = row ? row.querySelector('[data-cell="act"]') : null;
-            if (cell) cell.innerHTML = ui.badge('อนุมัติแล้ว', 'green');
-            ui.toast('อนุมัติและส่งเข้าคิวเผยแพร่แล้ว ✓');
+            if (cell) cell.innerHTML = ui.badge('อนุมัติแล้ว (ตัวอย่าง)', 'green');
+            ui.toast('โหมดตัวอย่าง: จำลองการอนุมัติ — ไม่มีการเผยแพร่จริง');
           };
         });
       }

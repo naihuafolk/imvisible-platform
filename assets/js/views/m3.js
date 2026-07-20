@@ -21,30 +21,41 @@
       desc: 'เครื่องยนต์ติดคำตอบ — ใส่ Schema อัตโนมัติ, ดูแล llms.txt/Sitemap, สร้าง Topical Authority และรีเฟรชความสดของเนื้อหาให้ติดอันดับใน AI Answer'
     }) + '';
 
+    // แถบกำกับสถานะข้อมูล (ตัวอย่าง vs บัญชีจริงที่ยังไม่มีผลสแกน)
+    html += RP.sampleNotice('หน้า AEO Optimizer นี้');
+    html += RP.collectingNotice('จากการสแกนเว็บไซต์ของคุณ');
+
     // 1) KPI ROW
-    html += '<div class="grid grid-4 mb">';
-    html += ui.kpi({
-      label: 'Schema ครอบคลุมเฉลี่ย',
-      value: avgPct + '%',
-      tone: 'brand',
-      foot: 'ครอบคลุม ' + fmt.n(schema.length) + ' ชนิดเนื้อหา'
+    var kpiSample = '<div class="grid grid-4 mb">' +
+      ui.kpi({
+        label: 'Schema ครอบคลุมเฉลี่ย',
+        value: avgPct + '%',
+        tone: 'brand',
+        foot: 'ครอบคลุม ' + fmt.n(schema.length) + ' ชนิดเนื้อหา'
+      }) +
+      ui.kpi({
+        label: 'llms.txt',
+        value: fmt.n(llmsTxt.entries || 0) + ' รายการ',
+        foot: 'อัปเดต ' + esc(llmsTxt.updated || '-')
+      }) +
+      ui.kpi({
+        label: 'Sitemap URLs',
+        value: fmt.n(sitemap.urls || 0),
+        foot: sitemap.submitted ? 'ส่งเข้าระบบแล้ว' : 'ยังไม่ได้ส่ง'
+      }) +
+      ui.kpi({
+        label: 'Internal Links',
+        value: fmt.n(internalLinks.total || 0),
+        foot: 'เฉลี่ย ' + esc(String(internalLinks.avgPerPage || 0)) + '/หน้า'
+      }) +
+      '</div>';
+
+    var kpiBlock = RP.realOr(kpiSample, {
+      title: 'ยังไม่มีข้อมูล',
+      hint: 'ตัวเลขสรุป (Schema, llms.txt, Sitemap, Internal Links) จะขึ้นหลังระบบสแกนเว็บไซต์ของคุณครบรอบแรก — เชื่อมต่อโดเมนและกดสแกนก่อน เราจะไม่แสดงตัวเลขสมมติ'
     });
-    html += ui.kpi({
-      label: 'llms.txt',
-      value: fmt.n(llmsTxt.entries || 0) + ' รายการ',
-      foot: 'อัปเดต ' + esc(llmsTxt.updated || '-')
-    });
-    html += ui.kpi({
-      label: 'Sitemap URLs',
-      value: fmt.n(sitemap.urls || 0),
-      foot: sitemap.submitted ? 'ส่งเข้าระบบแล้ว' : 'ยังไม่ได้ส่ง'
-    });
-    html += ui.kpi({
-      label: 'Internal Links',
-      value: fmt.n(internalLinks.total || 0),
-      foot: 'เฉลี่ย ' + esc(String(internalLinks.avgPerPage || 0)) + '/หน้า'
-    });
-    html += '</div>';
+    if (RP.isReal()) kpiBlock = ui.card({ cls: 'mb', body: kpiBlock });
+    html += kpiBlock;
 
     // 2) SCHEMA COVERAGE CARD
     var schemaBody = '';
@@ -65,7 +76,11 @@
     html += ui.card({
       title: 'ความครอบคลุม Schema Markup',
       sub: 'ใส่ schema อัตโนมัติตามชนิดเนื้อหา (FAQPage, HowTo, Article, Author, Organization, Product)',
-      body: schemaBody,
+      action: RP.sampleBadge('ข้อมูลตัวอย่าง'),
+      body: RP.realOr(schemaBody, {
+        title: 'ยังไม่มีข้อมูล Schema',
+        hint: 'เรายังไม่ได้อ่านโค้ดหน้าเว็บของคุณ เปอร์เซ็นต์ความครอบคลุมจะขึ้นหลังระบบ crawl เว็บไซต์เสร็จ (ปกติใช้เวลาไม่กี่นาทีถึง 1 วันตามจำนวนหน้า)'
+      }),
       cls: 'mb'
     });
 
@@ -104,7 +119,11 @@
     html += ui.card({
       title: 'llms.txt · Sitemap · Internal Link',
       sub: 'ทำให้เว็บอ่านง่ายสำหรับ AI Crawler และสร้าง Topical Authority',
-      body: filesBody
+      action: RP.sampleBadge('ข้อมูลตัวอย่าง'),
+      body: RP.realOr(filesBody, {
+        title: 'ยังไม่มีข้อมูลไฟล์และลิงก์ภายใน',
+        hint: 'สถานะ llms.txt, จำนวน URL ใน Sitemap, จำนวนลิงก์ภายใน และหน้ากำพร้า จะแสดงหลังระบบตรวจเว็บไซต์ของคุณจริง — ตอนนี้เรายังไม่ได้ตรวจ จึงไม่มีตัวเลขให้แสดง'
+      })
     });
 
     // 3b) Technical SEO Audit
@@ -127,7 +146,11 @@
     html += ui.card({
       title: 'Technical SEO Audit',
       sub: 'ตรวจอัตโนมัติ: ความเร็ว, Core Web Vitals, Mobile, Index Coverage',
-      body: auditBody
+      action: RP.sampleBadge('ข้อมูลตัวอย่าง'),
+      body: RP.realOr(auditBody, {
+        title: 'ยังไม่ได้ตรวจเว็บไซต์ของคุณ',
+        hint: 'ค่า LCP / Core Web Vitals / Mobile-friendly / Index Coverage ต้องวัดจากหน้าเว็บจริง ระบบจะแสดงผลหลังรันการตรวจครั้งแรกเสร็จ เราไม่แสดงคะแนนที่ยังไม่ได้วัด'
+      })
     });
 
     html += '</div>';
@@ -159,12 +182,18 @@
       '</table></div>' +
       '<div class="hint">Freshness Engine ตรวจอายุทุกหน้า หน้าไหนใกล้ครบ 3–6 เดือน ระบบจะรีเฟรชเนื้อหา/ตัวเลข/ปี พ.ศ. ให้อัตโนมัติ ' +
         'ความสดใหม่ของเนื้อหาสำคัญมากต่อการถูกอ้างอิงโดย AI — 83% ของ Citation มาจากหน้าที่อัปเดตภายใน 12 เดือน</div>';
+    var freshEmpty = {
+      title: 'ยังไม่มีคิวรีเฟรช',
+      hint: 'รายการนี้จะขึ้นเมื่อระบบรู้จักหน้าเว็บของคุณและเริ่มนับอายุเนื้อหาได้ — เชื่อมต่อเว็บไซต์/Sitemap ก่อน แล้วหน้าที่ใกล้ครบ 3–6 เดือนจะถูกจัดคิวให้อัตโนมัติ'
+    };
     html += ui.card({
       title: 'Freshness Engine',
       sub: 'รีเฟรชหน้าที่ใกล้ครบ 3–6 เดือนอัตโนมัติ',
-      action: ui.badge('83% ของ Citation มาจากหน้าที่อัปเดตใน 12 เดือน', 'blue'),
-      body: freshBody,
-      flush: true
+      action: RP.isReal()
+        ? ''
+        : (RP.sampleBadge('ข้อมูลตัวอย่าง') + ui.badge('83% ของ Citation มาจากหน้าที่อัปเดตใน 12 เดือน', 'blue')),
+      body: RP.realOr(freshBody, freshEmpty),
+      flush: !RP.isReal()
     });
 
     return { html: html, mount: null };
