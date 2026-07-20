@@ -5,7 +5,9 @@
                          → วัดอันดับ (M5) → รีเฟรช (M3) → เรียนรู้ (M6)
 """
 import asyncio
+import json
 import re
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from sqlalchemy import select
@@ -78,6 +80,54 @@ async def _measure_rank(keyword: str, domain: str, project_id: int | None) -> di
 #  🚀 AUTO GROWTH LOOP — วงจรที่ "หมุนเอง" ต่อโปรเจ็ค
 # =========================================================
 
+@celery_app.task(name="app.worker.tasks.analyze_project")
+def analyze_project(project_id: int) -> dict:
+    """🔎 Site Intelligence: อ่านเว็บลูกค้าจริง → สกัดบริบทธุรกิจ + คำแบรนด์ + วางแผนหัวข้อ"""
+    return _run(_analyze_project(project_id))
+
+
+async def _analyze_project(project_id: int) -> dict:
+    from app.db.models import Project
+    from app.connectors import site
+    if not db.enabled():
+        return {"error": "DB not configured"}
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p:
+            return {"error": "project %s not found" % project_id}
+        domain, name = p.domain, p.name
+        lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
+
+    ctx = await site.analyze(domain, name, lang)          # อ่านเว็บจริง (ล้ม = {})
+    if not ctx:
+        return {"project": name, "analyzed": False,
+                "note": "อ่าน/วิเคราะห์เว็บไม่สำเร็จ — ระบบจะใช้ชื่อโปรเจ็คเป็นตัวตั้งต้นแทน"}
+
+    questions = []                                        # คำถามจริงจากคีย์เวิร์ดตั้งต้น → ให้แผนอิงคำค้นจริง
+    for kw in (ctx.get("seed_keywords") or [])[:3]:
+        try:
+            mined = await mining.mine(str(kw))
+            questions += [q.get("q") for q in mined.get("questions", []) if q.get("q")]
+        except Exception:  # noqa: BLE001
+            pass
+
+    plan = await site.build_plan(ctx, questions, lang)
+    ctx_text = site.context_text(ctx)
+    bt = ctx.get("brand_terms")
+    brands_txt = ", ".join(str(b) for b in bt[:5]) if isinstance(bt, list) else str(bt or "")[:200]
+
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if p:
+            p.business_context = ctx_text
+            p.brand_terms = brands_txt
+            p.topic_plan = json.dumps(plan, ensure_ascii=False) if plan else ""
+            p.analyzed_at = datetime.now(timezone.utc)
+            await s.commit()
+    return {"project": name, "analyzed": True, "pages_read": ctx.get("_pages_read") or [],
+            "context": ctx_text[:220], "brand_terms": brands_txt, "plan_size": len(plan)}
+
+
 @celery_app.task(name="app.worker.tasks.produce_for_project")
 def produce_for_project(project_id: int, max_new: int = 1) -> dict:
     """1 โปรเจ็ค: ขุดคำถาม → เลือกหัวข้อใหม่ (กันซ้ำ) → เขียนด้วย AI →
@@ -108,22 +158,39 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
         p = SimpleNamespace(name=proj.name, domain=proj.domain, slug=proj.slug,
                             custom_domain=getattr(proj, "custom_domain", "") or "",
                             language=proj.language, mode=proj.mode,
-                            publish_mode=getattr(proj, "publish_mode", "managed") or "managed")
+                            publish_mode=getattr(proj, "publish_mode", "managed") or "managed",
+                            business_context=getattr(proj, "business_context", "") or "",
+                            topic_plan=getattr(proj, "topic_plan", "") or "")
         existing = set((await s.execute(
             select(Article.title).where(Article.project_id == project_id))).scalars().all())
 
-    # 1) ขุดคำถามจริงจากชื่อโปรเจ็ค (M1) — กัน external API ล่มทำทั้ง task พัง
-    seed = (p.name or p.domain or "").strip()
-    try:
-        mined = await mining.mine(seed)
-    except Exception as e:  # noqa: BLE001
-        return {"project": p.name, "produced": 0, "note": "mining failed: " + str(e)[:120]}
-    topics = [q.get("q") for q in mined.get("questions", []) if q.get("q") and q.get("q") not in existing]
-    topics = topics[:max_new]
+    # 1) เลือกหัวข้อ — ใช้ "แผนหัวข้อ" จาก Site Intelligence ก่อน (เรียงคำที่ชนะได้ก่อน)
+    #    ถ้ายังไม่มีแผน (ยังไม่ได้วิเคราะห์เว็บ/วิเคราะห์ไม่สำเร็จ) ค่อยถอยไปขุดสดจากชื่อโปรเจ็ค
+    plan, cluster_of, topics, all_q = [], {}, [], []
+    if p.topic_plan:
+        try:
+            plan = json.loads(p.topic_plan) or []
+        except Exception:  # noqa: BLE001
+            plan = []
+    if plan:
+        planned = []
+        for it in plan:
+            if isinstance(it, dict) and it.get("topic"):
+                t = str(it["topic"])
+                planned.append(t)
+                cluster_of[t] = str(it.get("cluster") or "")[:200]
+        all_q = planned[:20]
+        topics = [t for t in planned if t not in existing][:max_new]
+    if not topics:
+        seed = (p.name or p.domain or "").strip()
+        try:
+            mined = await mining.mine(seed)
+        except Exception as e:  # noqa: BLE001
+            return {"project": p.name, "produced": 0, "note": "mining failed: " + str(e)[:120]}
+        all_q = [q.get("q") for q in mined.get("questions", []) if q.get("q")]
+        topics = [q for q in all_q if q not in existing][:max_new]
     if not topics:
         return {"project": p.name, "produced": 0, "note": "ไม่มีหัวข้อใหม่ให้ผลิต"}
-
-    all_q = [q.get("q") for q in mined.get("questions", []) if q.get("q")]
     lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
     auto = (p.mode == "auto")
     results = []
@@ -139,13 +206,15 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                 comp_text = ""
             gen = await content.generate(topic, "บทความยาว", 1500,   # 2) เขียนด้วย AI (M2 · เครื่องยนต์ 3 stage)
                                          questions=all_q, domain=p.domain, language=lang,
-                                         competitors=comp_text, target_url="https://" + p.domain)
+                                         competitors=comp_text, target_url="https://" + p.domain,
+                                         business_context=p.business_context)   # ← บริบทจริงจากเว็บลูกค้า
             html = gen.get("html", "")
             cover = await _gen_cover(topic)                           # รูปปก (crash-safe: ล้ม='')
             async with db.session() as s:
                 art = Article(project_id=project_id, title=topic, html=html,
                               schema_json=gen.get("schema", "") or "",
                               description=_plain(html)[:300], cover_url=cover,
+                              cluster=cluster_of.get(topic, ""),
                               words=_wordcount(html), fmt="บทความยาว",
                               status="published" if auto else "draft")
                 s.add(art); await s.commit(); await s.refresh(art)

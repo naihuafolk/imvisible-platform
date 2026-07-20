@@ -107,7 +107,12 @@ def _proj_dict(p):
     return {"id": p.id, "name": p.name, "domain": p.domain, "country": p.country,
             "language": p.language, "mode": p.mode, "freshness_days": p.freshness_days,
             "slug": p.slug, "publish_mode": p.publish_mode, "custom_domain": p.custom_domain,
-            "public_home": project_public_home(p)}
+            "public_home": project_public_home(p),
+            # Site Intelligence (สิ่งที่ระบบอ่านได้จากเว็บลูกค้า)
+            "analyzed": bool(getattr(p, "analyzed_at", None)),
+            "business_context": getattr(p, "business_context", "") or "",
+            "brand_terms": getattr(p, "brand_terms", "") or "",
+            "topic_plan": getattr(p, "topic_plan", "") or ""}
 
 
 def _clean_custom_domain(raw: str) -> str:
@@ -180,6 +185,14 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
             raise HTTPException(409, "สร้างโปรเจ็คไม่สำเร็จ (โดเมน/slug ชนกัน) ลองใหม่อีกครั้ง")
         await s.refresh(p)
         result = _proj_dict(p)
+        new_id = p.id
+    # "ใส่แค่ลิงก์" → ระบบไปอ่านเว็บลูกค้าเองทันที (เบื้องหลัง · ล้มก็ไม่กระทบการสร้างโปรเจ็ค)
+    try:
+        from app.worker.tasks import analyze_project
+        analyze_project.delay(new_id)
+        result["analyzing"] = True
+    except Exception:  # noqa: BLE001
+        result["analyzing"] = False
     return result
 
 
@@ -229,6 +242,22 @@ async def grow_project(project_id: int, user=Depends(get_current_user)):
         return {"queued": True, "task_id": str(task.id), "project": p.name, "mode": p.mode}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, "ต่อคิวงานไม่ได้ (backend/worker/redis พร้อมไหม): " + str(e))
+
+
+@app.post("/api/projects/{project_id}/analyze")
+async def analyze_project_ep(project_id: int, user=Depends(get_current_user)):
+    """🔎 อ่านเว็บลูกค้าจริง → สกัดบริบทธุรกิจ + คำแบรนด์ + วางแผนหัวข้อ (เข้าคิวเบื้องหลัง)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        name = p.name
+    try:
+        from app.worker.tasks import analyze_project
+        task = analyze_project.delay(project_id)
+        return {"queued": True, "task_id": str(task.id), "project": name}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ต่อคิวไม่ได้ (worker/redis พร้อมไหม): " + str(e))
 
 
 @app.get("/api/projects/{project_id}/articles")

@@ -219,6 +219,24 @@
     });
   }
 
+  function planCount(p) {
+    try { var a = JSON.parse(p.topic_plan || '[]'); return (a && a.length) || 0; } catch (e) { return 0; }
+  }
+
+  /* Site Intelligence — สิ่งที่ระบบอ่านได้จากเว็บลูกค้าจริง (ไม่มีก็บอกตรงๆ ว่ายังไม่ได้อ่าน) */
+  function siteIntelLine(p) {
+    var n = planCount(p);
+    if (p.analyzed && (p.business_context || n)) {
+      return '<div class="note-box" style="margin-top:8px"><b>🔎 ระบบอ่านเว็บคุณแล้ว</b>' +
+        (n ? ' ' + ui.badge('แผนหัวข้อ ' + n + ' เรื่อง', 'green') : '') +
+        (p.business_context ? '<div class="soft small" style="margin-top:4px">' + esc(p.business_context) + '</div>' : '') +
+        (p.brand_terms ? '<div class="soft small" style="margin-top:2px">คำแบรนด์ที่ใช้ตรวจ AI: ' + esc(p.brand_terms) + '</div>' : '') +
+        '</div>';
+    }
+    return '<div class="hint" style="margin-top:8px">⏳ ยังไม่ได้วิเคราะห์เว็บนี้ — กด <b>🔎 วิเคราะห์เว็บ</b> ' +
+      'ให้ระบบเปิดอ่านเว็บคุณจริง แล้ววางแผนหัวข้อให้ (คอนเทนต์จะตรงธุรกิจคุณมากขึ้นมาก)</div>';
+  }
+
   function loadReal(root) {
     var out = root.querySelector('#m2_realout');
     out.innerHTML = '<div class="soft small">กำลังโหลด…</div>';
@@ -235,7 +253,9 @@
           '<button class="btn btn-sm btn-green rp-grow" data-id="' + p.id + '">🚀 ผลิตเดี๋ยวนี้</button>' +
           '<button class="btn btn-sm rp-arts" data-id="' + p.id + '">ดูบทความจริง</button>' +
           '<button class="btn btn-sm rp-chan" data-id="' + p.id + '">🔗 เชื่อมช่องทาง</button>' +
-          '<button class="btn btn-sm rp-discover" data-id="' + p.id + '">🔍 หาช่องกระจาย</button></div></div>' +
+          '<button class="btn btn-sm rp-discover" data-id="' + p.id + '">🔍 หาช่องกระจาย</button>' +
+          '<button class="btn btn-sm rp-analyze" data-id="' + p.id + '">🔎 วิเคราะห์เว็บ</button></div></div>' +
+          siteIntelLine(p) +
           (home ? '<div class="soft small" style="margin-top:6px">🌐 บล็อกที่เราโฮสต์ให้: <a href="' + esc(home) + '" target="_blank">' + esc(home) + '</a></div>' : '') +
           '<div class="rp-arts-out" data-for="' + p.id + '" style="margin-top:8px"></div></div></div>';
       }).join('');
@@ -393,6 +413,20 @@
     });
     Array.prototype.forEach.call(root.querySelectorAll('.rp-discover'), function (b) {
       b.onclick = function () { discoveryModal(b.getAttribute('data-id')); };
+    });
+    Array.prototype.forEach.call(root.querySelectorAll('.rp-analyze'), function (b) {
+      b.onclick = function () {
+        b.disabled = true; b.textContent = 'กำลังอ่านเว็บ…';
+        RP.api.analyzeProject(b.getAttribute('data-id'))
+          .then(function () {
+            b.textContent = 'เข้าคิวแล้ว ✓';
+            RP.ui.toast('เริ่มอ่านเว็บของคุณแล้ว ✓ ใช้เวลา ~1–2 นาที · กด "โหลดโปรเจ็ค & บทความจริง" อีกครั้งเพื่อดูผล');
+          })
+          .catch(function (e) {
+            b.disabled = false; b.textContent = '🔎 วิเคราะห์เว็บ';
+            RP.ui.toast('วิเคราะห์ไม่ได้: ' + esc(e.message || String(e)));
+          });
+      };
     });
     Array.prototype.forEach.call(root.querySelectorAll('.rp-arts'), function (b) {
       b.onclick = function () {

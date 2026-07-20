@@ -60,6 +60,7 @@
     articleDistribution: function (aid) { return api._get('/api/articles/' + aid + '/distribution'); },
     redistribute: function (aid) { return api._post('/api/articles/' + aid + '/distribute', {}); },
     // ---- Distribution Discovery (หาช่องกระจาย + ร่างคำตอบชุมชน) ----
+    analyzeProject: function (pid) { return api._post('/api/projects/' + pid + '/analyze', {}); },
     discover: function (pid) { return api._post('/api/projects/' + pid + '/discover', {}); },
     draftReply: function (pid, o) { return api._post('/api/projects/' + pid + '/draft-reply', o); }
   };

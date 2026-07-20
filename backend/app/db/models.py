@@ -39,6 +39,11 @@ class Project(Base):
     slug: Mapped[str] = mapped_column(String(120), default="")                  # โฮสต์ที่ {slug}.imvisible.tech / /blog/{slug}
     publish_mode: Mapped[str] = mapped_column(String(20), default="managed")    # managed | wordpress | none
     custom_domain: Mapped[str] = mapped_column(String(255), default="")         # เช่น blog.abccoffee.com (CNAME มาที่เรา)
+    # --- Site Intelligence: สิ่งที่ระบบ "อ่านจากเว็บลูกค้า" (ทำให้ 'ใส่แค่ลิงก์' เป็นจริง) ---
+    business_context: Mapped[str] = mapped_column(Text, default="")             # ธุรกิจทำอะไร/ขายอะไร/ให้ใคร → ป้อนเครื่องยนต์คอนเทนต์
+    brand_terms: Mapped[str] = mapped_column(Text, default="")                  # คำแบรนด์ (คั่นด้วย ,) → ใช้ตรวจ AI citation
+    topic_plan: Mapped[str] = mapped_column(Text, default="")                   # แผนหัวข้อ (JSON) เรียงตามคำที่ชนะได้ก่อน
+    analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     articles: Mapped[list["Article"]] = relationship(back_populates="project")
