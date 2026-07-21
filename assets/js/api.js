@@ -57,6 +57,8 @@
     // ---- AI Citation ต่อโปรเจ็ค (บันทึกผล → สะสมเป็นแนวโน้ม) ----
     citationForProject: function (pid, questions) { return api._post('/api/projects/' + pid + '/citation/sample', { questions: questions || [] }); },
     citationHistory: function (pid) { return api._get('/api/projects/' + pid + '/citation/history'); },
+    rankHistory: function (pid) { return api._get('/api/projects/' + pid + '/rank/history'); },
+    insights: function (pid) { return api._get('/api/projects/' + pid + '/insights'); },
     // ---- Distribution (ช่องทางกระจาย + Log โปร่งใส) ----
     getChannels: function (pid) { return api._get('/api/projects/' + pid + '/channels'); },
     setChannel: function (pid, o) { return api._put('/api/projects/' + pid + '/channels', o); },

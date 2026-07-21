@@ -305,6 +305,49 @@ async def project_citation_sample(project_id: int, req: ProjectCitationRequest,
     return res
 
 
+@app.get("/api/projects/{project_id}/rank/history")
+async def project_rank_history(project_id: int, user=Depends(get_current_user)):
+    """M5 · แนวโน้มอันดับ Google ที่ 'เก็บสะสมจริง' (RankSnapshot จาก beat รายวัน)
+    คืนสรุป (ติดหน้า1/Top3/อันดับเฉลี่ย) + อันดับล่าสุดต่อคีย์เวิร์ด + แนวโน้มจำนวนหน้า1
+    ไม่มีข้อมูล = ว่างจริง (บัญชีจริงต้องรอเก็บ 1-7 วัน หรือกดตรวจสด)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import RankSnapshot
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+        rows = (await s.execute(
+            select(RankSnapshot).where(RankSnapshot.project_id == project_id)
+            .order_by(RankSnapshot.checked_at))).scalars().all()
+
+    latest: dict[str, dict] = {}          # อันดับล่าสุดต่อคีย์เวิร์ด (rows เรียง asc → ตัวหลังทับ = ใหม่สุด)
+    day_page1: dict[str, dict] = {}       # day → {keyword: on_page1} สำหรับแนวโน้มหน้า 1
+    for r in rows:
+        latest[r.keyword] = {"keyword": r.keyword, "rank": r.rank,
+                             "on_page1": bool(r.on_page1),
+                             "checked_at": r.checked_at.isoformat() if r.checked_at else ""}
+        d = r.checked_at.date().isoformat() if r.checked_at else ""
+        if d:
+            day_page1.setdefault(d, {})[r.keyword] = bool(r.on_page1)
+
+    kws = sorted(latest.values(),
+                 key=lambda k: (k["rank"] is None, k["rank"] if k["rank"] is not None else 999))
+    ranked = [k["rank"] for k in kws if k["rank"] is not None]
+    page1 = sum(1 for k in kws if k["on_page1"])
+    top3 = sum(1 for k in kws if k["rank"] is not None and k["rank"] <= 3)
+    avg_position = round(sum(ranked) / len(ranked), 1) if ranked else None
+    trend = [{"date": d, "page1": sum(1 for v in m.values() if v)}
+             for d, m in sorted(day_page1.items())]
+    return {
+        "keywords_tracked": len(latest),
+        "page1": page1, "top3": top3, "avg_position": avg_position,
+        "keywords": kws[:50],
+        "page1_trend": [t["page1"] for t in trend],
+        "trend": trend,
+        "count": len(latest),
+        "note": "อันดับจริงจาก SERP API — ตรวจสอบได้ (เสิร์ชเองก็เห็น)",
+    }
+
+
 @app.get("/api/projects/{project_id}/citation/history")
 async def project_citation_history(project_id: int, user=Depends(get_current_user)):
     """แนวโน้ม Share of Voice ที่ 'สะสมจากการรันจริง' — จัดกลุ่มเป็นรอบ (ต่อครั้งที่รัน)

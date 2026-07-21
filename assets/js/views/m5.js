@@ -7,6 +7,19 @@
   'use strict';
   var ui = RP.ui, esc = RP.esc, fmt = RP.fmt, d = RP.data.m5;
 
+  /* KPI อันดับ 'ของจริง' จากประวัติ RankSnapshot (beat เก็บรายวัน) */
+  function realSeoKpis(h) {
+    var trend = (h.page1_trend && h.page1_trend.length > 1)
+      ? ui.spark(h.page1_trend, { w: 96, h: 22, color: 'var(--brand-600)' }) : 'เก็บรายวัน';
+    return '<div class="grid grid-4 mb">' +
+      ui.kpi({ label: 'คีย์เวิร์ดที่ติดตาม', value: fmt.n(h.keywords_tracked), foot: 'จาก SERP API จริง' }) +
+      ui.kpi({ label: 'ติดหน้า 1 Google', value: fmt.n(h.page1), tone: 'brand', foot: trend }) +
+      ui.kpi({ label: 'ติด Top 3', value: fmt.n(h.top3), tone: 'pos', foot: 'ตำแหน่งทองของ SERP' }) +
+      ui.kpi({ label: 'อันดับเฉลี่ย', value: h.avg_position == null ? '—' : Number(h.avg_position).toFixed(1),
+        tone: 'brand', foot: 'อันดับจริงเฉลี่ย' }) +
+      '</div>';
+  }
+
   function seoKpis() {
     var s = d.seo;
     var sample = '<div class="grid grid-4 mb">' +
@@ -17,10 +30,10 @@
       ui.kpi({ label: 'อันดับเฉลี่ย', value: s.avgPosition.toFixed(1), tone: 'brand',
         foot: '<span class="trend-up">▲ ดีขึ้น ' + (s.avgPositionPrev - s.avgPosition).toFixed(1) + '</span>' }) +
       '</div>';
-    return RP.realOr(sample, {
+    return '<div id="seo_kpi_slot">' + RP.realOr(sample, {
       title: 'ยังไม่มีข้อมูลอันดับ',
       hint: 'เรายังไม่ได้เก็บอันดับของโปรเจ็คนี้ ระบบจะแสดงอันดับจริงหลังเก็บข้อมูลต่อเนื่อง 1–7 วัน หรือกด "ตรวจอันดับ Google สด" ด้านบนเพื่อดูผลจริงทันทีทีละคีย์เวิร์ด'
-    });
+    }) + '</div>';
   }
 
   function seoCard() {
@@ -297,9 +310,17 @@
         var np = root.querySelector('#m5_newproj');
         if (np) np.onclick = function () { RP.go('projects'); };
 
+        /* id โปรเจ็คในระบบ = ตัวเลข (เก็บใน _dbid) แต่ id ใน view เป็น 'db{n}' — ต้องแปลงก่อนยิง API */
+        function dbId(pp) {
+          if (!pp) return null;
+          if (typeof pp._dbid === 'number') return pp._dbid;
+          var m = /^db(\d+)$/.exec(String(pp.id || ''));
+          return m ? parseInt(m[1], 10) : null;
+        }
+        var realPid = RP.isReal() ? dbId(p) : null;
+
         /* บัญชีจริง: ดึง "แนวโน้ม SoV ที่สะสมไว้จริง" มาเติมทับกล่อง "ยังไม่มีข้อมูล"
            → คำสัญญา "รันแล้วจะสะสมเป็นแนวโน้ม" กลายเป็นของจริงที่ตรวจสอบได้ */
-        var realPid = (RP.isReal() && p && typeof p.id === 'number') ? p.id : null;
         function refreshCiteTrend() {
           if (!realPid || !RP.api.enabled()) return;
           var slot = root.querySelector('#cite_trend_slot');
@@ -311,6 +332,17 @@
           }).catch(function () {});
         }
         refreshCiteTrend();
+
+        /* บัญชีจริง: เติม KPI อันดับจริงจากประวัติ RankSnapshot (beat เก็บรายวัน) */
+        function refreshRank() {
+          if (!realPid || !RP.api.enabled()) return;
+          var slot = root.querySelector('#seo_kpi_slot');
+          if (!slot) return;
+          RP.api.rankHistory(realPid).then(function (h) {
+            if (h && h.count) slot.innerHTML = realSeoKpis(h);
+          }).catch(function () {});
+        }
+        refreshRank();
 
         /* ไม่มีโปรเจ็ค / ไม่มีโดเมน = ห้ามยิง API เด็ดขาด (กันการตรวจโดเมนของคนอื่น) */
         var dom = String((p && p.domain) || '').trim();
