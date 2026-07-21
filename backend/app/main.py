@@ -466,6 +466,46 @@ async def article_aeo(article_id: int, user=Depends(get_current_user)):
     return res
 
 
+@app.get("/api/projects/{project_id}/drafts")
+async def project_drafts(project_id: int, user=Depends(get_current_user)):
+    """M4 · บทความที่รออนุมัติ (โหมด approve ผลิตเป็น draft) — ให้ลูกค้ากดอนุมัติได้จริง"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Article
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+        rows = (await s.execute(
+            select(Article).where(Article.project_id == project_id, Article.status == "draft")
+            .order_by(Article.id.desc()))).scalars().all()
+    return {"drafts": [{"id": a.id, "title": a.title, "words": a.words,
+                        "aeo_score": a.aeo_score, "cluster": a.cluster,
+                        "description": (a.description or "")[:160]} for a in rows]}
+
+
+@app.post("/api/articles/{article_id}/approve")
+async def article_approve(article_id: int, user=Depends(get_current_user)):
+    """M4 · อนุมัติ draft → เผยแพร่จริง (managed/wordpress) + แจ้ง index + กระจาย (เข้าคิว)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Article, Project
+    async with db.session() as s:
+        art = await s.get(Article, article_id)
+        if not art:
+            raise HTTPException(404, "ไม่พบบทความ")
+        proj = await s.get(Project, art.project_id)
+        if not proj or proj.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบบทความ")
+        if art.status == "published":
+            raise HTTPException(409, "บทความนี้เผยแพร่ไปแล้ว")
+        title = art.title
+    try:
+        from app.worker.tasks import approve_article
+        task = approve_article.delay(article_id)
+        return {"queued": True, "task_id": str(task.id), "article": title}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ต่อคิวไม่ได้ (worker/redis พร้อมไหม): " + str(e))
+
+
 @app.post("/api/articles/{article_id}/optimize")
 async def article_optimize(article_id: int, user=Depends(get_current_user)):
     """M3 · ป้อนจุดอ่อน AEO Score กลับให้เครื่องยนต์เขียนซ่อม → ดันคะแนน (เข้าคิวเบื้องหลัง)"""

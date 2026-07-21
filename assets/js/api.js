@@ -63,6 +63,9 @@
     projectAeo: function (pid) { return api._get('/api/projects/' + pid + '/aeo'); },
     articleAeo: function (aid) { return api._get('/api/articles/' + aid + '/aeo'); },
     articleOptimize: function (aid) { return api._post('/api/articles/' + aid + '/optimize', {}); },
+    // ---- M4 approve workflow ----
+    drafts: function (pid) { return api._get('/api/projects/' + pid + '/drafts'); },
+    approveArticle: function (aid) { return api._post('/api/articles/' + aid + '/approve', {}); },
     // ---- Per-tenant credentials (ลูกค้าเชื่อมคีย์ตัวเอง) + ตรวจสด per-project (ใช้คีย์ลูกค้า+บันทึกผล) ----
     getCredentials: function (pid) { return api._get('/api/projects/' + pid + '/credentials'); },
     setCredential: function (pid, kind, fields) { return api._put('/api/projects/' + pid + '/credentials', { kind: kind, fields: fields || {} }); },

@@ -84,7 +84,7 @@ def integration_status() -> list[dict]:
         {"id": "llm",      "name": "LLM (Claude/GPT/Gemini)",          "required": True,
          "connected": bool(s.anthropic_api_key or s.openai_api_key or s.gemini_api_key)},
         {"id": "citation", "name": "AI Citation (Prompt Sampling)",    "required": True,
-         "connected": bool(s.openai_api_key or s.gemini_api_key or s.perplexity_api_key)},
+         "connected": bool(s.openai_api_key or s.gemini_api_key or s.perplexity_api_key or s.anthropic_api_key)},
         {"id": "wordpress","name": "WordPress REST API",               "required": True,
          "connected": bool(s.wordpress_base_url and s.wordpress_username and s.wordpress_app_password)},
         # หมายเหตุ: Webflow ยังไม่มี connector จริง จึงไม่โฆษณาเป็น integration (กันอ้างของที่ยังไม่มี)

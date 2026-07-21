@@ -39,6 +39,21 @@ async def _ask_gemini(question: str) -> str:
             return ""
 
 
+async def _ask_anthropic(question: str) -> str:
+    if not settings.anthropic_api_key:
+        return ""
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": settings.anthropic_api_key,
+                     "anthropic-version": "2023-06-01", "content-type": "application/json"},
+            json={"model": settings.anthropic_model, "max_tokens": 1024,
+                  "messages": [{"role": "user", "content": question}]},
+        )
+        r.raise_for_status()
+        return "".join(b.get("text", "") for b in r.json().get("content", []))
+
+
 async def _ask_perplexity(question: str) -> str:
     if not settings.perplexity_api_key:
         return ""
@@ -53,7 +68,8 @@ async def _ask_perplexity(question: str) -> str:
         return r.json()["choices"][0]["message"]["content"]
 
 
-_ENGINES = {"openai": _ask_openai, "gemini": _ask_gemini, "perplexity": _ask_perplexity}
+_ENGINES = {"openai": _ask_openai, "gemini": _ask_gemini,
+            "perplexity": _ask_perplexity, "anthropic": _ask_anthropic}
 
 
 def _is_cited(answer: str, brand_terms: list[str], domain: str) -> bool:

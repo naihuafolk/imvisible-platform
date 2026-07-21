@@ -2,6 +2,21 @@
   'use strict';
   var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
 
+  function curProj() {
+    var proj = RP.data && RP.data.project;
+    var list = (proj && proj.list) || [];
+    if (RP.isReal()) list = list.filter(function (p) { return p && /^db/.test(String(p.id)); });
+    var cur = (proj && proj.current) || '';
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === cur) return list[i];
+    return list.length ? list[0] : null;
+  }
+  function dbId(p) {
+    if (!p) return null;
+    if (typeof p._dbid === 'number') return p._dbid;
+    var m = /^db(\d+)$/.exec(String(p.id || ''));
+    return m ? parseInt(m[1], 10) : null;
+  }
+
   RP.views.m4 = function () {
     var d = RP.data.m4;
 
@@ -125,10 +140,10 @@
       action: RP.isReal()
         ? ''
         : ui.badge('รออนุมัติ ' + fmt.n(d.pendingCount) + ' บทความ', 'amber') + ' ' + RP.sampleBadge('คิวตัวอย่าง'),
-      body: RP.realOr(approvalBody, {
+      body: '<div id="approval_slot">' + RP.realOr(approvalBody, {
         title: 'ยังไม่มีบทความรออนุมัติ',
         hint: 'เมื่อระบบร่างบทความให้คุณแล้ว รายการจะขึ้นที่นี่พร้อมจำนวนคำและคะแนน AEO จริง — ตอนนี้ยังไม่มีงานในคิว จึงไม่มีอะไรให้อนุมัติ'
-      })
+      }) + '</div>'
     });
 
     // 5) แจ้ง Index
@@ -195,26 +210,58 @@
         }
         if (modesWrap) wireModes();
 
-        // 4) คิวรออนุมัติ — approve buttons
-        // บัญชีจริง: ยังไม่มี API อนุมัติจริง จึงต้องไม่บอกว่า "อนุมัติแล้ว"
-        // (ตารางนี้ถูก gate ไว้แล้ว ปุ่มจะไม่ถูก render — เก็บ guard ไว้กันพลาด)
-        root.querySelectorAll('button.approve').forEach(function (btn) {
-          if (RP.isReal()) {
-            btn.disabled = true;
-            btn.setAttribute('title', 'ยังไม่รองรับในเวอร์ชันนี้ — การอนุมัติทำผ่านทีมงาน');
+        // 4) คิวรออนุมัติ (โหมดตัวอย่าง) — จำลองการอนุมัติ
+        if (!RP.isReal()) {
+          root.querySelectorAll('button.approve').forEach(function (btn) {
             btn.onclick = function () {
-              ui.toast('การอนุมัติผ่านหน้าเว็บยังไม่รองรับในเวอร์ชันนี้');
+              var idx = btn.getAttribute('data-idx');
+              var row = root.querySelector('tr[data-row="' + idx + '"]');
+              var cell = row ? row.querySelector('[data-cell="act"]') : null;
+              if (cell) cell.innerHTML = ui.badge('อนุมัติแล้ว (ตัวอย่าง)', 'green');
+              ui.toast('โหมดตัวอย่าง: จำลองการอนุมัติ — ไม่มีการเผยแพร่จริง');
             };
-            return;
-          }
-          btn.onclick = function () {
-            var idx = btn.getAttribute('data-idx');
-            var row = root.querySelector('tr[data-row="' + idx + '"]');
-            var cell = row ? row.querySelector('[data-cell="act"]') : null;
-            if (cell) cell.innerHTML = ui.badge('อนุมัติแล้ว (ตัวอย่าง)', 'green');
-            ui.toast('โหมดตัวอย่าง: จำลองการอนุมัติ — ไม่มีการเผยแพร่จริง');
+          });
+        }
+
+        // 4b) บัญชีจริง: โหลด "บทความรออนุมัติจริง" + ปุ่มอนุมัติที่เผยแพร่จริง
+        var pid = RP.isReal() ? dbId(curProj()) : null;
+        var slot = root.querySelector('#approval_slot');
+        if (pid && RP.api.enabled() && slot) {
+          var loadDrafts = function () {
+            RP.api.drafts(pid).then(function (res) {
+              var ds = (res && res.drafts) || [];
+              if (!ds.length) return;   // ไม่มี draft = คงกล่อง "ยังไม่มีบทความรออนุมัติ"
+              var rows = ds.map(function (a) {
+                return '<tr data-aid="' + a.id + '"><td><div class="bb">' + esc(a.title) + '</div>' +
+                  '<div class="soft small">' + (a.cluster ? ui.badge(esc(a.cluster), 'purple') + ' ' : '') +
+                  esc(a.description || '') + '</div></td>' +
+                  '<td class="num">' + fmt.n(a.words) + ' คำ</td>' +
+                  '<td class="center">' + ui.scorePill(a.aeo_score || 0) + '</td>' +
+                  '<td class="right nowrap" data-cell="act">' +
+                  '<button class="btn btn-green btn-sm rapprove" data-aid="' + a.id + '">✓ อนุมัติ & เผยแพร่</button></td></tr>';
+              }).join('');
+              slot.innerHTML = '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
+                '<th>บทความ</th><th class="right">จำนวนคำ</th><th class="center">AEO</th><th class="right">การจัดการ</th>' +
+                '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+              slot.querySelectorAll('button.rapprove').forEach(function (btn) {
+                btn.onclick = function () {
+                  var aid = btn.getAttribute('data-aid');
+                  btn.disabled = true; btn.textContent = 'กำลังเผยแพร่…';
+                  RP.api.approveArticle(aid).then(function () {
+                    var row = slot.querySelector('tr[data-aid="' + aid + '"] [data-cell="act"]');
+                    if (row) row.innerHTML = ui.badge('อนุมัติแล้ว ✓ กำลังเผยแพร่', 'green');
+                    ui.toast('อนุมัติแล้ว ✓ ระบบกำลังเผยแพร่ + แจ้ง index + กระจาย');
+                    setTimeout(loadDrafts, 1200);
+                  }).catch(function (e) {
+                    btn.disabled = false; btn.textContent = '✓ อนุมัติ & เผยแพร่';
+                    ui.toast('อนุมัติไม่สำเร็จ: ' + esc((e && e.message) || String(e)));
+                  });
+                };
+              });
+            }).catch(function () {});
           };
-        });
+          loadDrafts();
+        }
       }
     };
   };

@@ -338,6 +338,73 @@ async def _distribute(project_id: int, article_id: int, title: str, desc: str,
     return [{"channel": e[0], "status": e[1]} for e in events]
 
 
+@celery_app.task(name="app.worker.tasks.approve_article")
+def approve_article(article_id: int) -> dict:
+    """M4 · อนุมัติบทความ draft → เผยแพร่จริง (managed/wordpress) + แจ้ง index + กระจาย"""
+    return _run(_approve_article(article_id))
+
+
+async def _approve_article(article_id: int) -> dict:
+    from app.db.models import Article, Project
+    if not db.enabled():
+        return {"error": "DB not configured"}
+    async with db.session() as s:
+        art = await s.get(Article, article_id)
+        if not art:
+            return {"error": "article not found"}
+        proj = await s.get(Project, art.project_id)
+        if not proj:
+            return {"error": "project not found"}
+        if art.status == "published":
+            return {"article_id": article_id, "already": True, "url": art.url}
+        # เก็บค่าที่ต้องใช้ (กัน attribute expire หลังปิด session)
+        project_id = proj.id
+        publish_mode = getattr(proj, "publish_mode", "managed") or "managed"
+        pj = SimpleNamespace(name=proj.name, domain=proj.domain, slug=proj.slug,
+                             custom_domain=getattr(proj, "custom_domain", "") or "")
+        title, html = art.title, art.html or ""
+        desc, cover = (art.description or ""), (art.cover_url or "")
+        if not (art.slug or "").strip():
+            art.slug = urls.article_slug(title, art.id)
+        art.status = "published"
+        if publish_mode == "managed":
+            art.url = urls.public_url_for(pj, art)
+        await s.commit()
+        art_url, art_slug = art.url, art.slug
+
+    wp = await creds.get_creds(project_id, "wordpress")
+    result = {"article_id": article_id, "publish_mode": publish_mode}
+    if publish_mode == "wordpress":                       # เผยแพร่ขึ้น WordPress ลูกค้า
+        pub = await publish.publish_and_index(title, html, "publish", None, creds=wp or None)
+        link = (pub.get("wordpress") or {}).get("link", "")
+        if link:
+            async with db.session() as s:
+                a = await s.get(Article, article_id)
+                if a:
+                    a.url = link
+                    await s.commit()
+            art_url = link
+        result["published"] = link or "(no link)"
+        result["distributed"] = await _distribute(project_id, article_id, title, _plain(html)[:160],
+                                                   link or art_url, "wordpress", bool(pub.get("indexnow")), cover)
+    elif publish_mode == "managed":                       # Managed = สดจาก DB + แจ้ง index
+        indexnow_ok = False
+        try:
+            from urllib.parse import urlparse
+            host = urlparse(art_url).hostname or ""
+            if host.endswith(publish_host_base()):
+                await publish.indexnow_submit(art_url)
+                indexnow_ok = True
+        except Exception:  # noqa: BLE001
+            pass
+        result["published"] = art_url
+        result["distributed"] = await _distribute(project_id, article_id, title, _plain(html)[:160],
+                                                   art_url, "blog", indexnow_ok, cover)
+    else:
+        result["published"] = "(mode=none)"
+    return result
+
+
 @celery_app.task(name="app.worker.tasks.optimize_article")
 def optimize_article(article_id: int, min_score: int = 85) -> dict:
     """🔧 ป้อนจุดอ่อนจาก AEO Score กลับให้เครื่องยนต์เขียนซ่อม → ดันคะแนน (บันทึกเฉพาะเมื่อดีขึ้น)"""
@@ -510,6 +577,8 @@ def _available_engines() -> list[str]:
         engs.append("gemini")
     if settings.perplexity_api_key:
         engs.append("perplexity")
+    if settings.anthropic_api_key:
+        engs.append("anthropic")
     return engs
 
 
