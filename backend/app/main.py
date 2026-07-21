@@ -348,6 +348,82 @@ async def project_rank_history(project_id: int, user=Depends(get_current_user)):
     }
 
 
+# ---------- AEO/SEO Score Engine (M3) — "ตัวแปรที่ทำให้ติดเร็ว" วัดจากบทความจริง ----------
+def _score_article(art, proj):
+    from app.connectors import aeo_score
+    from datetime import datetime, timezone
+    age = None
+    if getattr(art, "updated_at", None):
+        try:
+            age = (datetime.now(timezone.utc) - art.updated_at).days
+        except Exception:  # noqa: BLE001
+            age = None
+    return aeo_score.score(
+        art.html or "", title=art.title or "", description=(art.description or "")[:155],
+        schema_json=art.schema_json or "", cover_url=art.cover_url or "",
+        keyword=art.title or "", target_words=1200,
+        age_days=age, freshness_days=getattr(proj, "freshness_days", 120) or 120)
+
+
+@app.get("/api/articles/{article_id}/aeo")
+async def article_aeo(article_id: int, user=Depends(get_current_user)):
+    """M3 · คะแนน AEO/SEO ของบทความเดียว + breakdown ต่อปัจจัย + วิธีแก้ (คำนวณสดจาก HTML จริง)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Article, Project
+    async with db.session() as s:
+        art = await s.get(Article, article_id)
+        if not art:
+            raise HTTPException(404, "ไม่พบบทความ")
+        proj = await s.get(Project, art.project_id)
+        if not proj or proj.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบบทความ")
+        res = _score_article(art, proj)
+        if art.aeo_score != res["score"]:      # อัปเดตคะแนนที่เก็บให้ตรงกับที่วัดล่าสุด
+            art.aeo_score = res["score"]
+            await s.commit()
+    res.update({"article_id": art.id, "title": art.title, "url": art.url})
+    return res
+
+
+@app.get("/api/projects/{project_id}/aeo")
+async def project_aeo(project_id: int, user=Depends(get_current_user)):
+    """M3 · ภาพรวมคะแนน AEO/SEO ทั้งโปรเจ็ค — คะแนนเฉลี่ย, การกระจายเกรด, คะแนนต่อบทความ,
+    และ 'แก้ตรงไหนได้คะแนนรวมมากสุด' (จัดลำดับงานปรับให้ติดเร็ว)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Article, Project
+    async with db.session() as s:
+        proj = await _own_project(s, project_id, user)
+        arts = (await s.execute(
+            select(Article).where(Article.project_id == project_id)
+            .order_by(Article.id.desc()).limit(100))).scalars().all()
+        items, dist, agg = [], {"A": 0, "B": 0, "C": 0, "D": 0}, {}
+        changed = False
+        for a in arts:
+            r = _score_article(a, proj)
+            if a.aeo_score != r["score"]:
+                a.aeo_score = r["score"]; changed = True
+            dist[r["grade"]] = dist.get(r["grade"], 0) + 1
+            for f in r["factors"]:
+                if not f["ok"]:
+                    g = agg.setdefault(f["key"], {"label": f["label"], "gain": 0.0, "count": 0})
+                    g["gain"] += f["weight"] * (1 - f["earned"]); g["count"] += 1
+            items.append({"id": a.id, "title": a.title, "url": a.url,
+                          "status": a.status, "score": r["score"], "grade": r["grade"]})
+        if changed:
+            await s.commit()
+    scores = [i["score"] for i in items]
+    avg = round(sum(scores) / len(scores)) if scores else None
+    top_fixes = sorted(({"key": k, **v, "gain": round(v["gain"], 1)} for k, v in agg.items()),
+                       key=lambda x: x["gain"], reverse=True)[:6]
+    return {
+        "count": len(items), "avg_score": avg, "grade_dist": dist,
+        "articles": items, "top_fixes": top_fixes,
+        "note": "คะแนนวัดจากปัจจัยจัดอันดับจริงของแต่ละบทความ — แก้ตามลำดับ 'ได้คะแนนรวมมากสุด' เพื่อดันทั้งคลัสเตอร์",
+    }
+
+
 @app.get("/api/projects/{project_id}/citation/history")
 async def project_citation_history(project_id: int, user=Depends(get_current_user)):
     """แนวโน้ม Share of Voice ที่ 'สะสมจากการรันจริง' — จัดกลุ่มเป็นรอบ (ต่อครั้งที่รัน)

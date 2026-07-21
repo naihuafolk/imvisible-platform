@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.worker.celery_app import celery_app
-from app.connectors import mining, content, serp, citation, publish, social, media, interlink
+from app.connectors import mining, content, serp, citation, publish, social, media, interlink, aeo_score
 from app.db import session as db
 from app import urls, crypto
 
@@ -29,6 +29,16 @@ def _wordcount(html: str) -> int:
 
 def _plain(html: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or "")).strip()
+
+
+def _aeo_of(html: str, title: str, desc: str, schema: str, cover: str) -> int:
+    """คะแนน AEO/SEO 0-100 จากปัจจัยจัดอันดับที่วัดได้จริง (crash-safe: ล้ม=0)"""
+    try:
+        return int(aeo_score.score(html, title=title, description=desc[:155],
+                                   schema_json=schema, cover_url=cover,
+                                   keyword=title, target_words=1200).get("score", 0))
+    except Exception:  # noqa: BLE001
+        return 0
 
 
 async def _apply_internal_links(project_id: int, self_title: str, html: str) -> str:
@@ -233,11 +243,15 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
             html = gen.get("html", "")
             html = await _apply_internal_links(project_id, topic, html)  # ลิงก์ภายในจริง (M3) — ห้ามปล่อยลิงก์ตาย
             cover = await _gen_cover(topic)                           # รูปปก (crash-safe: ล้ม='')
+            schema = gen.get("schema", "") or ""
+            desc = _plain(html)[:300]
+            aeo = _aeo_of(html, topic, desc, schema, cover)          # คะแนน AEO/SEO จริง (ตัวแปรจัดอันดับ)
             async with db.session() as s:
                 art = Article(project_id=project_id, title=topic, html=html,
-                              schema_json=gen.get("schema", "") or "",
-                              description=_plain(html)[:300], cover_url=cover,
+                              schema_json=schema,
+                              description=desc, cover_url=cover,
                               cluster=cluster_of.get(topic, ""),
+                              aeo_score=aeo,
                               words=_wordcount(html), fmt="บทความยาว",
                               status="published" if auto else "draft")
                 s.add(art); await s.commit(); await s.refresh(art)
