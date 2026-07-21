@@ -23,6 +23,19 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class TeamMember(Base):
+    """สมาชิกทีมของเจ้าของบัญชี (Agency ให้ลูกค้า/ทีมเข้าดูรายงาน) — สิทธิ์ตาม role
+    viewer=ดูอย่างเดียว · editor/admin=แก้ไขได้ · ผูก member_user_id เมื่อผู้ถูกเชิญสมัคร/ล็อกอิน"""
+    __tablename__ = "team_members"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)   # เจ้าของบัญชีที่เชิญ
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    role: Mapped[str] = mapped_column(String(20), default="viewer")             # viewer | editor | admin
+    status: Mapped[str] = mapped_column(String(20), default="invited")          # invited | active
+    member_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Subscription(Base):
     """สถานะการสมัครสมาชิก (Stripe) ต่อผู้ใช้ — webhook อัปเดต + sync User.plan"""
     __tablename__ = "subscriptions"

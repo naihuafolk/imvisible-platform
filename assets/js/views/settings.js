@@ -71,6 +71,27 @@
     return '<div style="margin:8px 0"><div class="row between"><span class="soft small">' + esc(lbl) + '</span>' +
       '<span class="bb">' + used + ' / ' + limit + '</span></div>' + ui.bar(pct, pct >= 100 ? 'amber' : '') + '</div>';
   }
+  function renderTeamCard(t) {
+    var members = (t.members || []).map(function (m) {
+      var tone = m.role === 'admin' ? 'purple' : m.role === 'editor' ? 'blue' : '';
+      return '<div class="list-row row between wrap"><div class="grow"><div class="bb">' + esc(m.email) + '</div>' +
+        '<div class="soft small">' + ui.badge(m.role, tone) + ' · ' + (m.status === 'active' ? ui.badge('ใช้งานอยู่', 'green') : ui.badge('รอตอบรับ', 'amber')) + '</div></div>' +
+        '<button class="btn btn-sm team-del" data-id="' + m.id + '">ลบ</button></div>';
+    }).join('') || '<div class="soft small center" style="padding:12px">ยังไม่มีสมาชิก — เชิญคนแรกด้านล่าง</div>';
+    var shared = (t.shared_with_me || []).map(function (r) {
+      return '<div class="list-row"><span class="t">บัญชีของ <b>' + esc(r.owner) + '</b> แชร์ให้คุณ (' + esc(r.role) + ')</span></div>';
+    }).join('');
+    return ui.card({
+      title: 'สมาชิกทีม & สิทธิ์', sub: 'เชิญลูกค้า/ทีมเข้าดูรายงาน (viewer=ดูอย่างเดียว)',
+      body: members +
+        '<div class="divider"></div>' +
+        '<div class="row wrap" style="gap:8px;align-items:center"><input class="input" id="team_email" placeholder="อีเมลสมาชิก" style="flex:1;min-width:180px">' +
+        '<select class="input" id="team_role" style="width:auto"><option value="viewer">ดูอย่างเดียว</option><option value="editor">แก้ไขได้</option><option value="admin">แอดมิน</option></select>' +
+        '<button class="btn btn-sm btn-primary" id="team_invite">＋ เชิญ</button></div>' +
+        (shared ? ('<div class="divider"></div><div class="soft small b" style="margin:6px 0">บัญชีที่แชร์ให้คุณ</div>' + shared) : '')
+    });
+  }
+
   function renderUsageCard(u) {
     return ui.card({
       title: 'แพ็กเกจ & การใช้งาน',
@@ -208,11 +229,9 @@
         RP.noData('กำลังโหลดแพ็กเกจ…', 'เปิดโหมด Live เพื่อดูแพ็กเกจและโควตาการใช้งานจริงของคุณ',
           '<button class="btn btn-sm" id="s_upgrade">ดูแพ็กเกจ</button>')
       }) + '</div>';
-      var teamReal = ui.card({ title: 'สมาชิกทีม & สิทธิ์', sub: 'เหมาะกับ Agency ที่ให้ลูกค้าเข้าดูรายงานได้', flush: true,
-        action: '<button class="btn btn-sm btn-primary" id="s_invite">＋ เชิญสมาชิก</button>',
-        body: RP.noData('ทีม ยังไม่มีข้อมูล',
-          'จะแสดงเมื่อเชื่อมระบบบิลลิ่ง/เชิญสมาชิกจริง — รายชื่อในระบบจะขึ้นเฉพาะคนที่ตอบรับคำเชิญแล้ว')
-      });
+      var teamReal = '<div id="team_slot">' + ui.card({ title: 'สมาชิกทีม & สิทธิ์', sub: 'เหมาะกับ Agency ที่ให้ลูกค้าเข้าดูรายงานได้', flush: true,
+        body: RP.noData('กำลังโหลดทีม…', 'เปิดโหมด Live เพื่อจัดการทีมและเชิญสมาชิกจริง')
+      }) + '</div>';
       return planReal + '<div class="mb"></div>' + teamReal +
         '<div class="note-box" style="margin-top:14px">💡 <b>White-Label (Pro/Enterprise):</b> ใส่โลโก้/โดเมนของเอเจนซีเอง ส่งรายงานให้ลูกค้าในนามแบรนด์คุณ — ลูกค้าเห็นเฉพาะโปรเจ็คของตัวเองด้วยสิทธิ์ "ดูอย่างเดียว"</div>';
     }
@@ -374,6 +393,32 @@
     var uslot = root.querySelector('#usage_slot');
     if (uslot && RP.isReal() && RP.api.enabled()) {
       RP.api.usage().then(function (u) { if (u && u.plan) uslot.innerHTML = renderUsageCard(u); }).catch(function () {});
+    }
+    // บัญชีจริง: ทีม (เชิญ/ลบ/รายการจริง)
+    var tslot = root.querySelector('#team_slot');
+    if (tslot && RP.isReal() && RP.api.enabled()) {
+      var loadTeam = function () {
+        RP.api.team().then(function (t) {
+          tslot.innerHTML = renderTeamCard(t);
+          var inv = tslot.querySelector('#team_invite');
+          if (inv) inv.onclick = function () {
+            var em = (tslot.querySelector('#team_email').value || '').trim();
+            var ro = tslot.querySelector('#team_role').value;
+            if (!em || em.indexOf('@') < 0) { ui.toast('กรอกอีเมลให้ถูกต้อง'); return; }
+            inv.disabled = true;
+            RP.api.inviteTeam(em, ro).then(function () { ui.toast('เชิญ ' + esc(em) + ' แล้ว ✓'); loadTeam(); })
+              .catch(function (e) { inv.disabled = false; ui.toast('เชิญไม่สำเร็จ: ' + esc((e && e.message) || '')); });
+          };
+          Array.prototype.forEach.call(tslot.querySelectorAll('.team-del'), function (b) {
+            b.onclick = function () {
+              b.disabled = true;
+              RP.api.removeTeam(b.getAttribute('data-id')).then(function () { ui.toast('ลบสมาชิกแล้ว'); loadTeam(); })
+                .catch(function (e) { b.disabled = false; ui.toast('ลบไม่สำเร็จ: ' + esc((e && e.message) || '')); });
+            };
+          });
+        }).catch(function () {});
+      };
+      loadTeam();
     }
     // โหมด Live
     var ab = root.querySelector('#apiBase');

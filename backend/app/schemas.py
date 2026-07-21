@@ -35,6 +35,11 @@ class CheckoutRequest(BaseModel):
     plan: str                    # pro | business
 
 
+class TeamInvite(BaseModel):
+    email: str
+    role: str = "viewer"         # viewer | editor | admin
+
+
 class ScheduleRequest(BaseModel):
     at: str                      # เวลาเผยแพร่ (ISO เช่น 2026-08-01T09:00)
 

@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
-    CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest,
+    CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social, billing, pagespeed
 from app.auth import security
@@ -122,7 +122,11 @@ async def register(req: RegisterRequest, _rl=Depends(rate_limit_auth)):
         u = User(email=req.email, name=req.name or req.email.split("@")[0],
                  password_hash=security.hash_password(req.password))
         s.add(u); await s.commit(); await s.refresh(u)
-    return {"token": security.create_token(u.id, u.email), "user": _user_dict(u)}
+        uid, uemail = u.id, u.email
+        udict = _user_dict(u)
+    from app import team
+    await team.link_invites(uid, uemail)          # ผูกคำเชิญที่ค้างอยู่ (ถ้ามี)
+    return {"token": security.create_token(uid, uemail), "user": udict}
 
 
 @app.post("/api/auth/login")
@@ -134,6 +138,8 @@ async def login(req: LoginRequest, _rl=Depends(rate_limit_auth)):
         u = (await s.execute(select(User).where(User.email == req.email))).scalar_one_or_none()
     if not u or not security.verify_password(req.password, u.password_hash):
         raise HTTPException(401, "อีเมลหรือรหัสผ่านไม่ถูกต้อง")
+    from app import team
+    await team.link_invites(u.id, u.email)        # ผูกคำเชิญที่มีมาหลังสมัคร
     return {"token": security.create_token(u.id, u.email), "user": _user_dict(u)}
 
 
@@ -290,9 +296,16 @@ async def list_projects(user=Depends(get_current_user)):
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import Project
+    from app import team
+    owners = await team.accessible_owner_ids(user["id"])   # ตัวเอง + บัญชีที่แชร์ให้เรา
     async with db.session() as s:
-        rows = (await s.execute(select(Project).where(Project.user_id == user["id"]).order_by(Project.id))).scalars().all()
-    return {"projects": [_proj_dict(p) for p in rows]}
+        rows = (await s.execute(select(Project).where(Project.user_id.in_(owners)).order_by(Project.id))).scalars().all()
+    out = []
+    for p in rows:
+        d = _proj_dict(p)
+        d["shared"] = (p.user_id != user["id"])           # โปรเจ็คที่คนอื่นแชร์ให้เรา (ดูอย่างเดียว)
+        out.append(d)
+    return {"projects": out}
 
 
 @app.post("/api/projects")
@@ -452,6 +465,83 @@ async def _own_project(s, project_id, user):
     return p
 
 
+async def _read_project(s, project_id, user):
+    """เข้าถึงแบบ 'อ่าน' — เจ้าของ หรือ สมาชิกทีม (viewer/editor/admin) ของเจ้าของ"""
+    from app.db.models import Project
+    from app import team
+    p = await s.get(Project, project_id)
+    if not p:
+        raise HTTPException(404, "ไม่พบโปรเจ็ค")
+    if p.user_id == user["id"]:
+        return p
+    if p.user_id in await team.accessible_owner_ids(user["id"]):
+        return p
+    raise HTTPException(404, "ไม่พบโปรเจ็ค")
+
+
+# ---------- Team / multi-seat (Agency เชิญลูกค้า/ทีมเข้าดูรายงาน) ----------
+@app.get("/api/team")
+async def list_team(user=Depends(get_current_user)):
+    """สมาชิกทีมของฉัน (ที่ฉันเชิญ) + บัญชีที่ฉันถูกเชิญให้เข้าถึง"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import TeamMember, User
+    async with db.session() as s:
+        mine = (await s.execute(select(TeamMember).where(TeamMember.owner_id == user["id"]))).scalars().all()
+        shared = (await s.execute(select(TeamMember).where(
+            TeamMember.member_user_id == user["id"], TeamMember.status == "active"))).scalars().all()
+        owners = {}
+        for r in shared:
+            o = await s.get(User, r.owner_id)
+            owners[r.owner_id] = (o.name or o.email) if o else str(r.owner_id)
+    return {
+        "members": [{"id": m.id, "email": m.email, "role": m.role, "status": m.status} for m in mine],
+        "shared_with_me": [{"owner": owners.get(r.owner_id, ""), "role": r.role} for r in shared],
+    }
+
+
+@app.post("/api/team/invite")
+async def invite_team(req: TeamInvite, user=Depends(get_current_user)):
+    """เชิญสมาชิกด้วยอีเมล — ถ้าอีเมลนั้นมีบัญชีอยู่แล้ว ผูก+active ทันที ไม่งั้นค้างเป็น invited"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    email = (req.email or "").strip().lower()
+    role = req.role if req.role in ("viewer", "editor", "admin") else "viewer"
+    if not email or "@" not in email:
+        raise HTTPException(422, "อีเมลไม่ถูกต้อง")
+    from app.db.models import TeamMember, User
+    async with db.session() as s:
+        me = await s.get(User, user["id"])
+        if me and email == (me.email or "").lower():
+            raise HTTPException(422, "เชิญตัวเองไม่ได้")
+        dup = (await s.execute(select(TeamMember).where(
+            TeamMember.owner_id == user["id"], TeamMember.email == email))).scalars().first()
+        if dup:
+            raise HTTPException(409, "เชิญอีเมลนี้ไปแล้ว")
+        existing = (await s.execute(select(User).where(User.email == email))).scalars().first()
+        m = TeamMember(owner_id=user["id"], email=email, role=role,
+                       status="active" if existing else "invited",
+                       member_user_id=existing.id if existing else None)
+        s.add(m)
+        await s.commit()
+        await s.refresh(m)
+    return {"id": m.id, "email": m.email, "role": m.role, "status": m.status}
+
+
+@app.delete("/api/team/{member_id}")
+async def remove_team(member_id: int, user=Depends(get_current_user)):
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import TeamMember
+    async with db.session() as s:
+        m = await s.get(TeamMember, member_id)
+        if not m or m.owner_id != user["id"]:
+            raise HTTPException(404, "ไม่พบสมาชิก")
+        await s.delete(m)
+        await s.commit()
+    return {"ok": True}
+
+
 # ---------- Per-tenant credentials (ลูกค้าเชื่อมคีย์ตัวเอง — multi-tenant จริง) ----------
 @app.get("/api/projects/{project_id}/credentials")
 async def get_credentials(project_id: int, user=Depends(get_current_user)):
@@ -555,7 +645,7 @@ async def project_rank_history(project_id: int, user=Depends(get_current_user)):
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import RankSnapshot
     async with db.session() as s:
-        await _own_project(s, project_id, user)
+        await _read_project(s, project_id, user)
         rows = (await s.execute(
             select(RankSnapshot).where(RankSnapshot.project_id == project_id)
             .order_by(RankSnapshot.checked_at))).scalars().all()
@@ -634,7 +724,7 @@ async def project_drafts(project_id: int, user=Depends(get_current_user)):
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import Article
     async with db.session() as s:
-        await _own_project(s, project_id, user)
+        await _read_project(s, project_id, user)
         rows = (await s.execute(
             select(Article).where(Article.project_id == project_id, Article.status == "draft")
             .order_by(Article.id.desc()))).scalars().all()
@@ -724,7 +814,7 @@ async def project_seo_audit(project_id: int, user=Depends(get_current_user)):
     from app.connectors.aeo_score import _valid_schema
     _HREF = _re.compile(r"""href\s*=\s*("|')(.*?)\1""", _re.I)
     async with db.session() as s:
-        proj = await _own_project(s, project_id, user)
+        proj = await _read_project(s, project_id, user)
         arts = (await s.execute(
             select(Article).where(Article.project_id == project_id,
                                   Article.status == "published"))).scalars().all()
@@ -871,7 +961,7 @@ async def project_aeo(project_id: int, user=Depends(get_current_user)):
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import Article, Project
     async with db.session() as s:
-        proj = await _own_project(s, project_id, user)
+        proj = await _read_project(s, project_id, user)
         arts = (await s.execute(
             select(Article).where(Article.project_id == project_id)
             .order_by(Article.id.desc()).limit(100))).scalars().all()
@@ -909,7 +999,7 @@ async def project_insights(project_id: int, user=Depends(get_current_user)):
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import Project
     async with db.session() as s:
-        proj = await _own_project(s, project_id, user)
+        proj = await _read_project(s, project_id, user)
     from app.worker.tasks import _project_insights
     return await _project_insights(project_id, proj)
 
@@ -922,7 +1012,7 @@ async def project_citation_history(project_id: int, user=Depends(get_current_use
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import CitationSnapshot
     async with db.session() as s:
-        await _own_project(s, project_id, user)
+        await _read_project(s, project_id, user)
         rows = (await s.execute(
             select(CitationSnapshot).where(CitationSnapshot.project_id == project_id)
             .order_by(CitationSnapshot.sampled_at))).scalars().all()

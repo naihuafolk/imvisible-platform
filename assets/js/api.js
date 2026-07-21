@@ -32,6 +32,7 @@
     _put: function (path, body) {
       return fetch(api.base + path, { method: 'PUT', headers: api._headers(), body: JSON.stringify(body) }).then(chk);
     },
+    _del: function (path) { return fetch(api.base + path, { method: 'DELETE', headers: api._headers() }).then(chk); },
 
     health: function () { return api._get('/health'); },
     integrations: function () { return api._get('/api/integrations'); },
@@ -51,6 +52,9 @@
     // ---- Projects (DB จริง) ----
     usage: function () { return api._get('/api/usage'); },
     plans: function () { return api._get('/api/plans'); },
+    team: function () { return api._get('/api/team'); },
+    inviteTeam: function (email, role) { return api._post('/api/team/invite', { email: email, role: role || 'viewer' }); },
+    removeTeam: function (id) { return api._del('/api/team/' + id); },
     billingCheckout: function (plan) { return api._post('/api/billing/checkout', { plan: plan }); },
     billingStatus: function () { return api._get('/api/billing/status'); },
     projects: function () { return api._get('/api/projects'); },
