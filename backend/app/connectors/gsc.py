@@ -30,6 +30,43 @@ async def _access_token(creds: dict | None = None) -> str:
         return r.json()["access_token"]
 
 
+GSC_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly"
+
+
+def oauth_configured() -> bool:
+    return bool(settings.google_client_id and settings.google_client_secret and settings.google_redirect_uri)
+
+
+def consent_url(state: str) -> str:
+    """สร้างลิงก์ให้ลูกค้าไปยินยอมที่ Google (ขอ refresh_token แบบ offline)"""
+    from urllib.parse import urlencode
+    q = urlencode({
+        "client_id": settings.google_client_id,
+        "redirect_uri": settings.google_redirect_uri,
+        "response_type": "code",
+        "scope": GSC_SCOPE,
+        "access_type": "offline",
+        "prompt": "consent",
+        "include_granted_scopes": "true",
+        "state": state,
+    })
+    return "https://accounts.google.com/o/oauth2/v2/auth?" + q
+
+
+async def exchange_code(code: str) -> str:
+    """แลก authorization code → refresh_token (เก็บไว้ใช้ดึง GSC ต่อโปรเจ็ค)"""
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.post(TOKEN_URL, data={
+            "code": code,
+            "client_id": settings.google_client_id,
+            "client_secret": settings.google_client_secret,
+            "redirect_uri": settings.google_redirect_uri,
+            "grant_type": "authorization_code",
+        })
+        r.raise_for_status()
+        return r.json().get("refresh_token", "")
+
+
 async def submit_sitemap(site_url: str, sitemap_url: str, creds: dict | None = None) -> dict:
     """ส่ง sitemap เข้า Google Search Console จริง (แทน ping endpoint ที่ Google ยกเลิกแล้ว)
     ต้องมีบัญชี GSC ของลูกค้า + โดเมนถูก verify ใน GSC · เอกสาร: sitemaps.submit"""

@@ -730,6 +730,52 @@ async def project_seo_audit(project_id: int, user=Depends(get_current_user)):
     }
 
 
+# ---------- GSC in-app OAuth (ลูกค้ากดเชื่อม Google เอง แทนแปะ refresh_token) ----------
+@app.get("/api/projects/{project_id}/gsc/connect")
+async def gsc_connect_start(project_id: int, user=Depends(get_current_user)):
+    """คืนลิงก์ให้ลูกค้าไปยินยอมที่ Google — state มีลายเซ็นผูก user+project (กัน CSRF)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    if not gsc.oauth_configured():
+        raise HTTPException(503, "ผู้ดูแลยังไม่ได้ตั้งค่า Google OAuth (client_id/secret/redirect_uri)")
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+    state = security.create_state({"t": "gsc", "uid": user["id"], "pid": project_id})
+    return {"url": gsc.consent_url(state)}
+
+
+@app.get("/api/oauth/google/callback")
+async def gsc_oauth_callback(code: str = "", state: str = ""):
+    """Google redirect กลับมาที่นี่ — ตรวจ state, แลก code → refresh_token, เก็บเป็นคีย์ GSC ของโปรเจ็ค"""
+    from fastapi.responses import RedirectResponse
+    from app import creds
+    base = settings.app_base_url.rstrip("/")
+    try:
+        st = security.read_state(state)
+        assert st.get("t") == "gsc" and st.get("uid") and st.get("pid")
+    except Exception:
+        return RedirectResponse(base + "/#/settings?gsc=badstate")
+    if not code:
+        return RedirectResponse(base + "/#/settings?gsc=denied")
+    uid, pid = int(st["uid"]), int(st["pid"])
+    async with db.session() as s:                       # ยืนยันว่า project ยังเป็นของ user นี้
+        from app.db.models import Project
+        p = await s.get(Project, pid)
+        if not p or p.user_id != uid:
+            return RedirectResponse(base + "/#/settings?gsc=forbidden")
+    try:
+        refresh = await gsc.exchange_code(code)
+    except Exception:
+        return RedirectResponse(base + "/#/settings?gsc=exchangefail")
+    if not refresh:
+        return RedirectResponse(base + "/#/settings?gsc=notoken")
+    await creds.set_creds(pid, "gsc", {
+        "client_id": settings.google_client_id,
+        "client_secret": settings.google_client_secret,
+        "refresh_token": refresh})
+    return RedirectResponse(base + "/#/settings?gsc=connected")
+
+
 @app.post("/api/projects/{project_id}/sitemap/submit")
 async def project_submit_sitemap(project_id: int, user=Depends(get_current_user)):
     """M3 · ส่ง sitemap ของโปรเจ็คเข้า Google Search Console (ใช้บัญชี GSC ของลูกค้า)

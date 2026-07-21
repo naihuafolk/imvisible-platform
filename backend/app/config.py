@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     google_refresh_token: str = ""
+    google_redirect_uri: str = ""   # เช่น https://api.imvisible.tech/api/oauth/google/callback (ต้องตรงกับที่ตั้งใน Google Console)
 
     # 3) LLM
     anthropic_api_key: str = ""

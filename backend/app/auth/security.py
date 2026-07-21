@@ -42,3 +42,14 @@ def create_token(user_id: int, email: str) -> str:
 
 def decode_token(token: str) -> dict:
     return jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+
+
+def create_state(data: dict, minutes: int = 15) -> str:
+    """สร้าง state แบบมีลายเซ็น (กัน CSRF ใน OAuth flow) — อายุสั้น"""
+    payload = dict(data)
+    payload["exp"] = int(time.time()) + minutes * 60
+    return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+
+
+def read_state(token: str) -> dict:
+    return jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])

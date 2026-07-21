@@ -98,11 +98,14 @@
   }
   function projectCredsCard() {
     var forms = CRED_FORMS.map(function (c) {
+      var oauthBtn = c.kind === 'gsc'
+        ? ' <button class="btn btn-sm gsc-connect">🔗 เชื่อม Google อัตโนมัติ</button>' : '';
       return '<div class="card card-pad" style="margin-top:10px">' +
         '<div class="row between wrap" style="gap:8px"><div class="bb">' + esc(c.label) + '</div>' +
         '<span class="pcreds-src badge amber" data-src="' + c.kind + '">—</span></div>' +
+        (c.kind === 'gsc' ? '<div class="hint" style="margin-bottom:6px">กด "เชื่อม Google อัตโนมัติ" เพื่อยินยอมผ่านบัญชี Google ของคุณ (ง่ายสุด) หรือกรอกคีย์เองด้านล่าง</div>' : '') +
         c.fields.map(function (f) { return credInput(c.kind, f[0], f[1]); }).join('') +
-        '<div class="row" style="margin-top:6px"><button class="btn btn-sm btn-primary pcreds-save" data-kind="' + c.kind + '">บันทึกคีย์</button></div></div>';
+        '<div class="row" style="margin-top:6px;gap:8px"><button class="btn btn-sm btn-primary pcreds-save" data-kind="' + c.kind + '">บันทึกคีย์</button>' + oauthBtn + '</div></div>';
     }).join('');
     return ui.card({
       title: '🔑 เชื่อมคีย์ของคุณเอง (ต่อโปรเจ็คนี้)',
@@ -333,6 +336,17 @@
         }).catch(function () { pcSlot.innerHTML = 'ดึงสถานะไม่ได้ (ตรวจ backend/โหมด Live)'; });
       };
       loadCreds();
+      var gc = root.querySelector('.gsc-connect');
+      if (gc) gc.onclick = function () {
+        gc.disabled = true; gc.textContent = 'กำลังเปิด Google…';
+        RP.api.gscConnect(pcPid).then(function (r) {
+          if (r && r.url) { window.location.href = r.url; }
+          else { gc.disabled = false; gc.textContent = '🔗 เชื่อม Google อัตโนมัติ'; ui.toast('เชื่อมไม่ได้'); }
+        }).catch(function (e) {
+          gc.disabled = false; gc.textContent = '🔗 เชื่อม Google อัตโนมัติ';
+          ui.toast('เชื่อม Google ไม่ได้: ' + esc((e && e.message) || 'ผู้ดูแลยังไม่ได้ตั้งค่า OAuth'));
+        });
+      };
       Array.prototype.forEach.call(root.querySelectorAll('.pcreds-save'), function (b) {
         b.onclick = function () {
           if (!pcPid || !RP.api.enabled()) { ui.toast('เปิด "โหมด Live" ก่อนครับ'); return; }
