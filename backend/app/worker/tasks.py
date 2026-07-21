@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.worker.celery_app import celery_app
-from app.connectors import mining, content, serp, citation, publish, social, media
+from app.connectors import mining, content, serp, citation, publish, social, media, interlink
 from app.db import session as db
 from app import urls, crypto
 
@@ -29,6 +29,25 @@ def _wordcount(html: str) -> int:
 
 def _plain(html: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or "")).strip()
+
+
+async def _apply_internal_links(project_id: int, self_title: str, html: str) -> str:
+    """M3 · เปลี่ยนลิงก์ภายในลอย (<a href='#'>) ให้ชี้บทความพี่น้องจริง + auto-link ในคลัสเตอร์
+    crash-safe: ล้ม = คืน html เดิม (บทความยังผลิตได้) แต่เคสปกติจะไม่มีลิงก์ตายหลุดออกไป"""
+    try:
+        if not html or not db.enabled():
+            return html
+        from app.db.models import Article
+        async with db.session() as s:
+            rows = (await s.execute(
+                select(Article.title, Article.url, Article.cluster).where(
+                    Article.project_id == project_id, Article.status == "published",
+                    Article.url != ""))).all()
+        siblings = [{"title": t, "url": u, "cluster": c or ""} for (t, u, c) in rows]
+        new_html, _stats = interlink.apply(html, siblings, self_title=self_title)
+        return new_html or html
+    except Exception:  # noqa: BLE001
+        return html
 
 
 async def _gen_cover(topic: str) -> str:
@@ -212,6 +231,7 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                                          competitors=comp_text, target_url="https://" + p.domain,
                                          business_context=p.business_context)   # ← บริบทจริงจากเว็บลูกค้า
             html = gen.get("html", "")
+            html = await _apply_internal_links(project_id, topic, html)  # ลิงก์ภายในจริง (M3) — ห้ามปล่อยลิงก์ตาย
             cover = await _gen_cover(topic)                           # รูปปก (crash-safe: ล้ม='')
             async with db.session() as s:
                 art = Article(project_id=project_id, title=topic, html=html,
