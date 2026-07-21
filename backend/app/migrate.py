@@ -29,6 +29,9 @@ COLUMN_DDL = [
     "ALTER TABLE articles ADD COLUMN IF NOT EXISTS cover_url TEXT DEFAULT ''",
     "ALTER TABLE articles ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ",
     "ALTER TABLE articles ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now()",
+    "ALTER TABLE articles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()",
+    "ALTER TABLE articles ADD COLUMN IF NOT EXISTS aeo_score INTEGER DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(50) DEFAULT 'free'",
 ]
 
 # unique index สร้าง "หลัง backfill" เท่านั้น (ตอนแรกทุกแถว slug='' จะชนกันถ้าสร้างก่อน)

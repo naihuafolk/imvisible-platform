@@ -73,6 +73,9 @@ class Settings(BaseSettings):
 
     cors_origins: str = "*"
 
+    # แอดมิน/เทสต์ (ไม่ต้องผ่าน Stripe): อีเมลในนี้ได้แพ็กเกจ business อัตโนมัติ (คั่นด้วย ,)
+    admin_emails: str = ""
+
     # Production hardening
     app_env: str = "dev"                 # dev | prod (prod = บังคับ JWT_SECRET + HSTS)
     sentry_dsn: str = ""                 # ตั้ง = เปิด error monitoring (ต้องลง sentry-sdk)

@@ -33,10 +33,16 @@ async def articles_this_month(user_id: int) -> int:
 
 
 async def user_plan(user_id: int) -> str:
-    """แพ็กเกจปัจจุบันของผู้ใช้ (จาก DB — บิลลิ่งอัปเดตค่านี้)"""
+    """แพ็กเกจปัจจุบันของผู้ใช้ (จาก DB — บิลลิ่งอัปเดตค่านี้)
+    ยกเว้น: อีเมลใน ADMIN_EMAILS ได้ business อัตโนมัติ (เทสต์แบรนด์ตัวเองโดยไม่ต้องจ่ายเงิน)"""
     from app.db.models import User
+    from app.config import settings
     async with db.session() as s:
         u = await s.get(User, user_id)
+    if u:
+        admins = [e.strip().lower() for e in (settings.admin_emails or "").split(",") if e.strip()]
+        if (u.email or "").lower() in admins:
+            return "business"
     return plans.normalize(getattr(u, "plan", None) if u else None)
 
 

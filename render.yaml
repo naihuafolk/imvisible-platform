@@ -1,11 +1,95 @@
-# RankPilot AI — Render Blueprint (deploy backend + worker + beat + redis + postgres)
-# วิธีใช้: push repo ขึ้น GitHub แล้วที่ Render กด "New +" > "Blueprint" ชี้มาที่ repo นี้
-# หมายเหตุ: API keys (ANTHROPIC_API_KEY, DATAFORSEO_LOGIN, ...) ตั้งในหน้า Dashboard ของแต่ละ service
+# RankPilot AI / ImVisible — Render Blueprint (backend + worker + beat + redis + postgres)
+# วิธีใช้: push repo ขึ้น GitHub → ที่ Render กด "New +" > "Blueprint" ชี้มาที่ repo นี้
+# แล้วกรอกค่าใน env group "rankpilot-shared" ครั้งเดียว (api + worker ใช้ร่วมกัน)
+#
+# สำคัญ (แก้บั๊ก crypto): JWT_SECRET + API keys ต้อง "ตัวเดียวกัน" ทั้ง api และ worker
+# เพราะคีย์ลูกค้า (per-tenant creds) + โทเคนโซเชียล เข้ารหัสด้วยคีย์ที่ derive จาก JWT_SECRET
+# ถ้า api กับ worker คนละ JWT_SECRET → worker ถอดรหัสไม่ได้ → เงียบ ๆ ตกไปใช้คีย์กลาง
+
 databases:
   - name: rankpilot-db
     plan: free
     databaseName: rankpilot
     user: rankpilot
+
+# ---- ค่าที่ api + worker ใช้ร่วมกัน (กรอกครั้งเดียวในหน้า Env Groups) ----
+envVarGroups:
+  - name: rankpilot-shared
+    envVars:
+      # ผูก api/worker ให้ใช้ JWT_SECRET เดียวกัน (จำเป็นต่อ crypto) — ตั้งค่ายาว ≥ 32 ตัว
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_ENV
+        value: prod
+      - key: APP_BASE_URL
+        value: https://app.imvisible.tech
+      - key: MANAGED_BASE_DOMAIN
+        value: imvisible.tech
+      # อีเมลแอดมิน/เทสต์ (ได้ business ไม่ต้องจ่ายเงิน) — ใส่อีเมลคุณ
+      - key: ADMIN_EMAILS
+        sync: false
+      # --- LLM (อย่างน้อย 1 ตัว) ---
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      # --- SERP (จำเป็นต่อการวัดอันดับ/ขุดคำถาม/คู่แข่ง) ---
+      - key: DATAFORSEO_LOGIN
+        sync: false
+      - key: DATAFORSEO_PASSWORD
+        sync: false
+      # --- AI Citation (เสริม) ---
+      - key: PERPLEXITY_API_KEY
+        sync: false
+      # --- IndexNow (เสริม) ---
+      - key: INDEXNOW_KEY
+        sync: false
+      - key: INDEXNOW_HOST
+        sync: false
+      # --- Google Search Console / OAuth (เสริม) ---
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://app.imvisible.tech/api/oauth/google/callback
+      # --- Billing (Stripe) — ใส่ทีหลังตอนพร้อมขาย ---
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_PRO
+        sync: false
+      - key: STRIPE_PRICE_BUSINESS
+        sync: false
+      # --- Email (รายงานรายสัปดาห์) เสริม ---
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      # --- อื่น ๆ (เสริม) ---
+      - key: PAGESPEED_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: ARK_API_KEY
+        sync: false
+      - key: WORDPRESS_BASE_URL
+        sync: false
+      - key: WORDPRESS_USERNAME
+        sync: false
+      - key: WORDPRESS_APP_PASSWORD
+        sync: false
 
 services:
   - type: redis
@@ -21,12 +105,11 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
+      - fromGroup: rankpilot-shared
       - key: DATABASE_URL
         fromDatabase: { name: rankpilot-db, property: connectionString }
       - key: REDIS_URL
         fromService: { type: redis, name: rankpilot-redis, property: connectionString }
-      - key: JWT_SECRET
-        generateValue: true
       - key: CORS_ORIGINS
         value: "*"
 
@@ -38,6 +121,7 @@ services:
     dockerCommand: celery -A app.worker.celery_app worker -l info
     plan: free
     envVars:
+      - fromGroup: rankpilot-shared     # ← ใช้ JWT_SECRET + API keys ชุดเดียวกับ api (สำคัญต่อ crypto)
       - key: DATABASE_URL
         fromDatabase: { name: rankpilot-db, property: connectionString }
       - key: REDIS_URL
