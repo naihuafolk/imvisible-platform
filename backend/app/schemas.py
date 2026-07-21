@@ -35,6 +35,10 @@ class CheckoutRequest(BaseModel):
     plan: str                    # pro | business
 
 
+class ScheduleRequest(BaseModel):
+    at: str                      # เวลาเผยแพร่ (ISO เช่น 2026-08-01T09:00)
+
+
 class KeywordRequest(BaseModel):
     keyword: str
 

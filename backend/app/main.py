@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
-    CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest,
+    CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social, billing
 from app.auth import security
@@ -641,6 +641,34 @@ async def project_drafts(project_id: int, user=Depends(get_current_user)):
     return {"drafts": [{"id": a.id, "title": a.title, "words": a.words,
                         "aeo_score": a.aeo_score, "cluster": a.cluster,
                         "description": (a.description or "")[:160]} for a in rows]}
+
+
+@app.put("/api/articles/{article_id}/schedule")
+async def article_schedule(article_id: int, req: ScheduleRequest, user=Depends(get_current_user)):
+    """M4 · ตั้งเวลาเผยแพร่บทความ draft — beat จะเผยแพร่ให้เองเมื่อถึงเวลา"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from datetime import datetime, timedelta, timezone as _tz
+    from app.db.models import Article, Project
+    try:
+        dt = datetime.fromisoformat((req.at or "").replace("Z", "+00:00"))
+    except Exception:
+        raise HTTPException(422, "รูปแบบเวลาไม่ถูกต้อง (ต้องเป็น ISO เช่น 2026-08-01T09:00)")
+    if dt.tzinfo is None:                              # datetime-local ไม่มี tz → ถือเป็นเวลาไทย (+07:00)
+        dt = dt.replace(tzinfo=_tz(timedelta(hours=7)))
+    async with db.session() as s:
+        art = await s.get(Article, article_id)
+        if not art:
+            raise HTTPException(404, "ไม่พบบทความ")
+        proj = await s.get(Project, art.project_id)
+        if not proj or proj.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบบทความ")
+        if art.status == "published":
+            raise HTTPException(409, "บทความนี้เผยแพร่ไปแล้ว")
+        art.status = "scheduled"
+        art.scheduled_at = dt
+        await s.commit()
+    return {"ok": True, "article_id": article_id, "scheduled_at": dt.isoformat()}
 
 
 @app.post("/api/articles/{article_id}/approve")

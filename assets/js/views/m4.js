@@ -238,7 +238,9 @@
                   '<td class="num">' + fmt.n(a.words) + ' คำ</td>' +
                   '<td class="center">' + ui.scorePill(a.aeo_score || 0) + '</td>' +
                   '<td class="right nowrap" data-cell="act">' +
-                  '<button class="btn btn-green btn-sm rapprove" data-aid="' + a.id + '">✓ อนุมัติ & เผยแพร่</button></td></tr>';
+                  '<button class="btn btn-green btn-sm rapprove" data-aid="' + a.id + '">✓ อนุมัติ & เผยแพร่</button>' +
+                  '<div style="margin-top:6px;white-space:normal"><input type="datetime-local" class="input sched-at" data-aid="' + a.id + '" style="font-size:12px;width:auto"> ' +
+                  '<button class="btn btn-sm rsched" data-aid="' + a.id + '">🕒 ตั้งเวลา</button></div></td></tr>';
               }).join('');
               slot.innerHTML = '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
                 '<th>บทความ</th><th class="right">จำนวนคำ</th><th class="center">AEO</th><th class="right">การจัดการ</th>' +
@@ -255,6 +257,23 @@
                   }).catch(function (e) {
                     btn.disabled = false; btn.textContent = '✓ อนุมัติ & เผยแพร่';
                     ui.toast('อนุมัติไม่สำเร็จ: ' + esc((e && e.message) || String(e)));
+                  });
+                };
+              });
+              slot.querySelectorAll('button.rsched').forEach(function (btn) {
+                btn.onclick = function () {
+                  var aid = btn.getAttribute('data-aid');
+                  var inp = slot.querySelector('input.sched-at[data-aid="' + aid + '"]');
+                  var at = inp ? (inp.value || '') : '';
+                  if (!at) { ui.toast('เลือกวันเวลาก่อนครับ'); return; }
+                  btn.disabled = true; btn.textContent = 'กำลังตั้ง…';
+                  RP.api.scheduleArticle(aid, at).then(function (r) {
+                    var row = slot.querySelector('tr[data-aid="' + aid + '"] [data-cell="act"]');
+                    if (row) row.innerHTML = ui.badge('ตั้งเวลาเผยแพร่แล้ว 🕒', 'blue');
+                    ui.toast('ตั้งเวลาเผยแพร่แล้ว ✓ ระบบจะเผยแพร่ให้เองเมื่อถึงเวลา');
+                  }).catch(function (e) {
+                    btn.disabled = false; btn.textContent = '🕒 ตั้งเวลา';
+                    ui.toast('ตั้งเวลาไม่สำเร็จ: ' + esc((e && e.message) || String(e)));
                   });
                 };
               });

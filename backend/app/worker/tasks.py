@@ -885,6 +885,34 @@ def _esc(t) -> str:
     return _h.escape(str(t or ""))
 
 
+@celery_app.task(name="app.worker.tasks.publish_scheduled")
+def publish_scheduled() -> str:
+    """M4 (beat): เผยแพร่บทความที่ 'ถึงเวลาที่ตั้งไว้' (status=scheduled + scheduled_at<=now)"""
+    return _run(_publish_scheduled())
+
+
+async def _publish_scheduled() -> str:
+    from app.db.models import Article
+    if not db.enabled():
+        return "DB not configured"
+    now = datetime.now(timezone.utc)
+    async with db.session() as s:
+        rows = (await s.execute(
+            select(Article.id, Article.scheduled_at).where(
+                Article.status == "scheduled", Article.scheduled_at.isnot(None)))).all()
+    due = []
+    for aid, sat in rows:
+        if not sat:
+            continue
+        if sat.tzinfo is None:              # sqlite อาจคืน naive → ถือเป็น UTC
+            sat = sat.replace(tzinfo=timezone.utc)
+        if sat <= now:
+            due.append(aid)
+    for aid in due:
+        approve_article.delay(aid)          # ใช้เส้นทางเผยแพร่จริงเดียวกับการอนุมัติ
+    return "published %d scheduled articles" % len(due)
+
+
 @celery_app.task(name="app.worker.tasks.send_weekly_reports")
 def send_weekly_reports() -> str:
     """M6 (beat): ส่งรายงานรายสัปดาห์จากผลจริงให้ผู้ใช้ทุกคนทางอีเมล"""

@@ -52,4 +52,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.send_weekly_reports",
         "schedule": crontab(hour=8, minute=0, day_of_week=1),
     },
+    "publish-scheduled": {           # M4 · เผยแพร่บทความที่ตั้งเวลาไว้ ทุก 15 นาที
+        "task": "app.worker.tasks.publish_scheduled",
+        "schedule": crontab(minute="*/15"),
+    },
 }
