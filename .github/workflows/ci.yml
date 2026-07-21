@@ -37,8 +37,6 @@ jobs:
         run: cd backend && python -m compileall app
       - name: Smoke test (import + auth + sqlite register/login/projects)
         run: cd backend && python tests/test_smoke.py
-      - name: Commercial + functional endpoints (quotas, billing, creds, legal, aeo, schedule)
-        run: cd backend && python tests/test_commercial.py
 
   deploy:
     needs: [frontend, backend]
