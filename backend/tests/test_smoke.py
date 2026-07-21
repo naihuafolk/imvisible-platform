@@ -17,6 +17,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from fastapi.testclient import TestClient   # noqa: E402
 from app.main import app                    # noqa: E402
 from app.auth import security               # noqa: E402
+import app.worker.tasks as _tasks           # noqa: E402
+
+# ไม่พึ่ง Redis ในเทสต์: ให้ .delay() คืน task ปลอม (endpoint ที่อ่าน task.id ทำงานได้)
+_tasks.analyze_project.delay = lambda *a, **k: type("T", (), {"id": "test"})()
 
 
 def run():
@@ -34,7 +38,7 @@ def run():
     with TestClient(app) as c:
         assert c.get("/health").json()["status"] == "ok"
         email = f"u{int(time.time()*1000)}@test.com"
-        r = c.post("/api/auth/register", json={"email": email, "password": "secret123", "name": "U"})
+        r = c.post("/api/auth/register", json={"email": email, "password": "secret123", "name": "U", "accept_terms": True})
         assert r.status_code == 200, r.text
         token = r.json()["token"]
         assert token

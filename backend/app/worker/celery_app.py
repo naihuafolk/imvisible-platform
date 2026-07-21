@@ -20,6 +20,11 @@ celery_app.conf.update(
     task_time_limit=600,
     timezone="Asia/Bangkok",
     enable_utc=False,
+    # ถ้า Redis ล่ม: ให้ .delay() จาก API "ล้มเร็ว" (ไม่ค้างคำขอนานหลายนาที) —
+    # endpoint ที่เรียกจะ try/except แล้วไปต่อได้ (เช่น สร้างโปรเจ็คสำเร็จ แต่ analyzing=False)
+    task_publish_retry=False,
+    broker_transport_options={"socket_connect_timeout": 3, "socket_timeout": 3},
+    broker_connection_retry_on_startup=True,   # worker ยัง retry ตอน boot ได้ตามปกติ
 )
 
 # ตารางเวลาให้ "วงจรโต" หมุนเอง (AI Growth Loop)
