@@ -7,7 +7,7 @@
 import asyncio
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from types import SimpleNamespace
 
 from sqlalchemy import select
@@ -629,21 +629,170 @@ def freshness_sweep() -> str:
 
 
 async def _freshness_sweep() -> str:
+    """หาบทความที่ 'เก่าเกิน freshness_days จริง' (จาก updated_at) แล้วสั่งเขียนซ่อม/รีเฟรช
+    (optimize จะรีไรต์ + bump updated_at = สดขึ้นจริง) — ไม่มีของเก่า ค่อยผลิตใหม่คงความสดคลัสเตอร์"""
+    from app.db.models import Project, Article
+    if not db.enabled():
+        return "DB not configured"
+    now = datetime.now(timezone.utc)
+    refreshed, produced = 0, 0
+    async with db.session() as s:
+        projs = (await s.execute(select(Project))).scalars().all()
+        plan = []
+        for p in projs:
+            fd = getattr(p, "freshness_days", 120) or 120
+            cutoff = now - timedelta(days=fd)
+            stale = (await s.execute(
+                select(Article.id).where(Article.project_id == p.id,
+                                         Article.status == "published",
+                                         Article.updated_at < cutoff)
+                .order_by(Article.updated_at.asc()).limit(3))).scalars().all()
+            plan.append((p.id, list(stale)))
+    for pid, stale in plan:
+        if stale:
+            for aid in stale:
+                optimize_article.delay(aid)     # รีเฟรชของเก่าจริง (รีไรต์ + updated_at ใหม่)
+                refreshed += 1
+        else:
+            produce_for_project.delay(pid, 1)   # ทุกหน้ายังสด → ขยายคลัสเตอร์
+            produced += 1
+    return "freshness: refreshed %d aging articles, queued %d new" % (refreshed, produced)
+
+
+# =========================================================
+#  M6 — LEARNING LOOP: เรียนรู้จาก 'ผลจริง' ว่าอะไรทำให้ติด/ถูกอ้าง แล้วปรับกลยุทธ์
+# =========================================================
+
+async def _project_insights(project_id: int, proj=None) -> dict:
+    """วิเคราะห์จากข้อมูลจริง: คะแนน AEO ต่อบทความ + อันดับจริง (RankSnapshot) →
+    หา 'ปัจจัยร่วมของหน้าที่ได้ผล', คลัสเตอร์ที่แข็ง, และปัจจัยที่อ่อนสุดของทั้งโปรเจ็ค"""
+    from app.db.models import Project, Article, RankSnapshot
+    async with db.session() as s:
+        if proj is None:
+            proj = await s.get(Project, project_id)
+        arts = (await s.execute(
+            select(Article).where(Article.project_id == project_id).limit(100))).scalars().all()
+        ranks = (await s.execute(
+            select(RankSnapshot).where(RankSnapshot.project_id == project_id)
+            .order_by(RankSnapshot.checked_at))).scalars().all()
+    if not proj:
+        return {"count": 0, "insights": [], "clusters": [], "note": "ไม่พบโปรเจ็ค"}
+
+    page1 = {}                                   # อันดับล่าสุดต่อคีย์เวิร์ด(=หัวข้อ)
+    for r in ranks:
+        page1[r.keyword] = bool(r.on_page1)
+
+    scored, labels = [], {}
+    for a in arts:
+        r = _score_art(a, proj)
+        labels.update({f["key"]: f["label"] for f in r["factors"]})
+        scored.append({"title": a.title, "cluster": (a.cluster or "").strip(),
+                       "score": r["score"], "grade": r["grade"],
+                       "factors": {f["key"]: f["ok"] for f in r["factors"]},
+                       "on_page1": page1.get(a.title)})
+    n = len(scored)
+    if not n:
+        return {"count": 0, "insights": [], "clusters": [],
+                "note": "ยังไม่มีบทความให้เรียนรู้ — ผลิตบทความก่อน"}
+
+    avg_score = round(sum(x["score"] for x in scored) / n)
+    winners = [x for x in scored if x["on_page1"] or x["score"] >= 80]
+    losers = [x for x in scored if x not in winners]
+    p1_count = sum(1 for x in scored if x["on_page1"])
+
+    insights = []
+    if winners and losers:
+        wa = round(sum(x["score"] for x in winners) / len(winners))
+        la = round(sum(x["score"] for x in losers) / len(losers))
+        if wa > la:
+            insights.append({"type": "score_gap",
+                             "text": "หน้าที่ได้ผลมีคะแนน AEO เฉลี่ย %d เทียบกับ %d ของหน้าที่ยังไม่ติด — ดันคะแนนหน้าอ่อนคือทางลัด" % (wa, la)})
+    # ปัจจัยร่วมของหน้าที่ได้ผล (ผ่านในกลุ่ม winner มากกว่ากลุ่ม loser ชัด)
+    if winners:
+        diffs = []
+        for k, lab in labels.items():
+            wp = sum(1 for x in winners if x["factors"].get(k)) / len(winners)
+            lp = (sum(1 for x in losers if x["factors"].get(k)) / len(losers)) if losers else 0
+            if wp - lp >= 0.25:
+                diffs.append((wp - lp, lab, round(wp * 100), round(lp * 100)))
+        diffs.sort(reverse=True)
+        for _d, lab, wp, lp in diffs[:3]:
+            insights.append({"type": "winning_factor",
+                             "text": "หน้าที่ได้ผลมักมี '%s' (%d%% เทียบ %d%% ของหน้าอื่น)" % (lab, wp, lp)})
+    # ปัจจัยที่อ่อนสุดทั้งโปรเจ็ค (ผ่านน้อยสุด) → แก้แล้วดันได้ทั้งกลุ่ม
+    weak = sorted(labels.keys(), key=lambda k: sum(1 for x in scored if x["factors"].get(k)))
+    if weak:
+        k = weak[0]
+        pct = round(sum(1 for x in scored if x["factors"].get(k)) / n * 100)
+        insights.append({"type": "weak_factor",
+                         "text": "ปัจจัยที่อ่อนสุดคือ '%s' (ผ่านแค่ %d%% ของบทความ) — โฟกัสแก้ตัวนี้ก่อน" % (labels[k], pct)})
+
+    # คลัสเตอร์ที่แข็งสุด (คะแนนเฉลี่ย + ติดหน้า 1)
+    cl = {}
+    for x in scored:
+        c = x["cluster"] or "ไม่ระบุคลัสเตอร์"
+        g = cl.setdefault(c, {"cluster": c, "n": 0, "score_sum": 0, "page1": 0})
+        g["n"] += 1; g["score_sum"] += x["score"]; g["page1"] += 1 if x["on_page1"] else 0
+    clusters = sorted(
+        ({"cluster": g["cluster"], "articles": g["n"],
+          "avg_score": round(g["score_sum"] / g["n"]), "page1": g["page1"]} for g in cl.values()),
+        key=lambda c: (c["page1"], c["avg_score"]), reverse=True)
+    if clusters and clusters[0]["cluster"] != "ไม่ระบุคลัสเตอร์":
+        b = clusters[0]
+        insights.append({"type": "best_cluster",
+                         "text": "คลัสเตอร์ที่แข็งสุด: '%s' (คะแนนเฉลี่ย %d, ติดหน้า 1 %d หน้า) — ควรขยายคลัสเตอร์นี้ต่อ" % (b["cluster"], b["avg_score"], b["page1"])})
+
+    return {"count": n, "avg_score": avg_score, "page1": p1_count,
+            "winners": len(winners), "insights": insights, "clusters": clusters[:6],
+            "note": "สรุปจากผลจริง (คะแนน AEO + อันดับที่เก็บได้) — ไม่ใช่คำแนะนำสำเร็จรูป"}
+
+
+async def _reprioritize_plan(project_id: int, clusters: list):
+    """ปรับลำดับ topic_plan: ดันหัวข้อในคลัสเตอร์ที่ 'พิสูจน์แล้วว่าได้ผล' ขึ้นก่อน (auto-tuning จริง)"""
+    from app.db.models import Project
+    winning = [c["cluster"] for c in clusters if c["page1"] > 0 or c["avg_score"] >= 80]
+    if not winning:
+        return False
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or not (p.topic_plan or "").strip():
+            return False
+        try:
+            plan = json.loads(p.topic_plan) or []
+        except Exception:  # noqa: BLE001
+            return False
+        if not isinstance(plan, list) or not plan:
+            return False
+        wset = set(winning)
+        plan.sort(key=lambda it: 0 if isinstance(it, dict) and str(it.get("cluster") or "") in wset else 1)
+        p.topic_plan = json.dumps(plan, ensure_ascii=False)
+        await s.commit()
+    return True
+
+
+@celery_app.task(name="app.worker.tasks.learning_loop")
+def learning_loop() -> str:
+    """M6: เรียนรู้จากผลจริงของทุกโปรเจ็ค → ปรับลำดับหัวข้อให้คลัสเตอร์ที่ได้ผลมาก่อน"""
+    return _run(_learning_loop())
+
+
+async def _learning_loop() -> str:
     from app.db.models import Project
     if not db.enabled():
         return "DB not configured"
     async with db.session() as s:
         ids = (await s.execute(select(Project.id))).scalars().all()
-    # กลยุทธ์ง่าย: ให้แต่ละโปรเจ็คผลิตคอนเทนต์สดเพิ่ม (คงความสดของคลัสเตอร์)
+    tuned, total_insights = 0, 0
     for pid in ids:
-        produce_for_project.delay(pid, 1)
-    return "freshness: queued refresh content for %d projects" % len(ids)
-
-
-@celery_app.task(name="app.worker.tasks.learning_loop")
-def learning_loop() -> str:
-    """M6: วิเคราะห์หน้าที่ได้ผล + ปรับลำดับคิว (พื้นฐาน)"""
-    return "learning loop executed: templates & queue re-prioritized"
+        try:
+            ins = await _project_insights(pid)
+            total_insights += len(ins.get("insights", []))
+            if await _reprioritize_plan(pid, ins.get("clusters", [])):
+                tuned += 1
+        except Exception:  # noqa: BLE001
+            continue
+    return "learning loop: analyzed %d projects, %d insights, re-prioritized %d plans" % (
+        len(ids), total_insights, tuned)
 
 
 async def _save_rank(project_id: int, res: dict):

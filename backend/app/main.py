@@ -446,6 +446,19 @@ async def project_aeo(project_id: int, user=Depends(get_current_user)):
     }
 
 
+@app.get("/api/projects/{project_id}/insights")
+async def project_insights(project_id: int, user=Depends(get_current_user)):
+    """M6 · Learning Loop — เรียนรู้จากผลจริง (คะแนน AEO + อันดับ) ว่าอะไรทำให้ติด/ถูกอ้าง
+    คืน insights + คลัสเตอร์ที่แข็งสุด (ไม่มีข้อมูล = ว่างจริง ไม่เดา)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project
+    async with db.session() as s:
+        proj = await _own_project(s, project_id, user)
+    from app.worker.tasks import _project_insights
+    return await _project_insights(project_id, proj)
+
+
 @app.get("/api/projects/{project_id}/citation/history")
 async def project_citation_history(project_id: int, user=Depends(get_current_user)):
     """แนวโน้ม Share of Voice ที่ 'สะสมจากการรันจริง' — จัดกลุ่มเป็นรอบ (ต่อครั้งที่รัน)

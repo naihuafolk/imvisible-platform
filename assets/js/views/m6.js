@@ -2,6 +2,47 @@
   'use strict';
   var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
 
+  function curProj() {
+    var proj = RP.data && RP.data.project;
+    var list = (proj && proj.list) || [];
+    if (RP.isReal()) list = list.filter(function (p) { return p && /^db/.test(String(p.id)); });
+    var cur = (proj && proj.current) || '';
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === cur) return list[i];
+    return list.length ? list[0] : null;
+  }
+  function dbId(p) {
+    if (!p) return null;
+    if (typeof p._dbid === 'number') return p._dbid;
+    var m = /^db(\d+)$/.exec(String(p.id || ''));
+    return m ? parseInt(m[1], 10) : null;
+  }
+  function insIcon(t) {
+    return t === 'winning_factor' ? '✅' : t === 'weak_factor' ? '🔧'
+      : t === 'best_cluster' ? '🏆' : t === 'score_gap' ? '📊' : '💡';
+  }
+
+  /* การ์ด "สิ่งที่ระบบเรียนรู้จริง" จากผลจริง (คะแนน AEO + อันดับ) */
+  function realInsightsCard(dd) {
+    var head = '<div class="grid grid-3 mb">' +
+      ui.kpi({ label: 'บทความที่วิเคราะห์', value: fmt.n(dd.count || 0) }) +
+      ui.kpi({ label: 'คะแนน AEO เฉลี่ย', value: (dd.avg_score == null ? '—' : dd.avg_score), tone: 'brand' }) +
+      ui.kpi({ label: 'ติดหน้า 1', value: fmt.n(dd.page1 || 0), tone: 'pos' }) + '</div>';
+    var lis = (dd.insights || []).map(function (i) {
+      return '<div class="list-row"><span class="t">' + insIcon(i.type) + ' ' + esc(i.text) + '</span></div>';
+    }).join('') || '<div class="soft small center" style="padding:14px">ยังสรุปรูปแบบไม่ได้ — เก็บผลอันดับเพิ่มอีกนิด</div>';
+    var cl = (dd.clusters || []).map(function (c) {
+      return '<div class="list-row"><span class="t b nowrap">' + esc(c.cluster) + '</span>' +
+        '<div class="grow"></div><span class="right"><span class="badge blue">คะแนน ' + c.avg_score + '</span> ' +
+        '<span class="badge ' + (c.page1 ? 'green' : '') + '">ติดหน้า1 ' + c.page1 + '</span></span></div>';
+    }).join('');
+    return ui.card({
+      title: '🧠 สิ่งที่ระบบเรียนรู้จริง', sub: 'สรุปจากคะแนน AEO + อันดับที่เก็บได้ของโปรเจ็คนี้', cls: 'mb',
+      body: head + '<div class="soft small b" style="margin:6px 0">ข้อค้นพบ</div>' + lis +
+        (cl ? ('<div class="divider"></div><div class="soft small b" style="margin:6px 0">คลัสเตอร์เรียงตามผลจริง</div>' + cl) : '') +
+        '<div class="hint" style="margin-top:8px">' + esc(dd.note || '') + '</div>'
+    });
+  }
+
   RP.views.m6 = function () {
     var d = (RP.data && RP.data.m6) || {};
     var insights = d.insights || [];
@@ -19,6 +60,9 @@
     // แถบกำกับสถานะข้อมูล (โหมดตัวอย่าง = sample / บัญชีจริง = กำลังเก็บข้อมูล)
     html += RP.sampleNotice('หน้า Learning Loop นี้');
     html += RP.collectingNotice('การเรียนรู้ของบัญชีคุณ');
+
+    // 🧠 บัญชีจริง: เติมข้อค้นพบจริงจาก /insights (เติมตอน mount)
+    html += '<div id="insights_slot"></div>';
 
     // 1) เกริ่นนำ — สมองของระบบ (อธิบายหลักการทำงาน ไม่ใช่ผลงานที่ทำไปแล้ว)
     html += '<div class="note-box purple mb">' +
@@ -135,6 +179,17 @@
       });
     }
 
-    return { html: html, mount: null };
+    return {
+      html: html,
+      mount: function (root) {
+        var pid = RP.isReal() ? dbId(curProj()) : null;
+        if (!pid || !RP.api.enabled()) return;
+        var slot = root.querySelector('#insights_slot');
+        if (!slot) return;
+        RP.api.insights(pid).then(function (dd) {
+          if (dd && dd.count) slot.innerHTML = realInsightsCard(dd);
+        }).catch(function () {});
+      }
+    };
   };
 })(window.RP);
