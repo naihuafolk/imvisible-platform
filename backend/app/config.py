@@ -69,6 +69,18 @@ class Settings(BaseSettings):
 
     cors_origins: str = "*"
 
+    # Production hardening
+    app_env: str = "dev"                 # dev | prod (prod = บังคับ JWT_SECRET + HSTS)
+    sentry_dsn: str = ""                 # ตั้ง = เปิด error monitoring (ต้องลง sentry-sdk)
+    rate_limit_per_min: int = 30         # จำกัดคำขอ auth ต่อ IP ต่อนาที (กัน brute-force)
+
+
+DEV_JWT_DEFAULT = "dev-only-secret-change-me-in-production-please-32b"
+
+
+def is_prod() -> bool:
+    return settings.app_env.strip().lower().startswith("prod")
+
 
 settings = Settings()
 

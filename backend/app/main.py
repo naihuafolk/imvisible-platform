@@ -4,13 +4,24 @@ RankPilot AI — Backend API (FastAPI)
 เอกสาร API อัตโนมัติ: http://localhost:8000/docs
 """
 import secrets
+import time
+from collections import defaultdict, deque
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.config import settings, integration_status
+from app.config import settings, integration_status, is_prod, DEV_JWT_DEFAULT
+
+# Error monitoring (เปิดเมื่อมี SENTRY_DSN + ติดตั้ง sentry-sdk) — ไม่มี = ข้ามเงียบ ๆ
+if settings.sentry_dsn:
+    try:
+        import sentry_sdk
+        sentry_sdk.init(dsn=settings.sentry_dsn, traces_sample_rate=0.1,
+                        environment=settings.app_env)
+    except Exception:  # noqa: BLE001
+        pass
 from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
@@ -37,8 +48,40 @@ app.add_middleware(
 app.include_router(public.router)
 
 
+# ---------- Security headers (ทุก response) ----------
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resp.headers.setdefault("X-XSS-Protection", "0")
+    if is_prod():
+        resp.headers.setdefault("Strict-Transport-Security",
+                                "max-age=63072000; includeSubDomains")
+    return resp
+
+
+# ---------- Rate limit (กัน brute-force ที่ auth) — in-memory ต่อ process ----------
+_rl_hits: dict = defaultdict(deque)
+
+
+async def rate_limit_auth(request: Request):
+    ip = (request.client.host if request.client else "") or "unknown"
+    now = time.time()
+    dq = _rl_hits[ip]
+    while dq and now - dq[0] > 60:
+        dq.popleft()
+    if len(dq) >= settings.rate_limit_per_min:
+        raise HTTPException(429, "คำขอถี่เกินไป กรุณาลองใหม่ในอีกสักครู่")
+    dq.append(now)
+
+
 @app.on_event("startup")
 async def _startup():
+    # ความปลอดภัย: prod ห้ามใช้ JWT_SECRET ค่า dev (fail closed — ไม่ยอมสตาร์ท)
+    if is_prod() and settings.jwt_secret == DEV_JWT_DEFAULT:
+        raise RuntimeError("ตั้ง JWT_SECRET ที่ยาว/สุ่มจริงก่อนรัน production (ห้ามใช้ค่า dev)")
     # dev convenience: สร้างตารางให้อัตโนมัติ (production ควรใช้ Alembic)
     if db.enabled():
         try:
@@ -65,7 +108,7 @@ def _user_dict(u):
 
 
 @app.post("/api/auth/register")
-async def register(req: RegisterRequest):
+async def register(req: RegisterRequest, _rl=Depends(rate_limit_auth)):
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import User
@@ -80,7 +123,7 @@ async def register(req: RegisterRequest):
 
 
 @app.post("/api/auth/login")
-async def login(req: LoginRequest):
+async def login(req: LoginRequest, _rl=Depends(rate_limit_auth)):
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import User
