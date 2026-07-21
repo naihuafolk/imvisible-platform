@@ -87,8 +87,7 @@ def integration_status() -> list[dict]:
          "connected": bool(s.openai_api_key or s.gemini_api_key or s.perplexity_api_key)},
         {"id": "wordpress","name": "WordPress REST API",               "required": True,
          "connected": bool(s.wordpress_base_url and s.wordpress_username and s.wordpress_app_password)},
-        {"id": "webflow",  "name": "Webflow API",                      "required": False,
-         "connected": bool(s.webflow_api_token and s.webflow_collection_id)},
+        # หมายเหตุ: Webflow ยังไม่มี connector จริง จึงไม่โฆษณาเป็น integration (กันอ้างของที่ยังไม่มี)
         {"id": "indexnow", "name": "IndexNow",                         "required": False,
          "connected": bool(s.indexnow_key and s.indexnow_host)},
         {"id": "ga4",      "name": "Google Analytics 4",               "required": False,

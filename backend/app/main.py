@@ -15,6 +15,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
+    CredentialUpdate, KeywordRequest, GSCDaysRequest,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social
 from app.auth import security
@@ -129,8 +130,8 @@ def _clean_custom_domain(raw: str) -> str:
 
 
 def _norm_publish_mode(mode: str) -> str:
-    """ลูกค้าตั้งได้แค่ managed | none (wordpress = Phase 2 ต้องมี per-project creds ก่อน)"""
-    return mode if mode in ("managed", "none") else "managed"
+    """ลูกค้าตั้งได้ managed | wordpress | none (wordpress ใช้บัญชี WordPress ของลูกค้าเองที่ผูกไว้)"""
+    return mode if mode in ("managed", "wordpress", "none") else "managed"
 
 
 @app.get("/api/projects")
@@ -202,8 +203,13 @@ async def set_publish_target(project_id: int, req: PublishTargetUpdate, user=Dep
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import Project
-    if req.publish_mode not in ("managed", "none"):
-        raise HTTPException(422, "publish_mode ต้องเป็น managed | none")
+    if req.publish_mode not in ("managed", "wordpress", "none"):
+        raise HTTPException(422, "publish_mode ต้องเป็น managed | wordpress | none")
+    if req.publish_mode == "wordpress":                # ต้องผูกบัญชี WordPress ของลูกค้าก่อน (หรือมีคีย์กลาง)
+        from app import creds
+        st = (await creds.status(project_id)).get("wordpress", {})
+        if not st.get("connected"):
+            raise HTTPException(422, "ต้องเชื่อมบัญชี WordPress ของคุณก่อน (หน้าตั้งค่า › การเชื่อมต่อ)")
     custom = _clean_custom_domain(req.custom_domain)
     async with db.session() as s:
         p = await s.get(Project, project_id)
@@ -283,6 +289,80 @@ async def _own_project(s, project_id, user):
     if not p or p.user_id != user["id"]:
         raise HTTPException(404, "ไม่พบโปรเจ็ค")
     return p
+
+
+# ---------- Per-tenant credentials (ลูกค้าเชื่อมคีย์ตัวเอง — multi-tenant จริง) ----------
+@app.get("/api/projects/{project_id}/credentials")
+async def get_credentials(project_id: int, user=Depends(get_current_user)):
+    """สถานะการเชื่อมต่อของโปรเจ็ค (โปร่งใส): แต่ละบริการเชื่อมด้วยคีย์ลูกค้า/คีย์กลาง/ยังไม่เชื่อม
+    ไม่คืนค่าลับใด ๆ กลับไป (คืนเฉพาะ connected + source)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import creds
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+    return {"status": await creds.status(project_id),
+            "fields": {k: v for k, v in creds.FIELDS.items()}}
+
+
+@app.put("/api/projects/{project_id}/credentials")
+async def set_credentials(project_id: int, req: CredentialUpdate, user=Depends(get_current_user)):
+    """บันทึกคีย์ 'ของลูกค้า' ต่อโปรเจ็ค (เข้ารหัสก่อนเก็บ) — connector จะใช้คีย์นี้ก่อนคีย์กลาง"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import creds
+    if not creds.valid_kind(req.kind):
+        raise HTTPException(422, "บริการไม่ถูกต้อง (dataforseo | wordpress | gsc)")
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+    await creds.set_creds(project_id, req.kind, req.fields or {})
+    return {"ok": True, "status": await creds.status(project_id)}
+
+
+@app.post("/api/projects/{project_id}/rank/check")
+async def project_rank_check(project_id: int, req: KeywordRequest, user=Depends(get_current_user)):
+    """M5 · ตรวจอันดับสดด้วย 'โดเมนของโปรเจ็คเอง' + คีย์ DataForSEO ของลูกค้า แล้วบันทึกผล
+    (ใช้ proj.domain เสมอ กันตรวจโดเมนคนอื่น) — feed เข้าประวัติอันดับด้วย"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import creds
+    async with db.session() as s:
+        proj = await _own_project(s, project_id, user)
+        domain = proj.domain
+    if not domain:
+        raise HTTPException(422, "โปรเจ็คนี้ยังไม่ได้ตั้งโดเมน")
+    dfs = await creds.get_creds(project_id, "dataforseo")
+    try:
+        res = await serp.rank_check(req.keyword, domain, creds=dfs or None)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, str(e))
+    try:
+        from app.db.models import RankSnapshot
+        async with db.session() as s:
+            s.add(RankSnapshot(project_id=project_id, keyword=res.get("keyword", req.keyword),
+                               rank=res.get("our_rank"), on_page1=bool(res.get("on_page1"))))
+            await s.commit()
+    except Exception:  # noqa: BLE001
+        pass
+    return res
+
+
+@app.post("/api/projects/{project_id}/gsc/summary")
+async def project_gsc_summary(project_id: int, req: GSCDaysRequest, user=Depends(get_current_user)):
+    """M5 · ดึง Search Console ด้วยบัญชี GSC 'ของลูกค้า' + โดเมนของโปรเจ็คเอง"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import creds
+    async with db.session() as s:
+        proj = await _own_project(s, project_id, user)
+        domain = proj.domain
+    if not domain:
+        raise HTTPException(422, "โปรเจ็คนี้ยังไม่ได้ตั้งโดเมน")
+    g = await creds.get_creds(project_id, "gsc")
+    try:
+        return await gsc.summary("sc-domain:" + domain, req.days, creds=g or None)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, str(e))
 
 
 # ---------- AI Citation ต่อโปรเจ็ค (Prompt Sampling ที่ 'บันทึกผล' → สะสมเป็นแนวโน้ม) ----------

@@ -37,12 +37,14 @@ async def google_suggest(seed: str, hl: str = "th", gl: str = "th") -> list[str]
 
 
 async def paa_related(seed: str, location_code: int | None = None,
-                      language_code: str | None = None) -> dict:
-    """People Also Ask + Related Searches จริง ผ่าน DataForSEO (ต้องมีคีย์)"""
-    if not (settings.dataforseo_login and settings.dataforseo_password):
+                      language_code: str | None = None,
+                      creds: dict | None = None) -> dict:
+    """People Also Ask + Related Searches จริง ผ่าน DataForSEO (คีย์ลูกค้าก่อน → กลาง)"""
+    login = (creds or {}).get("login") or settings.dataforseo_login
+    password = (creds or {}).get("password") or settings.dataforseo_password
+    if not (login and password):
         return {"paa": [], "related": []}
-    token = base64.b64encode(
-        f"{settings.dataforseo_login}:{settings.dataforseo_password}".encode()).decode()
+    token = base64.b64encode(f"{login}:{password}".encode()).decode()
     payload = [{
         "keyword": seed,
         "location_code": location_code or settings.serp_location_code,
@@ -77,11 +79,11 @@ def _is_question(text: str) -> bool:
 
 
 async def mine(seed: str, location_code: int | None = None,
-               language_code: str | None = None) -> dict:
+               language_code: str | None = None, creds: dict | None = None) -> dict:
     """รวมทุกแหล่งจริง -> Topic Cluster (Pillar=seed, Cluster=คำถามลูก)"""
     seed = seed.strip()
     suggest = await google_suggest(seed)
-    pr = await paa_related(seed, location_code, language_code)
+    pr = await paa_related(seed, location_code, language_code, creds)
 
     seen, questions = set(), []
     for src, arr in (("Google Suggest", suggest), ("People Also Ask", pr["paa"]), ("Related Searches", pr["related"])):

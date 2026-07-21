@@ -26,6 +26,19 @@ class ProjectCitationRequest(BaseModel):
     questions: list[str] = []
 
 
+class CredentialUpdate(BaseModel):
+    kind: str                    # dataforseo | wordpress | gsc
+    fields: dict = {}            # ฟิลด์ลับของบริการนั้น (ค่าว่าง = ไม่ตั้ง)
+
+
+class KeywordRequest(BaseModel):
+    keyword: str
+
+
+class GSCDaysRequest(BaseModel):
+    days: int = 28
+
+
 class ContentGenerateRequest(BaseModel):
     topic: str
     fmt: str = "บทความยาว"

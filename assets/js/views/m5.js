@@ -352,10 +352,17 @@
         if (rk) rk.onclick = function () {
           var kw = (root.querySelector('#m5_kw').value || '').trim();
           if (!kw) { RP.ui.toast('พิมพ์คีย์เวิร์ดก่อนครับ'); return; }
-          RP.live(RP.api.rankCheck(kw, dom), rankModal);
+          if (realPid) {   // บัญชีจริง → ใช้โดเมน+คีย์ DataForSEO ของลูกค้า + บันทึกเข้าประวัติอันดับ
+            RP.live(RP.api.projectRankCheck(realPid, kw), function (res) { rankModal(res); refreshRank(); });
+          } else {
+            RP.live(RP.api.rankCheck(kw, dom), rankModal);
+          }
         };
         var gs = root.querySelector('#m5_gsc');
-        if (gs) gs.onclick = function () { RP.live(RP.api.gsc('sc-domain:' + dom), gscModal); };
+        if (gs) gs.onclick = function () {
+          if (realPid) RP.live(RP.api.projectGsc(realPid), gscModal);   // บัญชี GSC ของลูกค้า
+          else RP.live(RP.api.gsc('sc-domain:' + dom), gscModal);
+        };
         var ct = root.querySelector('#m5_cite');
         if (ct) ct.onclick = function () {
           var ta = root.querySelector('#m5_qs');

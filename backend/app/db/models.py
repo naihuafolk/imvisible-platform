@@ -105,6 +105,17 @@ class DistributionChannel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class ProjectCredential(Base):
+    """คีย์/บัญชีเชื่อมต่อ 'ของลูกค้าเอง' ต่อโปรเจ็ค (DataForSEO/WordPress/GSC) — เก็บเข้ารหัส
+    ทำให้เป็น multi-tenant จริง: ลูกค้าใช้คีย์ตัวเอง ไม่ใช่คีย์กลางของแพลตฟอร์ม"""
+    __tablename__ = "project_credentials"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(30))            # dataforseo | wordpress | gsc
+    data_enc: Mapped[str] = mapped_column(Text, default="")  # JSON ของฟิลด์ (เข้ารหัส crypto.enc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class DistributionEvent(Base):
     """บันทึกการกระจายต่อบทความ — ลูกค้าเห็นได้ว่าคอนเทนต์ไปโผล่ที่ไหนบ้าง (โปร่งใส)"""
     __tablename__ = "distribution_events"

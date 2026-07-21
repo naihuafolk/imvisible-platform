@@ -12,23 +12,27 @@ from app.config import settings
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
-async def _access_token() -> str:
-    if not (settings.google_client_id and settings.google_client_secret and settings.google_refresh_token):
-        raise RuntimeError("ยังไม่ได้ตั้งค่า GOOGLE_CLIENT_ID / SECRET / REFRESH_TOKEN ใน .env")
+async def _access_token(creds: dict | None = None) -> str:
+    # บัญชี Search Console 'ของลูกค้า' (per-project) ก่อน → ไม่มีค่อย fallback บัญชีกลาง
+    client_id = (creds or {}).get("client_id") or settings.google_client_id
+    client_secret = (creds or {}).get("client_secret") or settings.google_client_secret
+    refresh_token = (creds or {}).get("refresh_token") or settings.google_refresh_token
+    if not (client_id and client_secret and refresh_token):
+        raise RuntimeError("ยังไม่ได้ตั้งค่า GOOGLE_CLIENT_ID / SECRET / REFRESH_TOKEN (บัญชีลูกค้าหรือกลาง)")
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(TOKEN_URL, data={
-            "client_id": settings.google_client_id,
-            "client_secret": settings.google_client_secret,
-            "refresh_token": settings.google_refresh_token,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
             "grant_type": "refresh_token",
         })
         r.raise_for_status()
         return r.json()["access_token"]
 
 
-async def summary(site_url: str, days: int = 28) -> dict:
+async def summary(site_url: str, days: int = 28, creds: dict | None = None) -> dict:
     """สรุป 28 วันล่าสุด: คลิกรวม, impressions, ctr, อันดับเฉลี่ย + top query"""
-    token = await _access_token()
+    token = await _access_token(creds)
     end = _dt.date.today()
     start = end - _dt.timedelta(days=days)
     endpoint = (

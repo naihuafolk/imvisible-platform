@@ -11,18 +11,20 @@ from app.config import settings
 BASE = "https://api.dataforseo.com/v3/serp/google/organic/live/advanced"
 
 
-def _auth_header() -> dict:
-    if not (settings.dataforseo_login and settings.dataforseo_password):
-        raise RuntimeError("ยังไม่ได้ตั้งค่า DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD ใน .env")
-    token = base64.b64encode(
-        f"{settings.dataforseo_login}:{settings.dataforseo_password}".encode()
-    ).decode()
+def _auth_header(creds: dict | None = None) -> dict:
+    # คีย์ของลูกค้า (per-project) ก่อน → ไม่มีค่อย fallback คีย์กลางของแพลตฟอร์ม
+    login = (creds or {}).get("login") or settings.dataforseo_login
+    password = (creds or {}).get("password") or settings.dataforseo_password
+    if not (login and password):
+        raise RuntimeError("ยังไม่ได้ตั้งค่า DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD (คีย์ลูกค้าหรือคีย์กลาง)")
+    token = base64.b64encode(f"{login}:{password}".encode()).decode()
     return {"Authorization": f"Basic {token}", "Content-Type": "application/json"}
 
 
 async def rank_check(keyword: str, domain: str,
                      location_code: int | None = None,
-                     language_code: str | None = None) -> dict:
+                     language_code: str | None = None,
+                     creds: dict | None = None) -> dict:
     """
     ยิงคีย์เวิร์ดไปที่ Google (ผ่าน DataForSEO) แล้ว:
       - คืน top 10 (หน้า 1)
@@ -38,7 +40,7 @@ async def rank_check(keyword: str, domain: str,
         "depth": 100,
     }]
     async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(BASE, headers=_auth_header(), json=payload)
+        r = await client.post(BASE, headers=_auth_header(creds), json=payload)
         r.raise_for_status()
         data = r.json()
 
@@ -76,7 +78,8 @@ async def rank_check(keyword: str, domain: str,
 
 async def search(query: str, n: int = 8,
                  location_code: int | None = None,
-                 language_code: str | None = None) -> list[dict]:
+                 language_code: str | None = None,
+                 creds: dict | None = None) -> list[dict]:
     """SERP search ทั่วไป — คืน organic results (title/url/domain/snippet)
     ใช้หา 'โอกาสกระจาย' จริง: กระทู้ Pantip / ชุมชน / ไดเรกทอรี ที่ตรง niche ลูกค้า"""
     payload = [{
@@ -87,7 +90,7 @@ async def search(query: str, n: int = 8,
         "depth": 20,
     }]
     async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(BASE, headers=_auth_header(), json=payload)
+        r = await client.post(BASE, headers=_auth_header(creds), json=payload)
         r.raise_for_status()
         data = r.json()
     try:
@@ -103,7 +106,8 @@ async def search(query: str, n: int = 8,
 
 async def top_competitors(keyword: str, n: int = 5,
                           location_code: int | None = None,
-                          language_code: str | None = None) -> list[dict]:
+                          language_code: str | None = None,
+                          creds: dict | None = None) -> list[dict]:
     """ดึงหน้าที่ติดอันดับต้น ๆ จริง (title + snippet + url) เพื่อป้อนเครื่องยนต์คอนเทนต์
     ใช้วิเคราะห์ content gap ใน Stage 1 (แซงคู่แข่งที่ติดอยู่แล้ว) — คืน [] ถ้าไม่มีคีย์/ล้ม"""
     payload = [{
@@ -114,7 +118,7 @@ async def top_competitors(keyword: str, n: int = 5,
         "depth": 20,
     }]
     async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(BASE, headers=_auth_header(), json=payload)
+        r = await client.post(BASE, headers=_auth_header(creds), json=payload)
         r.raise_for_status()
         data = r.json()
     try:

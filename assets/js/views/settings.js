@@ -58,6 +58,44 @@
     return '<div class="tag-list">' + arr.map(function (x) { return '<span class="chip">' + esc(x) + '</span>'; }).join('') + '</div>';
   }
 
+  function dbId(p) {
+    if (!p) return null;
+    if (typeof p._dbid === 'number') return p._dbid;
+    var m = /^db(\d+)$/.exec(String(p.id || ''));
+    return m ? parseInt(m[1], 10) : null;
+  }
+  function srcText(s) { return s === 'project' ? '● คีย์ของคุณ' : s === 'platform' ? '● ใช้คีย์กลาง' : 'ยังไม่เชื่อม'; }
+
+  /* ---------- Per-tenant: เชื่อมคีย์ของลูกค้าเอง (ต่อโปรเจ็ค) ---------- */
+  var CRED_FORMS = [
+    { kind: 'dataforseo', label: 'DataForSEO — ตรวจอันดับ Google / ขุดคำถาม',
+      fields: [['login', 'อีเมล/login ของ DataForSEO'], ['password', 'password']] },
+    { kind: 'wordpress', label: 'WordPress — เผยแพร่ขึ้นเว็บของคุณเอง',
+      fields: [['base_url', 'https://บล็อกของคุณ.com'], ['username', 'ชื่อผู้ใช้ WordPress'], ['app_password', 'Application Password']] },
+    { kind: 'gsc', label: 'Google Search Console — คลิก/Impression จริง',
+      fields: [['client_id', 'client_id'], ['client_secret', 'client_secret'], ['refresh_token', 'refresh_token']] }
+  ];
+  function credInput(kind, f, ph) {
+    var secret = /password|secret|token/.test(f);
+    return '<input class="input" data-cf="' + kind + ':' + f + '"' + (secret ? ' type="password"' : '') +
+      ' placeholder="' + esc(ph) + '" autocomplete="off" style="width:100%;margin:4px 0">';
+  }
+  function projectCredsCard() {
+    var forms = CRED_FORMS.map(function (c) {
+      return '<div class="card card-pad" style="margin-top:10px">' +
+        '<div class="row between wrap" style="gap:8px"><div class="bb">' + esc(c.label) + '</div>' +
+        '<span class="pcreds-src badge amber" data-src="' + c.kind + '">—</span></div>' +
+        c.fields.map(function (f) { return credInput(c.kind, f[0], f[1]); }).join('') +
+        '<div class="row" style="margin-top:6px"><button class="btn btn-sm btn-primary pcreds-save" data-kind="' + c.kind + '">บันทึกคีย์</button></div></div>';
+    }).join('');
+    return ui.card({
+      title: '🔑 เชื่อมคีย์ของคุณเอง (ต่อโปรเจ็คนี้)',
+      sub: 'ใช้คีย์ของคุณแทนคีย์กลางของแพลตฟอร์ม — เก็บเข้ารหัสฝั่งเซิร์ฟเวอร์ ไม่ส่งค่ากลับ · เว้นว่าง = ใช้คีย์กลางเดิม',
+      cls: 'mb',
+      body: '<div id="pcreds_slot" class="hint" style="margin-bottom:4px">กำลังโหลดสถานะ…</div>' + forms
+    });
+  }
+
   /* ---------- TAB 1: การเชื่อมต่อ ---------- */
   function tabConnect() {
     var a = RP.data.account;
@@ -105,7 +143,8 @@
     }
     var required = a.integrations.filter(function (i) { return i.required; });
     var optional = a.integrations.filter(function (i) { return !i.required; });
-    return liveCard() + progress +
+    // บัญชีจริง: การ์ดเชื่อมคีย์ของลูกค้าเอง (per-tenant) — มาก่อนสถานะคีย์กลาง
+    return liveCard() + (RP.isReal() && curProj() ? projectCredsCard() : '') + progress +
       '<div class="bb mb" style="font-size:15px">การเชื่อมต่อที่จำเป็น</div>' +
       '<div class="grid grid-2 mb-l">' + required.map(intCard).join('') + '</div>' +
       '<div class="bb mb" style="font-size:15px">การเชื่อมต่อเสริม</div>' +
@@ -259,6 +298,46 @@
         ui.toast(i.connected ? 'เปิดหน้าจัดการ <b>' + esc(i.name) + '</b>' : 'เปิดหน้าเชื่อมต่อ <b>' + esc(i.name) + '</b> (ใส่ API key / OAuth)');
       };
     });
+    // per-tenant: เชื่อมคีย์ของลูกค้าเอง (ต่อโปรเจ็ค)
+    var pcSlot = root.querySelector('#pcreds_slot');
+    if (pcSlot) {
+      var pcPid = dbId(curProj());
+      var loadCreds = function () {
+        if (!pcPid || !RP.api.enabled()) {
+          pcSlot.innerHTML = 'เปิด "โหมด Live" ด้านบนก่อน จึงจะบันทึก/ตรวจสถานะคีย์ของโปรเจ็คได้'; return;
+        }
+        RP.api.getCredentials(pcPid).then(function (res) {
+          var st = res.status || {};
+          pcSlot.innerHTML = 'สถานะการเชื่อมต่อของโปรเจ็คนี้ (โปร่งใส): ' +
+            Object.keys(st).map(function (k) { return '<b>' + esc(k) + '</b> ' + esc(srcText(st[k].source)); }).join(' · ');
+          Array.prototype.forEach.call(root.querySelectorAll('.pcreds-src'), function (b) {
+            var s = (st[b.getAttribute('data-src')] || {}).source;
+            b.textContent = srcText(s);
+            b.className = 'pcreds-src badge ' + (s === 'project' ? 'green' : s === 'platform' ? 'blue' : 'amber');
+          });
+        }).catch(function () { pcSlot.innerHTML = 'ดึงสถานะไม่ได้ (ตรวจ backend/โหมด Live)'; });
+      };
+      loadCreds();
+      Array.prototype.forEach.call(root.querySelectorAll('.pcreds-save'), function (b) {
+        b.onclick = function () {
+          if (!pcPid || !RP.api.enabled()) { ui.toast('เปิด "โหมด Live" ก่อนครับ'); return; }
+          var kind = b.getAttribute('data-kind'), fields = {};
+          Array.prototype.forEach.call(root.querySelectorAll('[data-cf^="' + kind + ':"]'), function (inp) {
+            fields[inp.getAttribute('data-cf').split(':')[1]] = inp.value;
+          });
+          b.disabled = true; b.textContent = 'บันทึก…';
+          RP.api.setCredential(pcPid, kind, fields).then(function () {
+            ui.toast('บันทึกคีย์ <b>' + esc(kind) + '</b> แล้ว ✓ (เข้ารหัสเก็บฝั่งเซิร์ฟเวอร์)');
+            b.disabled = false; b.textContent = 'บันทึกคีย์';
+            Array.prototype.forEach.call(root.querySelectorAll('[data-cf^="' + kind + ':"]'), function (inp) { inp.value = ''; });
+            loadCreds();
+          }).catch(function (e) {
+            b.disabled = false; b.textContent = 'บันทึกคีย์';
+            ui.toast('บันทึกไม่ได้: ' + esc((e && e.message) || String(e)));
+          });
+        };
+      });
+    }
     ['s_upgrade', 's_invite'].forEach(function (id) {
       var el = root.querySelector('#' + id); if (el) el.onclick = function () { ui.toast('เปิดหน้า' + (id === 's_invite' ? 'เชิญสมาชิกทีม' : 'จัดการแพ็กเกจ')); };
     });

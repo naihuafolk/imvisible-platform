@@ -63,6 +63,11 @@
     projectAeo: function (pid) { return api._get('/api/projects/' + pid + '/aeo'); },
     articleAeo: function (aid) { return api._get('/api/articles/' + aid + '/aeo'); },
     articleOptimize: function (aid) { return api._post('/api/articles/' + aid + '/optimize', {}); },
+    // ---- Per-tenant credentials (ลูกค้าเชื่อมคีย์ตัวเอง) + ตรวจสด per-project (ใช้คีย์ลูกค้า+บันทึกผล) ----
+    getCredentials: function (pid) { return api._get('/api/projects/' + pid + '/credentials'); },
+    setCredential: function (pid, kind, fields) { return api._put('/api/projects/' + pid + '/credentials', { kind: kind, fields: fields || {} }); },
+    projectRankCheck: function (pid, keyword) { return api._post('/api/projects/' + pid + '/rank/check', { keyword: keyword }); },
+    projectGsc: function (pid, days) { return api._post('/api/projects/' + pid + '/gsc/summary', { days: days || 28 }); },
     // ---- Distribution (ช่องทางกระจาย + Log โปร่งใส) ----
     getChannels: function (pid) { return api._get('/api/projects/' + pid + '/channels'); },
     setChannel: function (pid, o) { return api._put('/api/projects/' + pid + '/channels', o); },

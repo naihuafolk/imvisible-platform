@@ -8,19 +8,24 @@ import httpx
 from app.config import settings
 
 
-async def wordpress_publish(title: str, html: str, status: str = "draft") -> dict:
+async def wordpress_publish(title: str, html: str, status: str = "draft",
+                            creds: dict | None = None) -> dict:
     """
     สร้างโพสต์บน WordPress จริง
     เอกสาร: https://developer.wordpress.org/rest-api/reference/posts/#create-a-post
     Auth: Basic (username : application password)
+    ใช้บัญชี WordPress 'ของลูกค้า' (per-project) ก่อน → ไม่มีค่อย fallback บัญชีกลาง
     """
-    if not (settings.wordpress_base_url and settings.wordpress_username and settings.wordpress_app_password):
-        raise RuntimeError("ยังไม่ได้ตั้งค่า WORDPRESS_BASE_URL / USERNAME / APP_PASSWORD")
-    url = settings.wordpress_base_url.rstrip("/") + "/wp-json/wp/v2/posts"
+    base_url = (creds or {}).get("base_url") or settings.wordpress_base_url
+    username = (creds or {}).get("username") or settings.wordpress_username
+    app_password = (creds or {}).get("app_password") or settings.wordpress_app_password
+    if not (base_url and username and app_password):
+        raise RuntimeError("ยังไม่ได้ตั้งค่า WORDPRESS_BASE_URL / USERNAME / APP_PASSWORD (บัญชีลูกค้าหรือกลาง)")
+    url = base_url.rstrip("/") + "/wp-json/wp/v2/posts"
     async with httpx.AsyncClient(timeout=60) as c:
         r = await c.post(
             url,
-            auth=(settings.wordpress_username, settings.wordpress_app_password),
+            auth=(username, app_password),
             json={"title": title, "content": html, "status": status},
         )
         r.raise_for_status()
@@ -47,8 +52,9 @@ async def indexnow_submit(url: str) -> dict:
         return {"status_code": r.status_code, "ok": r.status_code in (200, 202)}
 
 
-async def publish_and_index(title: str, html: str, status: str, url_path: str | None) -> dict:
-    result: dict = {"wordpress": await wordpress_publish(title, html, status)}
+async def publish_and_index(title: str, html: str, status: str, url_path: str | None,
+                            creds: dict | None = None) -> dict:
+    result: dict = {"wordpress": await wordpress_publish(title, html, status, creds)}
     link = result["wordpress"].get("link")
     ping_url = link or (
         f"https://{settings.indexnow_host}{url_path}" if (settings.indexnow_host and url_path) else None

@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from app.worker.celery_app import celery_app
 from app.connectors import mining, content, serp, citation, publish, social, media, interlink, aeo_score
 from app.db import session as db
-from app import urls, crypto
+from app import urls, crypto, creds
 
 
 def _run(coro):
@@ -99,7 +99,8 @@ def measure_rank(keyword: str, domain: str, project_id: int | None = None) -> di
 
 async def _measure_rank(keyword: str, domain: str, project_id: int | None) -> dict:
     """รวมเป็น coroutine เดียว (event loop เดียวต่อ task) — เช็กอันดับแล้วบันทึกในลูปเดียวกัน"""
-    res = await serp.rank_check(keyword, domain)
+    dfs = await creds.get_creds(project_id, "dataforseo") if (project_id and db.enabled()) else {}
+    res = await serp.rank_check(keyword, domain, creds=dfs or None)   # คีย์ลูกค้าก่อน → กลาง
     if project_id and db.enabled():
         await _save_rank(project_id, res)
     return res
@@ -196,6 +197,9 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
         existing = set((await s.execute(
             select(Article.title).where(Article.project_id == project_id))).scalars().all())
 
+    dfs = await creds.get_creds(project_id, "dataforseo")   # คีย์ลูกค้า (per-project) — ว่าง = fallback กลาง
+    wp = await creds.get_creds(project_id, "wordpress")
+
     # 1) เลือกหัวข้อ — ใช้ "แผนหัวข้อ" จาก Site Intelligence ก่อน (เรียงคำที่ชนะได้ก่อน)
     #    ถ้ายังไม่มีแผน (ยังไม่ได้วิเคราะห์เว็บ/วิเคราะห์ไม่สำเร็จ) ค่อยถอยไปขุดสดจากชื่อโปรเจ็ค
     plan, cluster_of, topics, all_q = [], {}, [], []
@@ -216,7 +220,7 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
     if not topics:
         seed = (p.name or p.domain or "").strip()
         try:
-            mined = await mining.mine(seed)
+            mined = await mining.mine(seed, creds=dfs or None)
         except Exception as e:  # noqa: BLE001
             return {"project": p.name, "produced": 0, "note": "mining failed: " + str(e)[:120]}
         all_q = [q.get("q") for q in mined.get("questions", []) if q.get("q")]
@@ -229,7 +233,7 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
     for topic in topics:
         try:
             try:  # ดึงคู่แข่งจริงจาก SERP → Stage 1 หา content gap แซงคู่แข่งได้
-                comps = await serp.top_competitors(topic, n=5)
+                comps = await serp.top_competitors(topic, n=5, creds=dfs or None)
                 comp_text = "\n".join(
                     "- [#%s] %s (%s): %s" % (c.get("rank"), c.get("title"),
                                              c.get("domain"), c.get("snippet") or "")
@@ -265,7 +269,7 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
             if not auto:                                              # โหมด approve → เก็บเป็นร่าง
                 item["status"] = "draft (รออนุมัติ)"
             elif p.publish_mode == "wordpress":                       # 3a) เผยแพร่ขึ้น WordPress ลูกค้า (M4)
-                pub = await publish.publish_and_index(topic, html, "publish", None)
+                pub = await publish.publish_and_index(topic, html, "publish", None, creds=wp or None)
                 link = (pub.get("wordpress") or {}).get("link", "")
                 if link:
                     async with db.session() as s:
