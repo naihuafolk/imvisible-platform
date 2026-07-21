@@ -49,6 +49,8 @@
     signin: function (email, password) { return api._post('/api/auth/login', { email: email, password: password }); },
     me: function () { return api._get('/api/auth/me'); },
     // ---- Projects (DB จริง) ----
+    usage: function () { return api._get('/api/usage'); },
+    plans: function () { return api._get('/api/plans'); },
     projects: function () { return api._get('/api/projects'); },
     createProject: function (o) { return api._post('/api/projects', o); },
     grow: function (pid) { return api._post('/api/projects/' + pid + '/grow', {}); },

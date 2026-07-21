@@ -176,6 +176,13 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
         proj = await s.get(Project, project_id)
         if not proj:
             return {"error": "project %s not found" % project_id}
+        owner_id = proj.user_id
+    if owner_id:                                    # โควตาแพ็กเกจ: กันลูปอัตโนมัติผลิตเกินแพ็กเกจ
+        from app import usage
+        if not await usage.can_produce_article(owner_id):
+            return {"project": proj.name, "produced": 0, "note": "ถึงโควตาบทความของแพ็กเกจเดือนนี้แล้ว"}
+    async with db.session() as s:
+        proj = await s.get(Project, project_id)
         # ให้แน่ใจว่าโปรเจ็คมี slug (โปรเจ็คเก่า/สร้างก่อนฟีเจอร์ Managed Hosting)
         if not (proj.slug or "").strip():
             base = urls.project_slug_from_domain(proj.domain or proj.name)

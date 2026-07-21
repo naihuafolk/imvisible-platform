@@ -19,7 +19,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(200), default="")
     password_hash: Mapped[str] = mapped_column(String(255))
-    plan: Mapped[str] = mapped_column(String(50), default="SaaS — Pro")
+    plan: Mapped[str] = mapped_column(String(50), default="free")   # free | pro | business (บิลลิ่งอัปเดต)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -65,6 +65,8 @@ class Article(Base):
     aeo_score: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20), default="draft")   # draft|factcheck|ready|scheduled|published
     url: Mapped[str] = mapped_column(String(500), default="")
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # ตั้งเวลาเผยแพร่
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())  # ใช้คิดโควตา/เดือน
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     project: Mapped["Project"] = relationship(back_populates="articles")

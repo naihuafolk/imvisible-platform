@@ -91,6 +91,22 @@ async def login(req: LoginRequest):
     return {"token": security.create_token(u.id, u.email), "user": _user_dict(u)}
 
 
+@app.get("/api/plans")
+async def list_plans():
+    """แพ็กเกจ + ราคา + โควตา (เปิดสาธารณะ — ใช้แสดงหน้าราคา/อัปเกรด)"""
+    from app import plans
+    return {"plans": plans.public_list()}
+
+
+@app.get("/api/usage")
+async def get_usage(user=Depends(get_current_user)):
+    """การใช้งานจริงเทียบโควตาแพ็กเกจของผู้ใช้ (โปรเจ็ค + บทความเดือนนี้)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import usage
+    return await usage.summary(user["id"])
+
+
 @app.get("/api/auth/me")
 async def me(user=Depends(get_current_user)):
     if not db.enabled():
@@ -151,6 +167,11 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from urllib.parse import urlparse
     from app.db.models import Project
+    from app import usage, plans
+    if not await usage.can_create_project(user["id"]):
+        lim = plans.limits(await usage.user_plan(user["id"]))
+        raise HTTPException(402, "ถึงขีดจำกัดจำนวนโปรเจ็คของแพ็กเกจ %s (%d โปรเจ็ค) — อัปเกรดเพื่อเพิ่ม"
+                            % (lim["label"], lim["projects"]))
     domain = (req.domain or "").strip().lower()
     if not domain and req.url:                       # "ลูกค้าใส่แค่ลิงก์"
         u = req.url.strip()
@@ -238,10 +259,15 @@ async def grow_project(project_id: int, user=Depends(get_current_user)):
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import Project
+    from app import usage, plans
     async with db.session() as s:
         p = await s.get(Project, project_id)
     if not p or p.user_id != user["id"]:
         raise HTTPException(404, "ไม่พบโปรเจ็ค")
+    if not await usage.can_produce_article(user["id"]):
+        lim = plans.limits(await usage.user_plan(user["id"]))
+        raise HTTPException(402, "ถึงโควตาบทความเดือนนี้ของแพ็กเกจ %s (%d บทความ/เดือน) — อัปเกรดเพื่อผลิตเพิ่ม"
+                            % (lim["label"], lim["articles_month"]))
     try:
         from app.worker.tasks import produce_for_project
         task = produce_for_project.delay(project_id, 1)

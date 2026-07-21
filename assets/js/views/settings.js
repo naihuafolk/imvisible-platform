@@ -66,6 +66,22 @@
   }
   function srcText(s) { return s === 'project' ? '● คีย์ของคุณ' : s === 'platform' ? '● ใช้คีย์กลาง' : 'ยังไม่เชื่อม'; }
 
+  function usageBar(lbl, used, limit) {
+    var pct = limit ? Math.min(100, Math.round(used / limit * 100)) : 0;
+    return '<div style="margin:8px 0"><div class="row between"><span class="soft small">' + esc(lbl) + '</span>' +
+      '<span class="bb">' + used + ' / ' + limit + '</span></div>' + ui.bar(pct, pct >= 100 ? 'amber' : '') + '</div>';
+  }
+  function renderUsageCard(u) {
+    return ui.card({
+      title: 'แพ็กเกจ & การใช้งาน',
+      action: '<button class="btn btn-sm btn-primary" id="s_upgrade2">อัปเกรด</button>',
+      body: '<div class="bb" style="font-size:19px;color:var(--purple-700);margin-bottom:8px">' + esc(u.plan_label) + '</div>' +
+        usageBar('โปรเจ็ค', u.projects.used, u.projects.limit) +
+        usageBar('บทความเดือนนี้', u.articles_month.used, u.articles_month.limit) +
+        '<div class="hint" style="margin-top:8px">โควตาจริงตามแพ็กเกจ — ถึงเพดานแล้วอัปเกรดเพื่อเพิ่ม</div>'
+    });
+  }
+
   /* ---------- Per-tenant: เชื่อมคีย์ของลูกค้าเอง (ต่อโปรเจ็ค) ---------- */
   var CRED_FORMS = [
     { kind: 'dataforseo', label: 'DataForSEO — ตรวจอันดับ Google / ขุดคำถาม',
@@ -184,12 +200,11 @@
   function tabAccount() {
     var a = RP.data.account;
     if (RP.isReal()) {
-      // บัญชีจริง: ยังไม่ได้เชื่อมระบบบิลลิ่ง/ทีมจริง → ห้ามโชว์แพ็กเกจหรือรายชื่อสมาชิกที่สมมติขึ้น
-      var planReal = ui.card({ title: 'แพ็กเกจปัจจุบัน', flush: true, body:
-        RP.noData('แพ็กเกจ ยังไม่มีข้อมูล',
-          'จะแสดงเมื่อเชื่อมระบบบิลลิ่ง — เราไม่แสดงแพ็กเกจหรือรอบบิลที่ยังไม่ได้ตรวจสอบจริง',
-          '<button class="btn btn-sm" id="s_upgrade">ดูแพ็กเกจ/ติดต่อทีมขาย</button>')
-      });
+      // บัญชีจริง: แสดงแพ็กเกจ + การใช้งานจริง (เติมตอน mount จาก /api/usage)
+      var planReal = '<div id="usage_slot">' + ui.card({ title: 'แพ็กเกจ & การใช้งาน', flush: true, body:
+        RP.noData('กำลังโหลดแพ็กเกจ…', 'เปิดโหมด Live เพื่อดูแพ็กเกจและโควตาการใช้งานจริงของคุณ',
+          '<button class="btn btn-sm" id="s_upgrade">ดูแพ็กเกจ</button>')
+      }) + '</div>';
       var teamReal = ui.card({ title: 'สมาชิกทีม & สิทธิ์', sub: 'เหมาะกับ Agency ที่ให้ลูกค้าเข้าดูรายงานได้', flush: true,
         action: '<button class="btn btn-sm btn-primary" id="s_invite">＋ เชิญสมาชิก</button>',
         body: RP.noData('ทีม ยังไม่มีข้อมูล',
@@ -338,9 +353,14 @@
         };
       });
     }
-    ['s_upgrade', 's_invite'].forEach(function (id) {
-      var el = root.querySelector('#' + id); if (el) el.onclick = function () { ui.toast('เปิดหน้า' + (id === 's_invite' ? 'เชิญสมาชิกทีม' : 'จัดการแพ็กเกจ')); };
+    ['s_upgrade', 's_invite', 's_upgrade2'].forEach(function (id) {
+      var el = root.querySelector('#' + id); if (el) el.onclick = function () { if (RP.views && RP.views.billing && RP.go) RP.go('billing'); else ui.toast('เปิดหน้าจัดการแพ็กเกจ'); };
     });
+    // บัญชีจริง: เติมแพ็กเกจ+การใช้งานจริง
+    var uslot = root.querySelector('#usage_slot');
+    if (uslot && RP.isReal() && RP.api.enabled()) {
+      RP.api.usage().then(function (u) { if (u && u.plan) uslot.innerHTML = renderUsageCard(u); }).catch(function () {});
+    }
     // โหมด Live
     var ab = root.querySelector('#apiBase');
     if (ab) ab.onchange = function () { RP.api.setBase(ab.value); };
