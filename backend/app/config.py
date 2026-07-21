@@ -74,6 +74,13 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""                 # ตั้ง = เปิด error monitoring (ต้องลง sentry-sdk)
     rate_limit_per_min: int = 30         # จำกัดคำขอ auth ต่อ IP ต่อนาที (กัน brute-force)
 
+    # Billing (Stripe) — subscription จริง + webhook
+    app_base_url: str = "http://localhost:8080"   # ใช้ทำ success/cancel URL หลังจ่ายเงิน
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_pro: str = ""           # price_id ของแพ็กเกจ Pro
+    stripe_price_business: str = ""      # price_id ของแพ็กเกจ Business
+
 
 DEV_JWT_DEFAULT = "dev-only-secret-change-me-in-production-please-32b"
 

@@ -31,6 +31,10 @@ class CredentialUpdate(BaseModel):
     fields: dict = {}            # ฟิลด์ลับของบริการนั้น (ค่าว่าง = ไม่ตั้ง)
 
 
+class CheckoutRequest(BaseModel):
+    plan: str                    # pro | business
+
+
 class KeywordRequest(BaseModel):
     keyword: str
 

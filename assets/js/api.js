@@ -51,6 +51,8 @@
     // ---- Projects (DB จริง) ----
     usage: function () { return api._get('/api/usage'); },
     plans: function () { return api._get('/api/plans'); },
+    billingCheckout: function (plan) { return api._post('/api/billing/checkout', { plan: plan }); },
+    billingStatus: function () { return api._get('/api/billing/status'); },
     projects: function () { return api._get('/api/projects'); },
     createProject: function (o) { return api._post('/api/projects', o); },
     grow: function (pid) { return api._post('/api/projects/' + pid + '/grow', {}); },

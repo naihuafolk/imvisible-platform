@@ -23,6 +23,19 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class Subscription(Base):
+    """สถานะการสมัครสมาชิก (Stripe) ต่อผู้ใช้ — webhook อัปเดต + sync User.plan"""
+    __tablename__ = "subscriptions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    plan: Mapped[str] = mapped_column(String(30), default="free")
+    status: Mapped[str] = mapped_column(String(30), default="inactive")   # active|canceled|past_due|inactive
+    stripe_customer_id: Mapped[str] = mapped_column(String(80), default="")
+    stripe_subscription_id: Mapped[str] = mapped_column(String(80), default="")
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class Project(Base):
     __tablename__ = "projects"
     id: Mapped[int] = mapped_column(primary_key=True)

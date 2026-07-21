@@ -26,9 +26,9 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
-    CredentialUpdate, KeywordRequest, GSCDaysRequest,
+    CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest,
 )
-from app.connectors import serp, gsc, citation, content, publish, mining, social
+from app.connectors import serp, gsc, citation, content, publish, mining, social, billing
 from app.auth import security
 from app.auth.deps import get_current_user
 from app.db import session as db
@@ -148,6 +148,95 @@ async def get_usage(user=Depends(get_current_user)):
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app import usage
     return await usage.summary(user["id"])
+
+
+# ---------- Billing (Stripe subscription) ----------
+async def _apply_subscription(user_id: int, plan: str, status: str,
+                              customer_id: str = "", subscription_id: str = ""):
+    """อัปเดต Subscription + sync User.plan (แหล่งความจริงของโควตา)"""
+    from app.db.models import User, Subscription
+    from app import plans as plan_mod
+    plan = plan_mod.normalize(plan)
+    async with db.session() as s:
+        u = await s.get(User, user_id)
+        if u:
+            u.plan = plan if status == "active" else "free"
+        sub = (await s.execute(select(Subscription).where(Subscription.user_id == user_id))).scalars().first()
+        if not sub:
+            sub = Subscription(user_id=user_id)
+            s.add(sub)
+        sub.plan = plan
+        sub.status = status
+        if customer_id:
+            sub.stripe_customer_id = customer_id
+        if subscription_id:
+            sub.stripe_subscription_id = subscription_id
+        await s.commit()
+
+
+@app.post("/api/billing/checkout")
+async def billing_checkout(req: CheckoutRequest, user=Depends(get_current_user)):
+    """สร้างลิงก์จ่ายเงิน Stripe Checkout สำหรับอัปเกรดแพ็กเกจ"""
+    if req.plan not in ("pro", "business"):
+        raise HTTPException(422, "แพ็กเกจต้องเป็น pro | business")
+    if not billing.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่าระบบชำระเงิน (STRIPE_SECRET_KEY)")
+    base = settings.app_base_url.rstrip("/")
+    try:
+        sess = await billing.create_checkout_session(
+            user["id"], user.get("email", ""), req.plan,
+            success_url=base + "/#/settings?billing=success",
+            cancel_url=base + "/#/settings?billing=cancel")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, str(e))
+    return sess
+
+
+@app.get("/api/billing/status")
+async def billing_status(user=Depends(get_current_user)):
+    """สถานะการสมัครสมาชิกปัจจุบัน (จาก DB)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Subscription
+    from app import usage
+    async with db.session() as s:
+        sub = (await s.execute(select(Subscription).where(Subscription.user_id == user["id"]))).scalars().first()
+    return {
+        "plan": (await usage.user_plan(user["id"])),
+        "status": sub.status if sub else "inactive",
+        "current_period_end": sub.current_period_end.isoformat() if (sub and sub.current_period_end) else None,
+        "stripe_enabled": billing.enabled(),
+    }
+
+
+@app.post("/api/billing/webhook")
+async def billing_webhook(request: Request):
+    """รับ event จาก Stripe — ตรวจลายเซ็นจริงก่อน แล้ว sync แพ็กเกจ (upgrade/downgrade)"""
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    try:
+        event = billing.verify_webhook(payload, sig)
+    except Exception:  # noqa: BLE001 — ลายเซ็นไม่ผ่าน = ปฏิเสธ (กัน event ปลอม)
+        raise HTTPException(400, "invalid signature")
+    typ = event.get("type", "")
+    obj = (event.get("data") or {}).get("object") or {}
+    meta = obj.get("metadata") or {}
+    uid = meta.get("user_id") or obj.get("client_reference_id")
+    try:
+        uid = int(uid) if uid is not None else None
+    except (TypeError, ValueError):
+        uid = None
+    if uid and db.enabled():
+        if typ == "checkout.session.completed":
+            await _apply_subscription(uid, meta.get("plan") or "pro", "active",
+                                      obj.get("customer") or "", obj.get("subscription") or "")
+        elif typ in ("customer.subscription.deleted",):
+            await _apply_subscription(uid, "free", "canceled")
+        elif typ == "customer.subscription.updated":
+            status = obj.get("status") or "active"
+            await _apply_subscription(uid, meta.get("plan") or "pro",
+                                      "active" if status in ("active", "trialing") else status)
+    return {"received": True}
 
 
 @app.get("/api/auth/me")
