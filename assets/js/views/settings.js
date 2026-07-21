@@ -41,6 +41,8 @@
   function projList() { return (RP.data && RP.data.project && RP.data.project.list) || []; }
   function curProj() {
     var list = projList();
+    // บัญชีจริง: เห็นเฉพาะโปรเจ็คจากฐานข้อมูล (id ขึ้นต้น db) — กันโปรเจ็คตัวอย่างหลุด
+    if (RP.isReal()) list = list.filter(function (x) { return /^db/.test(String(x.id)); });
     if (!list.length) return null;
     var cur = RP.data.project.current;
     var f = list.filter(function (x) { return x.id === cur; })[0];

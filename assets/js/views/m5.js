@@ -171,6 +171,9 @@
   function curProj() {
     var proj = RP.data && RP.data.project;
     var list = (proj && proj.list) || [];
+    // บัญชีจริง: กรองเหลือเฉพาะโปรเจ็คจากฐานข้อมูล (id ขึ้นต้น db) — กันเครื่องมือสด (ตรวจอันดับ/
+    // GSC/Prompt Sampling) ยิงไปที่โดเมนของโปรเจ็คตัวอย่าง (โดเมนคนอื่น) โดยเด็ดขาด
+    if (RP.isReal()) list = list.filter(function (p) { return p && /^db/.test(String(p.id)); });
     var cur = (proj && proj.current) || '';
     var i;
     for (i = 0; i < list.length; i++) {
