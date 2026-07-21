@@ -48,4 +48,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.learning_loop",
         "schedule": crontab(hour=20, minute=0, day_of_week=0),
     },
+    "report-weekly": {               # M6 · ส่งรายงานรายสัปดาห์ทางอีเมล ทุกวันจันทร์ 08:00
+        "task": "app.worker.tasks.send_weekly_reports",
+        "schedule": crontab(hour=8, minute=0, day_of_week=1),
+    },
 }

@@ -850,6 +850,67 @@ async def _reprioritize_plan(project_id: int, clusters: list):
     return True
 
 
+async def _compose_report(user) -> str | None:
+    """ประกอบรายงานรายสัปดาห์ 'จากผลจริง' ต่อผู้ใช้ (คะแนน AEO + อันดับ + ข้อค้นพบ)
+    คืน None ถ้ายังไม่มีข้อมูลพอ (ไม่ส่งอีเมลว่างเปล่า)"""
+    from app.db.models import Project
+    async with db.session() as s:
+        projs = (await s.execute(select(Project).where(Project.user_id == user.id))).scalars().all()
+    if not projs:
+        return None
+    blocks = []
+    for p in projs:
+        ins = await _project_insights(p.id, p)
+        if not ins.get("count"):
+            continue
+        items = "".join("<li>%s</li>" % _esc(i.get("text", "")) for i in ins.get("insights", [])[:4])
+        blocks.append(
+            "<div style='margin:0 0 22px;padding:16px;border:1px solid #e7ecf6;border-radius:12px'>"
+            "<div style='font-weight:800;font-size:16px'>%s</div>"
+            "<div style='color:#5a6a86;font-size:14px;margin:4px 0 8px'>บทความ %d · คะแนน AEO เฉลี่ย %s · ติดหน้า 1 %d คีย์เวิร์ด</div>"
+            "<ul style='margin:0;padding-left:18px;font-size:14px'>%s</ul></div>"
+            % (_esc(p.name or p.domain), ins["count"],
+               ins.get("avg_score", "—"), ins.get("page1", 0), items or "<li>กำลังสะสมข้อมูลเพิ่ม</li>"))
+    if not blocks:
+        return None
+    return ("<div style='font-family:Sarabun,Segoe UI,sans-serif;max-width:640px;margin:auto'>"
+            "<h2 style='color:#12299e'>รายงานรายสัปดาห์ · ImVisible</h2>"
+            "<p style='color:#5a6a86'>สรุปจากผลจริงของเว็บคุณ (คะแนน AEO + อันดับ + ข้อค้นพบ)</p>"
+            + "".join(blocks) +
+            "<p style='color:#889;font-size:12px'>— ระบบ AEO ของ ImVisible · imvisible.tech</p></div>")
+
+
+def _esc(t) -> str:
+    import html as _h
+    return _h.escape(str(t or ""))
+
+
+@celery_app.task(name="app.worker.tasks.send_weekly_reports")
+def send_weekly_reports() -> str:
+    """M6 (beat): ส่งรายงานรายสัปดาห์จากผลจริงให้ผู้ใช้ทุกคนทางอีเมล"""
+    return _run(_send_weekly_reports())
+
+
+async def _send_weekly_reports() -> str:
+    from app.db.models import User
+    from app.connectors import notify
+    if not db.enabled():
+        return "DB not configured"
+    if not notify.email_enabled():
+        return "email (SMTP) not configured — skip weekly reports"
+    async with db.session() as s:
+        users = (await s.execute(select(User))).scalars().all()
+    sent = 0
+    for u in users:
+        try:
+            html = await _compose_report(u)
+            if html and await notify.send_email(u.email, "รายงานรายสัปดาห์ · ImVisible", html):
+                sent += 1
+        except Exception:  # noqa: BLE001 — ผู้ใช้คนเดียวล้ม ไม่ให้ทั้งชุดพัง
+            continue
+    return "sent %d weekly reports" % sent
+
+
 @celery_app.task(name="app.worker.tasks.learning_loop")
 def learning_loop() -> str:
     """M6: เรียนรู้จากผลจริงของทุกโปรเจ็ค → ปรับลำดับหัวข้อให้คลัสเตอร์ที่ได้ผลมาก่อน"""

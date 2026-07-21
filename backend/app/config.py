@@ -75,6 +75,13 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""                 # ตั้ง = เปิด error monitoring (ต้องลง sentry-sdk)
     rate_limit_per_min: int = 30         # จำกัดคำขอ auth ต่อ IP ต่อนาที (กัน brute-force)
 
+    # Email (รายงานรายสัปดาห์ / แจ้งเตือน)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""              # เช่น "ImVisible <no-reply@imvisible.tech>"
+
     # Billing (Stripe) — subscription จริง + webhook
     app_base_url: str = "http://localhost:8080"   # ใช้ทำ success/cancel URL หลังจ่ายเงิน
     stripe_secret_key: str = ""
