@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.config import settings, integration_status
 from app.schemas import (
-    RankCheckRequest, GSCSummaryRequest, CitationSampleRequest,
+    RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
 )
@@ -283,6 +283,73 @@ async def _own_project(s, project_id, user):
     if not p or p.user_id != user["id"]:
         raise HTTPException(404, "ไม่พบโปรเจ็ค")
     return p
+
+
+# ---------- AI Citation ต่อโปรเจ็ค (Prompt Sampling ที่ 'บันทึกผล' → สะสมเป็นแนวโน้ม) ----------
+@app.post("/api/projects/{project_id}/citation/sample")
+async def project_citation_sample(project_id: int, req: ProjectCitationRequest,
+                                  user=Depends(get_current_user)):
+    """M5 · รัน Prompt Sampling ให้โปรเจ็คนี้ 'แล้วบันทึกผล' (CitationSnapshot)
+    ต่างจาก /api/citation/sample เดิมที่ยิงแล้วทิ้ง — อันนี้ทำให้ SoV สะสมเป็นแนวโน้มจริง"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    async with db.session() as s:
+        await _own_project(s, project_id, user)   # กันตรวจ/บันทึกให้โปรเจ็คคนอื่น
+    try:
+        from app.worker.tasks import _sample_and_save
+        res = await _sample_and_save(project_id, req.questions or None)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, str(e))
+    if res.get("error"):
+        raise HTTPException(502, res["error"])
+    return res
+
+
+@app.get("/api/projects/{project_id}/citation/history")
+async def project_citation_history(project_id: int, user=Depends(get_current_user)):
+    """แนวโน้ม Share of Voice ที่ 'สะสมจากการรันจริง' — จัดกลุ่มเป็นรอบ (ต่อครั้งที่รัน)
+    คืนซีรีส์ overall + ต่อเอนจิน เพื่อวาดกราฟแนวโน้มบัญชีจริง (ไม่มีข้อมูล = ว่างจริง)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import CitationSnapshot
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+        rows = (await s.execute(
+            select(CitationSnapshot).where(CitationSnapshot.project_id == project_id)
+            .order_by(CitationSnapshot.sampled_at))).scalars().all()
+
+    runs: list[dict] = []
+    by_bucket: dict[str, dict] = {}
+    for r in rows:
+        # จัดกลุ่มแถวของ 'รอบเดียวกัน' ด้วยเวลาระดับนาที (การรัน 1 ครั้งเขียนหลายเอนจินพร้อมกัน)
+        at = r.sampled_at
+        bucket = at.strftime("%Y-%m-%dT%H:%M") if at else ""
+        run = by_bucket.get(bucket)
+        if run is None:
+            run = {"at": at.isoformat() if at else "", "per_engine": {}}
+            by_bucket[bucket] = run
+            runs.append(run)
+        if r.sov_percent is not None:
+            run["per_engine"][r.engine] = r.sov_percent
+
+    trend = []
+    for run in runs:
+        vals = list(run["per_engine"].values())
+        run["overall"] = round(sum(vals) / len(vals), 1) if vals else None
+        if run["overall"] is not None:
+            trend.append(run["overall"])
+
+    latest = runs[-1] if runs else None
+    prev = runs[-2] if len(runs) >= 2 else None
+    return {
+        "runs": runs,
+        "trend": trend,                       # ซีรีส์ overall (วาด sparkline แนวโน้ม)
+        "latest_sov": latest["overall"] if latest else None,
+        "prev_sov": prev["overall"] if prev else None,
+        "per_engine_latest": latest["per_engine"] if latest else {},
+        "count": len(runs),
+        "note": "ค่าประมาณเชิงสถิติจากการสุ่มถาม — สะสมจากการรันจริงของโปรเจ็คนี้",
+    }
 
 
 @app.get("/api/projects/{project_id}/channels")

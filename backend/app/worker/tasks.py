@@ -364,9 +364,130 @@ async def _measure_all_ranks() -> str:
     return "queued %d rank checks across %d projects" % (n, len(projs))
 
 
+def _available_engines() -> list[str]:
+    """เอนจินที่ตั้งคีย์แล้วเท่านั้น (ไม่มีคีย์ = ไม่ยิง = ไม่เดาผล)"""
+    from app.config import settings
+    engs = []
+    if settings.openai_api_key:
+        engs.append("openai")
+    if settings.gemini_api_key:
+        engs.append("gemini")
+    if settings.perplexity_api_key:
+        engs.append("perplexity")
+    return engs
+
+
+def _brand_terms_of(p) -> list[str]:
+    """คำแบรนด์จากที่ Site Intelligence สกัดไว้ (คั่นด้วย ,) → fallback ชื่อ+โดเมน
+    (ไม่งั้นบัญชีจริงที่ยังไม่ตั้งคำแบรนด์จะได้ SoV=0 เสมอ)"""
+    terms = [t.strip() for t in (getattr(p, "brand_terms", "") or "").split(",") if t.strip()]
+    if terms:
+        return terms[:8]
+    out = []
+    if p.name:
+        out.append(str(p.name).strip())
+    if p.domain:
+        dom = str(p.domain).strip()
+        out.append(dom)
+        label = dom.replace("www.", "").split(".")[0]
+        if label and label not in out:
+            out.append(label)
+    return [t for t in out if t]
+
+
+async def _project_questions(p, project_id: int, limit: int = 6) -> list[str]:
+    """ชุดคำถามสำหรับสุ่มถาม AI — เอาจากแผนหัวข้อ (Site Intelligence) ก่อน
+    แล้วค่อยถอยไปหัวข้อบทความที่เผยแพร่จริง แล้วสุดท้ายขุดสดจากชื่อโปรเจ็ค"""
+    from app.db.models import Article
+    qs: list[str] = []
+    if getattr(p, "topic_plan", ""):
+        try:
+            for it in (json.loads(p.topic_plan) or []):
+                if isinstance(it, dict) and it.get("topic"):
+                    qs.append(str(it["topic"]))
+        except Exception:  # noqa: BLE001
+            pass
+    if len(qs) < limit and db.enabled():
+        async with db.session() as s:
+            titles = (await s.execute(
+                select(Article.title).where(Article.project_id == project_id,
+                                            Article.status == "published")
+                .order_by(Article.id.desc()).limit(limit))).scalars().all()
+        qs += [t for t in titles if t]
+    if not qs:
+        try:
+            mined = await mining.mine((p.name or p.domain or "").strip())
+            qs = [q.get("q") for q in mined.get("questions", []) if q.get("q")]
+        except Exception:  # noqa: BLE001
+            qs = []
+    # กันซ้ำ คงลำดับ
+    seen, out = set(), []
+    for q in qs:
+        k = q.strip().lower()
+        if q.strip() and k not in seen:
+            seen.add(k); out.append(q.strip())
+    return out[:limit]
+
+
+async def _sample_and_save(project_id: int, questions: list[str] | None = None) -> dict:
+    """รัน Prompt Sampling จริงต่อโปรเจ็ค แล้ว 'บันทึกผลลง DB' (CitationSnapshot)
+    → นี่คือสิ่งที่ทำให้ 'แนวโน้ม Share of Voice' สะสมได้จริง (ไม่ใช่ยิงแล้วทิ้ง)"""
+    from app.db.models import Project, CitationSnapshot
+    if not db.enabled():
+        return {"error": "DB not configured"}
+    engines = _available_engines()
+    if not engines:
+        return {"error": "ยังไม่ได้ตั้งคีย์ AI สำหรับ Prompt Sampling (OpenAI/Gemini/Perplexity)"}
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p:
+            return {"error": "project %s not found" % project_id}
+        domain = p.domain
+        brand_terms = _brand_terms_of(p)
+        qs = [q for q in (questions or []) if q and q.strip()]
+        if not qs:
+            qs = await _project_questions(p, project_id)
+    if not qs:
+        return {"project": domain, "saved": False, "note": "ยังไม่มีชุดคำถามให้สุ่มถาม"}
+
+    res = await citation.sample(qs, brand_terms, domain, engines)
+
+    per = res.get("per_engine") or {}
+    async with db.session() as s:                    # บันทึก snapshot ต่อเอนจิน (ตรวจสอบย้อนได้)
+        for eng, v in per.items():
+            s.add(CitationSnapshot(project_id=project_id, engine=eng,
+                                   sov_percent=v.get("sov_percent"),
+                                   answered=v.get("answered") or 0,
+                                   cited=v.get("cited") or 0))
+        await s.commit()
+    res["saved"] = bool(per)
+    res["engines_used"] = engines
+    res["questions_used"] = len(qs)
+    return res
+
+
+@celery_app.task(name="app.worker.tasks.sample_citations_for_project")
+def sample_citations_for_project(project_id: int) -> dict:
+    return _run(_sample_and_save(project_id))
+
+
 @celery_app.task(name="app.worker.tasks.sample_all_citations")
 def sample_all_citations() -> str:
-    return "queued: prompt sampling for all projects"
+    """M5 (beat): สุ่มถาม AI ให้ทุกโปรเจ็ค แล้วบันทึก Share of Voice (สะสมเป็นแนวโน้ม)"""
+    return _run(_sample_all_citations())
+
+
+async def _sample_all_citations() -> str:
+    from app.db.models import Project
+    if not db.enabled():
+        return "DB not configured"
+    if not _available_engines():
+        return "no AI keys configured — skip prompt sampling"
+    async with db.session() as s:
+        ids = (await s.execute(select(Project.id))).scalars().all()
+    for pid in ids:
+        sample_citations_for_project.delay(pid)
+    return "queued prompt sampling for %d projects" % len(ids)
 
 
 @celery_app.task(name="app.worker.tasks.freshness_sweep")

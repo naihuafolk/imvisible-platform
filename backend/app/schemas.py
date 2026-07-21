@@ -21,6 +21,11 @@ class CitationSampleRequest(BaseModel):
     engines: list[str] = ["openai", "gemini", "perplexity"]
 
 
+class ProjectCitationRequest(BaseModel):
+    # คำถามที่จะสุ่มถาม AI (ว่าง = ระบบเลือกจากแผนหัวข้อ/บทความจริงของโปรเจ็คให้เอง)
+    questions: list[str] = []
+
+
 class ContentGenerateRequest(BaseModel):
     topic: str
     fmt: str = "บทความยาว"

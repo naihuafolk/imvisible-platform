@@ -48,6 +48,29 @@
     });
   }
 
+  /* กราฟแนวโน้ม SoV 'ของจริง' — สร้างจากประวัติที่บันทึกไว้ (GET .../citation/history)
+     นี่คือสิ่งที่ทำให้คำสัญญา "รันแล้วจะสะสมเป็นแนวโน้ม" เป็นจริง (ไม่ใช่ตัวเลขสมมติ) */
+  function realTrendBody(h) {
+    var sov = h.latest_sov;
+    var trend = (h.trend && h.trend.length) ? h.trend : (sov == null ? [] : [sov]);
+    var deltaHtml = '';
+    if (sov != null && h.prev_sov != null) {
+      var dv = Math.round((sov - h.prev_sov) * 10) / 10;
+      var cls = dv > 0 ? 'up' : (dv < 0 ? 'down' : '');
+      var arw = dv > 0 ? '▲ +' : (dv < 0 ? '▼ ' : '• ');
+      deltaHtml = '<span class="trend ' + cls + '">' + arw + dv + '%</span> จากรอบก่อน · ';
+    }
+    return '<div class="row" style="gap:22px;align-items:center">' +
+      '<div class="ring" style="--p:' + (sov == null ? 0 : sov) + '"><span class="ring-val">' +
+      (sov == null ? '—' : sov + '%') + '</span></div>' +
+      '<div style="flex:1">' +
+      '<div class="soft small">แนวโน้ม Citation SoV (จาก ' + h.count + ' รอบที่สุ่มถามจริง)</div>' +
+      ui.spark(trend, { w: 260, h: 56, color: 'var(--purple-600)' }) +
+      '<div class="small" style="margin-top:6px">' + deltaHtml + 'เป้าหมาย 15–25%</div>' +
+      '</div></div>' +
+      '<div class="hint" style="margin-top:10px">' + esc(h.note || '') + '</div>';
+  }
+
   function citationCard() {
     var c = RP.data.m5.citation;
     var sample =
@@ -61,10 +84,11 @@
     return ui.card({
       title: 'ฝั่ง AEO — AI Citation Share of Voice', sub: 'สัดส่วนที่ AI หยิบเราไปอ้างอิง',
       action: RP.sampleBadge('ข้อมูลตัวอย่าง'),
-      body: RP.realOr(sample, {
+      // ห่อด้วย slot เพื่อให้ตอน mount เติม "แนวโน้มจริง" ทับได้ถ้ามีประวัติสะสมแล้ว
+      body: '<div id="cite_trend_slot">' + RP.realOr(sample, {
         title: 'ยังไม่มีค่า Share of Voice',
         hint: 'SoV คำนวณจากผลการรัน Prompt Sampling จริงหลายรอบ — รันชุดคำถามด้วยปุ่ม "รัน Prompt Sampling สด" ด้านบนอย่างน้อย 1 ครั้ง แล้วค่าจะเริ่มสะสมเป็นแนวโน้ม'
-      })
+      }) + '</div>'
     });
   }
 
@@ -270,6 +294,21 @@
         var np = root.querySelector('#m5_newproj');
         if (np) np.onclick = function () { RP.go('projects'); };
 
+        /* บัญชีจริง: ดึง "แนวโน้ม SoV ที่สะสมไว้จริง" มาเติมทับกล่อง "ยังไม่มีข้อมูล"
+           → คำสัญญา "รันแล้วจะสะสมเป็นแนวโน้ม" กลายเป็นของจริงที่ตรวจสอบได้ */
+        var realPid = (RP.isReal() && p && typeof p.id === 'number') ? p.id : null;
+        function refreshCiteTrend() {
+          if (!realPid || !RP.api.enabled()) return;
+          var slot = root.querySelector('#cite_trend_slot');
+          if (!slot) return;
+          RP.api.citationHistory(realPid).then(function (h) {
+            if (h && h.count && (h.latest_sov != null || (h.trend && h.trend.length))) {
+              slot.innerHTML = realTrendBody(h);
+            }
+          }).catch(function () {});
+        }
+        refreshCiteTrend();
+
         /* ไม่มีโปรเจ็ค / ไม่มีโดเมน = ห้ามยิง API เด็ดขาด (กันการตรวจโดเมนของคนอื่น) */
         var dom = String((p && p.domain) || '').trim();
         if (!dom) return;
@@ -290,7 +329,16 @@
           if (!qs.length) { RP.ui.toast('ใส่ชุดคำถามอย่างน้อย 1 บรรทัดก่อนครับ'); return; }
           var terms = brandTermsOf(p);
           if (!terms.length) { RP.ui.toast('ตั้งคำแบรนด์ของโปรเจ็คในหน้าตั้งค่าก่อนครับ'); return; }
-          RP.live(RP.api.citation(qs, terms, dom), citeModal);
+          if (realPid) {
+            /* บัญชีจริง → ยิง endpoint ที่ 'บันทึกผล' (คำแบรนด์/โดเมนดึงจากโปรเจ็คฝั่ง server)
+               เสร็จแล้วรีเฟรชกราฟให้เห็นแนวโน้มสะสมทันที */
+            RP.live(RP.api.citationForProject(realPid, qs), function (res) {
+              citeModal(res); refreshCiteTrend();
+            });
+          } else {
+            /* โหมดตัวอย่าง/Live-ยังไม่ล็อกอินจริง → ยิงแบบไม่บันทึก (เหมือนเดิม) */
+            RP.live(RP.api.citation(qs, terms, dom), citeModal);
+          }
         };
       }
     };
