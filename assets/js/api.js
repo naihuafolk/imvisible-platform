@@ -45,7 +45,7 @@
     mine: function (seed) { return api._post('/api/mine', { seed: seed }); },
 
     // ---- Auth (JWT จริง) ----
-    register: function (email, password, name) { return api._post('/api/auth/register', { email: email, password: password, name: name || '' }); },
+    register: function (email, password, name, acceptTerms) { return api._post('/api/auth/register', { email: email, password: password, name: name || '', accept_terms: !!acceptTerms }); },
     signin: function (email, password) { return api._post('/api/auth/login', { email: email, password: password }); },
     me: function () { return api._get('/api/auth/me'); },
     // ---- Projects (DB จริง) ----

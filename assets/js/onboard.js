@@ -91,6 +91,12 @@
         (mode === 'signup' ? field('ชื่อ / บริษัท', 'text', 'au_name', 'เช่น ร้านกาแฟ ABC') : '') +
         field('อีเมล', 'email', 'au_email', 'you@example.com') +
         field('รหัสผ่าน', 'password', 'au_pass', 'อย่างน้อย 6 ตัวอักษร') +
+        (mode === 'signup'
+          ? '<label class="auth-consent" style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:2px 0 6px;cursor:pointer">' +
+            '<input type="checkbox" id="au_terms" style="margin-top:3px">' +
+            '<span>ฉันยอมรับ <a href="/legal/terms" target="_blank">ข้อกำหนดการใช้บริการ</a> และ ' +
+            '<a href="/legal/privacy" target="_blank">นโยบายความเป็นส่วนตัว (PDPA)</a></span></label>'
+          : '') +
         '<button class="btn btn-primary btn-block" id="au_submit" style="margin-top:6px">' + (mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครและเริ่มใช้งานจริง') + '</button>' +
         (live ? '' : '<div class="hint" style="margin-top:10px">⚠️ ต่อ backend ไม่ได้ตอนนี้ — สมัคร/เข้าระบบจริงจะใช้ไม่ได้ ลองดูตัวอย่างก่อน</div>') +
         '<div class="auth-or">หรือ</div>' +
@@ -111,9 +117,12 @@
       var name = nameEl ? (nameEl.value || '').trim() : '';
       if (!email || email.indexOf('@') < 0) { RP.ui.toast('กรุณากรอกอีเมลให้ถูกต้อง'); return; }
       if (!pass || pass.length < 6) { RP.ui.toast('รหัสผ่านอย่างน้อย 6 ตัวอักษร'); return; }
+      var termsEl = el.querySelector('#au_terms');
+      var accepted = !!(termsEl && termsEl.checked);
+      if (mode === 'signup' && !accepted) { RP.ui.toast('กรุณายอมรับข้อกำหนดและนโยบายความเป็นส่วนตัวก่อนสมัคร'); return; }
       if (!(RP.api && RP.api.reachable())) { RP.ui.toast('ต่อ backend ไม่ได้ — ลองใหม่ หรือกด "ดูตัวอย่าง"'); return; }
       var btn = el.querySelector('#au_submit'); btn.disabled = true; btn.textContent = 'กำลังดำเนินการ…';
-      var p = mode === 'signup' ? RP.api.register(email, pass, name) : RP.api.signin(email, pass);
+      var p = mode === 'signup' ? RP.api.register(email, pass, name, accepted) : RP.api.signin(email, pass);
       p.then(function (res) { RP.api.setToken(res.token); finish((res.user && res.user.email) || email, true); })
         .catch(function (e) {
           btn.disabled = false; btn.textContent = (mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครและเริ่มใช้งานจริง');

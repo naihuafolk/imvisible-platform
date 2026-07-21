@@ -66,6 +66,7 @@ class RegisterRequest(BaseModel):
     email: str
     password: str = Field(..., min_length=6)
     name: str = ""
+    accept_terms: bool = False    # ต้องยอมรับข้อกำหนด + นโยบายความเป็นส่วนตัว (PDPA)
 
 
 class LoginRequest(BaseModel):

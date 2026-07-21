@@ -32,7 +32,7 @@ from app.connectors import serp, gsc, citation, content, publish, mining, social
 from app.auth import security
 from app.auth.deps import get_current_user
 from app.db import session as db
-from app import public
+from app import public, legal
 from app.urls import project_slug_from_domain, project_public_home
 
 app = FastAPI(title="ImVisible API", version="1.0")
@@ -44,6 +44,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(legal.router)   # /legal/terms, /legal/privacy (PDPA)
 # Managed Hosting — เสิร์ฟบล็อกลูกค้าจาก DB (/blog/{slug}, custom domain, sitemap, llms.txt)
 app.include_router(public.router)
 
@@ -111,6 +112,8 @@ def _user_dict(u):
 async def register(req: RegisterRequest, _rl=Depends(rate_limit_auth)):
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    if not req.accept_terms:
+        raise HTTPException(422, "ต้องยอมรับข้อกำหนดการใช้บริการและนโยบายความเป็นส่วนตัวก่อนสมัคร")
     from app.db.models import User
     async with db.session() as s:
         exists = (await s.execute(select(User).where(User.email == req.email))).scalar_one_or_none()
