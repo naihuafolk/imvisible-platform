@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # 7) GA4
     ga4_property_id: str = ""
 
+    # 7b) PageSpeed Insights (Core Web Vitals / ความเร็วจริง) — ไม่มีคีย์ก็ใช้ได้ (rate-limited)
+    pagespeed_api_key: str = ""
+
     # 8) LINE
     line_channel_access_token: str = ""
     line_default_to: str = ""

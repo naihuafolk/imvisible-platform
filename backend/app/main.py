@@ -28,7 +28,7 @@ from app.schemas import (
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest,
 )
-from app.connectors import serp, gsc, citation, content, publish, mining, social, billing
+from app.connectors import serp, gsc, citation, content, publish, mining, social, billing, pagespeed
 from app.auth import security
 from app.auth.deps import get_current_user
 from app.db import session as db
@@ -693,6 +693,23 @@ async def article_approve(article_id: int, user=Depends(get_current_user)):
         return {"queued": True, "task_id": str(task.id), "article": title}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, "ต่อคิวไม่ได้ (worker/redis พร้อมไหม): " + str(e))
+
+
+@app.post("/api/projects/{project_id}/audit/performance")
+async def project_perf_audit(project_id: int, user=Depends(get_current_user)):
+    """M3 · วัดความเร็ว/Core Web Vitals จริงของหน้าเว็บโปรเจ็ค (PageSpeed Insights)
+    วัดเฉพาะหน้าสาธารณะของโปรเจ็คเอง (ไม่รับ URL จากผู้ใช้ = กันใช้ยิงเว็บคนอื่น)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    async with db.session() as s:
+        proj = await _own_project(s, project_id, user)
+        url = project_public_home(proj)
+    if not url:
+        raise HTTPException(422, "โปรเจ็คนี้ยังไม่มีหน้าเว็บให้ตรวจ")
+    try:
+        return await pagespeed.audit(url, "mobile")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ตรวจความเร็วไม่สำเร็จ: " + str(e)[:160])
 
 
 @app.get("/api/projects/{project_id}/seo-audit")

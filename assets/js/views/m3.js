@@ -84,6 +84,29 @@
     });
   }
 
+  /* การ์ดความเร็ว/Core Web Vitals จริง (PageSpeed) — บัญชีจริงกดตรวจสด */
+  function perfCard(bodyHtml) {
+    return ui.card({
+      title: '⚡ ความเร็ว & Core Web Vitals (จริง)',
+      sub: 'วัดหน้าเว็บโปรเจ็คด้วย Google PageSpeed Insights — CWV เป็นปัจจัยจัดอันดับจริง',
+      action: '<button class="btn btn-sm btn-primary" id="perf_run">ตรวจความเร็วสด</button>',
+      cls: 'mb', body: bodyHtml
+    });
+  }
+  function perfMetric(lbl, val, tone) {
+    return ui.kpi({ label: lbl, value: val == null ? '—' : val, tone: tone || '' });
+  }
+  function perfBody(d) {
+    var s = d.performance_score;
+    var tone = s == null ? '' : (s >= 90 ? 'pos' : s >= 50 ? 'brand' : '');
+    var cwv = d.cwv_field ? ('<div class="hint" style="margin-top:8px">Core Web Vitals (ข้อมูลผู้ใช้จริง/CrUX): <b>' + esc(d.cwv_field) + '</b></div>') : '<div class="hint" style="margin-top:8px">ยังไม่มีข้อมูล CrUX (หน้าใหม่/ทราฟฟิกน้อย) — ใช้คะแนน Lighthouse ด้านบนแทน</div>';
+    return '<div class="grid grid-4 mb">' +
+      perfMetric('คะแนนความเร็ว', s == null ? '—' : s, tone) +
+      perfMetric('LCP', d.lcp) + perfMetric('CLS', d.cls) + perfMetric('TBT', d.tbt) +
+      '</div><div class="grid grid-2">' + perfMetric('First Contentful Paint', d.fcp) + perfMetric('Speed Index', d.speed_index) + '</div>' +
+      cwv + '<div class="hint" style="margin-top:6px">' + esc(d.note || '') + '</div>';
+  }
+
   function aeoScoreCard() {
     return ui.card({
       title: '⚡ AEO/SEO Score Engine — ตัวแปรที่ทำให้ติดเร็ว',
@@ -123,6 +146,8 @@
     html += '<div id="aeo_score_slot">' + aeoScoreCard() + '</div>';
     // สุขภาพ SEO/AEO จาก DB จริง (schema/ลิงก์ภายใน/หน้ากำพร้า/ความสด) — เติมตอน mount
     html += '<div id="seo_audit_slot"></div>';
+    // ความเร็ว/Core Web Vitals จริง (PageSpeed) — บัญชีจริงมีปุ่มตรวจสด
+    html += '<div id="perf_slot"></div>';
 
     // 1) KPI ROW
     var kpiSample = '<div class="grid grid-4 mb">' +
@@ -305,6 +330,24 @@
         var slot = root.querySelector('#aeo_score_slot');
         if (!slot) return;
         // สุขภาพ SEO/AEO จาก DB จริง
+        // ⚡ Performance / CWV จริง — ปุ่มตรวจสด (PageSpeed ใช้เวลา ~10-30 วิ)
+        var pslot = root.querySelector('#perf_slot');
+        if (pslot) {
+          var setPerf = function (bodyHtml) {
+            pslot.innerHTML = perfCard(bodyHtml);
+            var run = pslot.querySelector('#perf_run');
+            if (run) run.onclick = function () {
+              run.disabled = true; run.textContent = 'กำลังตรวจ… (~10-30 วิ)';
+              RP.api.perfAudit(pid).then(function (d) { setPerf(perfBody(d)); })
+                .catch(function (e) {
+                  run.disabled = false; run.textContent = 'ตรวจความเร็วสด';
+                  RP.ui.toast('ตรวจความเร็วไม่สำเร็จ: ' + RP.esc((e && e.message) || String(e)));
+                });
+            };
+          };
+          setPerf('<div class="hint">กด "ตรวจความเร็วสด" เพื่อวัด LCP/CLS/Core Web Vitals จริงของหน้าเว็บโปรเจ็คนี้ด้วย Google PageSpeed Insights</div>');
+        }
+
         var aslot = root.querySelector('#seo_audit_slot');
         if (aslot) RP.api.seoAudit(pid).then(function (au) {
           if (au && au.articles) {
