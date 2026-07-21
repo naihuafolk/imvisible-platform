@@ -21,7 +21,7 @@
   function gcolor(g) { return g === 'A' ? 'green' : g === 'B' ? 'blue' : g === 'C' ? 'amber' : 'red'; }
 
   /* ---- พาเนลคะแนน AEO/SEO (ตัวชูโรง) — ตัวแปรจัดอันดับที่วัดจากบทความจริง ---- */
-  function aeoPanel(dd) {
+  function aeoPanel(dd, actions) {
     var sc = dd.avg_score;
     var ring = '<div class="ring" style="--p:' + (sc == null ? 0 : sc) + '"><span class="ring-val">' +
       (sc == null ? '—' : sc) + '</span></div>';
@@ -34,9 +34,11 @@
         '<span class="right"><span class="badge purple">+' + f.gain + ' แต้มรวม</span></span></div>';
     }).join('') || '<div class="soft small center" style="padding:10px">ทุกปัจจัยผ่านครบแล้ว 🎉</div>';
     var arts = (dd.articles || []).slice(0, 10).map(function (a) {
+      var boost = (actions && a.score < 85 && typeof a.id === 'number')
+        ? ' <button class="btn btn-sm" data-opt="' + a.id + '" title="ป้อนจุดอ่อนกลับให้ AI เขียนซ่อม ดันคะแนน">🔧 ดันคะแนน</button>' : '';
       return '<div class="list-row"><span class="t b nowrap">' + esc(a.title) + '</span>' +
         '<div class="grow"></div><span class="right"><span class="badge ' + gcolor(a.grade) + '">' +
-        a.score + ' · ' + a.grade + '</span></span></div>';
+        a.score + ' · ' + a.grade + '</span>' + boost + '</span></div>';
     }).join('');
     return '<div class="row" style="gap:22px;align-items:center;flex-wrap:wrap">' + ring +
       '<div style="flex:1;min-width:210px"><div class="soft small">คะแนนเฉลี่ยทั้งโปรเจ็ค (' + (dd.count || 0) + ' บทความ)</div>' +
@@ -285,7 +287,20 @@
             slot.innerHTML = ui.card({
               title: '⚡ AEO/SEO Score Engine — ตัวแปรที่ทำให้ติดเร็ว',
               sub: 'วัดปัจจัยจัดอันดับจริงของทุกบทความในโปรเจ็คนี้ แล้วจัดลำดับสิ่งที่ควรแก้',
-              cls: 'mb', body: aeoPanel(dd)
+              cls: 'mb', body: aeoPanel(dd, true)
+            });
+            // ปุ่ม "ดันคะแนน" ต่อบทความ → ป้อนจุดอ่อนกลับให้เครื่องยนต์เขียนซ่อม (เข้าคิว)
+            Array.prototype.forEach.call(slot.querySelectorAll('[data-opt]'), function (btn) {
+              btn.onclick = function () {
+                var aid = parseInt(btn.getAttribute('data-opt'), 10);
+                btn.disabled = true; btn.textContent = 'เข้าคิวแล้ว…';
+                RP.api.articleOptimize(aid).then(function () {
+                  RP.ui.toast('เริ่มดันคะแนนแล้ว ✓ ระบบจะเขียนซ่อมเบื้องหลัง แล้วอัปเดตคะแนนให้');
+                }).catch(function (e) {
+                  btn.disabled = false; btn.textContent = '🔧 ดันคะแนน';
+                  RP.ui.toast('สั่งไม่สำเร็จ: ' + RP.esc((e && e.message) || String(e)));
+                });
+              };
             });
           }
         }).catch(function () {});

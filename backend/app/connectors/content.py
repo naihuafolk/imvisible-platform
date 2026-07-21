@@ -45,6 +45,11 @@ def _this_year() -> str:
         return "2026"
 
 
+def _wordcount(html: str) -> int:
+    """นับคำหยาบ ๆ จาก HTML (strip แท็กก่อน) — ใช้ guard บทความว่าง/สั้น"""
+    return len(re.sub(r"<[^>]+>", " ", html or "").split())
+
+
 # ============ master system prompt ============
 
 MASTER_SYSTEM = """คุณคือ "ImVisible Content Engine" — บรรณาธิการและนักกลยุทธ์ AEO/SEO ภาษาไทยระดับโลก ที่ผลิตบทความซึ่ง (1) ติดอันดับ Google หน้าแรกจริงในปี {year} และ (2) ถูก AI (ChatGPT / Gemini / Perplexity / Google AI Overviews) หยิบไปอ้างอิงเป็นคำตอบ ถ้าบทความไม่ดีพอ ลูกค้าไม่ติดอันดับ = ธุรกิจตาย คุณจึงเขียนด้วยมาตรฐาน "ชนะหน้าที่ติดอยู่แล้ว" และ "มีประโยชน์จริงกับคนอ่าน" ไม่ใช่แค่ "ครบสูตร"
@@ -281,3 +286,43 @@ async def generate(topic: str, fmt: str = "บทความยาว", words: 
     return {"provider": provider, "model": model, "html": html,
             "schema": schema, "notes": notes, "blueprint": blueprint,
             "engine": "imvisible-content-engine-v2"}
+
+
+# ============ optimize (feedback loop จาก AEO Score → เขียนซ่อมให้คะแนนขึ้น) ============
+
+_IMPROVE_SYSTEM = ("คุณคือบรรณาธิการ AEO/SEO ภาษาไทยระดับโลก งานนี้คือ 'ซ่อมบทความเดิม' ให้แข็งขึ้นตามจุดอ่อนที่ระบุ "
+                   "เพื่อดันอันดับ + โอกาสถูก AI อ้างอิง โดยห้ามเปลี่ยนข้อเท็จจริง/ตัวเลขเดิม ห้ามแต่งข้อมูลปลอม "
+                   "(ไม่รู้จริงใช้ [ต้องเติม: ...]) รักษาความถูกต้องภาษาไทยและโครง H2/H3 ที่ดีไว้ ปรับเฉพาะสิ่งที่ทำให้ดีขึ้น")
+
+_IMPROVE_USER = """ซ่อมบทความ HTML ภาษา {language} ให้แข็งขึ้น · ปีปัจจุบัน {year} · หัวข้อ: {title}
+
+จุดอ่อนที่วัดได้ (แก้ให้ครบทุกข้อ ตามลำดับความสำคัญ):
+{weaknesses}
+
+บทความเดิม:
+{html}
+
+กติกา:
+- แก้ตามจุดอ่อนข้างบนให้ครบ: ถ้าขาด answer-first ให้เปิดด้วยย่อหน้าตอบตรง 40-60 คำ; ถ้าขาด 'คำถามที่พบบ่อย' ให้เพิ่ม H2 คำถามที่พบบ่อย 4-8 ข้อพร้อมคำตอบ; ถ้าขาดนิยามให้เพิ่มประโยค 'X คือ...'; ถ้าตื้นให้เพิ่มความลึก (ตัวเลข/ราคา/ตัวอย่าง/ขั้นตอน) ห้ามน้ำ; ถ้าขาด list/ตารางให้ใส่เมื่อเหมาะ; วางคีย์เวิร์ดหลักในย่อหน้าแรกและ H2 อย่างเป็นธรรมชาติ
+- คงข้อเท็จจริง/ตัวเลข/ลิงก์ <a href> เดิมไว้ (ห้ามเปลี่ยนปลายทางลิงก์) · ห้าม H1 · ใช้เฉพาะแท็กที่อนุญาต
+- ห้ามทำให้สั้นลงหรือตัดหัวข้อที่ดีอยู่แล้วทิ้ง
+
+ส่ง 2 บล็อกตามลำดับเป๊ะ:
+<!--ARTICLE-->
+(HTML ที่ซ่อมแล้ว เริ่ม <p> answer-first หรือ <h2>)
+<!--SCHEMA-->
+(JSON-LD ใน <script type="application/ld+json">: Article/BlogPosting + FAQPage ทุกคำถามใน 'คำถามที่พบบ่อย')"""
+
+
+async def improve(html: str, title: str, weaknesses: str,
+                  language: str = "ภาษาไทย", year: str | None = None) -> dict:
+    """ซ่อมบทความเดิมให้ปิดจุดอ่อน AEO/SEO ที่วัดได้ — คืน html/schema ใหม่ (ล้ม/สั้น = คงเดิม)"""
+    year = year or _this_year()
+    user = _fill(_IMPROVE_USER, language=language, year=year, title=title,
+                 weaknesses=weaknesses or "-", html=html)
+    prov, text = await _llm(_IMPROVE_SYSTEM, user, tier="premium")
+    article, schema, _notes = _split_blocks(text)
+    new_html = _lint(article)
+    if _wordcount(new_html) < 120:            # กันผลลัพธ์ว่าง/สั้น → ถือว่าซ่อมไม่สำเร็จ
+        return {"html": html, "schema": "", "provider": prov, "changed": False}
+    return {"html": new_html, "schema": schema or "", "provider": prov, "changed": True}

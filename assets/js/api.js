@@ -62,6 +62,7 @@
     // ---- AEO/SEO Score Engine (M3) — ตัวแปรจัดอันดับที่วัดจริง ----
     projectAeo: function (pid) { return api._get('/api/projects/' + pid + '/aeo'); },
     articleAeo: function (aid) { return api._get('/api/articles/' + aid + '/aeo'); },
+    articleOptimize: function (aid) { return api._post('/api/articles/' + aid + '/optimize', {}); },
     // ---- Distribution (ช่องทางกระจาย + Log โปร่งใส) ----
     getChannels: function (pid) { return api._get('/api/projects/' + pid + '/channels'); },
     setChannel: function (pid, o) { return api._put('/api/projects/' + pid + '/channels', o); },

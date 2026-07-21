@@ -334,6 +334,104 @@ async def _distribute(project_id: int, article_id: int, title: str, desc: str,
     return [{"channel": e[0], "status": e[1]} for e in events]
 
 
+@celery_app.task(name="app.worker.tasks.optimize_article")
+def optimize_article(article_id: int, min_score: int = 85) -> dict:
+    """🔧 ป้อนจุดอ่อนจาก AEO Score กลับให้เครื่องยนต์เขียนซ่อม → ดันคะแนน (บันทึกเฉพาะเมื่อดีขึ้น)"""
+    return _run(_optimize_article(article_id, min_score))
+
+
+def _score_art(art, proj) -> dict:
+    age = None
+    if getattr(art, "updated_at", None):
+        try:
+            age = (datetime.now(timezone.utc) - art.updated_at).days
+        except Exception:  # noqa: BLE001
+            age = None
+    return aeo_score.score(art.html or "", title=art.title or "",
+                           description=(art.description or "")[:155],
+                           schema_json=art.schema_json or "", cover_url=art.cover_url or "",
+                           keyword=art.title or "", target_words=1200, age_days=age,
+                           freshness_days=getattr(proj, "freshness_days", 120) or 120)
+
+
+async def _optimize_article(article_id: int, min_score: int) -> dict:
+    from app.db.models import Article, Project
+    if not db.enabled():
+        return {"error": "DB not configured"}
+    async with db.session() as s:
+        art = await s.get(Article, article_id)
+        if not art:
+            return {"error": "article not found"}
+        proj = await s.get(Project, art.project_id)
+        title, html, schema = art.title, art.html or "", art.schema_json or ""
+        project_id = art.project_id
+        lang = "English" if str(getattr(proj, "language", "th")).lower().startswith("en") else "ภาษาไทย"
+        before = _score_art(art, proj)
+
+    if before["score"] >= min_score or not before["top_fixes"]:
+        return {"article_id": article_id, "optimized": False, "score": before["score"],
+                "note": "คะแนนถึงเกณฑ์แล้ว/ไม่มีจุดต้องแก้"}
+
+    weaknesses = "\n".join("- %s — %s" % (f["label"], f.get("fix", "")) for f in before["top_fixes"])
+    try:
+        imp = await content.improve(html, title, weaknesses, language=lang)
+    except Exception as e:  # noqa: BLE001
+        return {"article_id": article_id, "optimized": False, "error": str(e)[:160]}
+    if not imp.get("changed"):
+        return {"article_id": article_id, "optimized": False, "note": "เครื่องยนต์ซ่อมไม่สำเร็จ"}
+
+    new_html = await _apply_internal_links(project_id, title, imp["html"])   # คงลิงก์ภายในให้จริง
+    new_schema = imp.get("schema") or schema
+    new_desc = _plain(new_html)[:300]
+    after = aeo_score.score(new_html, title=title, description=new_desc[:155],
+                            schema_json=new_schema, cover_url=getattr(art, "cover_url", "") or "",
+                            keyword=title, target_words=1200)
+
+    if after["score"] <= before["score"]:                # ห้าม regress — เก็บของเดิมถ้าไม่ดีขึ้น
+        return {"article_id": article_id, "optimized": False,
+                "score_before": before["score"], "score_after": after["score"],
+                "note": "ผลใหม่ไม่ดีกว่าเดิม — คงบทความเดิมไว้"}
+
+    async with db.session() as s:
+        a = await s.get(Article, article_id)
+        if a:
+            a.html = new_html
+            a.schema_json = new_schema
+            a.description = new_desc
+            a.words = _wordcount(new_html)
+            a.aeo_score = after["score"]
+            a.updated_at = datetime.now(timezone.utc)          # bump dateModified (สดขึ้นด้วย)
+            await s.commit()
+    return {"article_id": article_id, "optimized": True,
+            "score_before": before["score"], "score_after": after["score"],
+            "gain": after["score"] - before["score"]}
+
+
+@celery_app.task(name="app.worker.tasks.optimize_low_scores")
+def optimize_low_scores(threshold: int = 80, per_project: int = 2) -> str:
+    """beat: ไล่ซ่อมบทความคะแนนต่ำสุดของแต่ละโปรเจ็ค (auto-tuning ดันอันดับต่อเนื่อง)"""
+    return _run(_optimize_low_scores(threshold, per_project))
+
+
+async def _optimize_low_scores(threshold: int, per_project: int) -> str:
+    from app.db.models import Project, Article
+    if not db.enabled():
+        return "DB not configured"
+    n = 0
+    async with db.session() as s:
+        pids = (await s.execute(select(Project.id))).scalars().all()
+        for pid in pids:
+            rows = (await s.execute(
+                select(Article.id).where(Article.project_id == pid,
+                                         Article.status == "published",
+                                         Article.aeo_score < threshold)
+                .order_by(Article.aeo_score.asc()).limit(per_project))).scalars().all()
+            for aid in rows:
+                optimize_article.delay(aid)
+                n += 1
+    return "queued optimize for %d low-scoring articles" % n
+
+
 @celery_app.task(name="app.worker.tasks.distribute_article")
 def distribute_article(project_id: int, article_id: int) -> dict:
     """สั่งกระจายบทความที่เผยแพร่แล้วซ้ำ (เช่น เพิ่งเชื่อมช่องใหม่) — ใช้จาก API"""

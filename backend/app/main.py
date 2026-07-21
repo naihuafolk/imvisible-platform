@@ -386,6 +386,28 @@ async def article_aeo(article_id: int, user=Depends(get_current_user)):
     return res
 
 
+@app.post("/api/articles/{article_id}/optimize")
+async def article_optimize(article_id: int, user=Depends(get_current_user)):
+    """M3 · ป้อนจุดอ่อน AEO Score กลับให้เครื่องยนต์เขียนซ่อม → ดันคะแนน (เข้าคิวเบื้องหลัง)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Article, Project
+    async with db.session() as s:
+        art = await s.get(Article, article_id)
+        if not art:
+            raise HTTPException(404, "ไม่พบบทความ")
+        proj = await s.get(Project, art.project_id)
+        if not proj or proj.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบบทความ")
+        title = art.title
+    try:
+        from app.worker.tasks import optimize_article
+        task = optimize_article.delay(article_id)
+        return {"queued": True, "task_id": str(task.id), "article": title}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ต่อคิวไม่ได้ (worker/redis พร้อมไหม): " + str(e))
+
+
 @app.get("/api/projects/{project_id}/aeo")
 async def project_aeo(project_id: int, user=Depends(get_current_user)):
     """M3 · ภาพรวมคะแนน AEO/SEO ทั้งโปรเจ็ค — คะแนนเฉลี่ย, การกระจายเกรด, คะแนนต่อบทความ,

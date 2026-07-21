@@ -40,6 +40,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.freshness_sweep",
         "schedule": crontab(hour=3, minute=0),
     },
+    "optimize-lowscore-daily": {     # M3 · ซ่อมบทความคะแนน AEO ต่ำสุดทุกวัน 05:00 (auto-tuning)
+        "task": "app.worker.tasks.optimize_low_scores",
+        "schedule": crontab(hour=5, minute=0),
+    },
     "learn-weekly": {                # M6 · สรุป+ปรับกลยุทธ์ ทุกวันอาทิตย์ 20:00
         "task": "app.worker.tasks.learning_loop",
         "schedule": crontab(hour=20, minute=0, day_of_week=0),
