@@ -30,6 +30,19 @@ async def _access_token(creds: dict | None = None) -> str:
         return r.json()["access_token"]
 
 
+async def submit_sitemap(site_url: str, sitemap_url: str, creds: dict | None = None) -> dict:
+    """ส่ง sitemap เข้า Google Search Console จริง (แทน ping endpoint ที่ Google ยกเลิกแล้ว)
+    ต้องมีบัญชี GSC ของลูกค้า + โดเมนถูก verify ใน GSC · เอกสาร: sitemaps.submit"""
+    from urllib.parse import quote
+    token = await _access_token(creds)
+    endpoint = ("https://www.googleapis.com/webmasters/v3/sites/"
+                f"{quote(site_url, safe='')}/sitemaps/{quote(sitemap_url, safe='')}")
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.put(endpoint, headers={"Authorization": f"Bearer {token}"})
+        return {"ok": r.status_code in (200, 204), "status_code": r.status_code,
+                "sitemap": sitemap_url, "site_url": site_url}
+
+
 async def summary(site_url: str, days: int = 28, creds: dict | None = None) -> dict:
     """สรุป 28 วันล่าสุด: คลิกรวม, impressions, ctr, อันดับเฉลี่ย + top query"""
     token = await _access_token(creds)

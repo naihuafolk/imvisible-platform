@@ -506,6 +506,89 @@ async def article_approve(article_id: int, user=Depends(get_current_user)):
         raise HTTPException(502, "ต่อคิวไม่ได้ (worker/redis พร้อมไหม): " + str(e))
 
 
+@app.get("/api/projects/{project_id}/seo-audit")
+async def project_seo_audit(project_id: int, user=Depends(get_current_user)):
+    """M3 · ตรวจสุขภาพ SEO/AEO 'จากข้อมูลจริงใน DB' (ไม่ต้อง crawl):
+    ความครอบคลุม schema, จำนวน URL ใน sitemap, ลิงก์ภายในรวม, หน้ากำพร้า, และหน้าที่เก่าเกินเกณฑ์"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    import re as _re
+    from datetime import datetime, timezone
+    from app.db.models import Article
+    from app.connectors.aeo_score import _valid_schema
+    _HREF = _re.compile(r"""href\s*=\s*("|')(.*?)\1""", _re.I)
+    async with db.session() as s:
+        proj = await _own_project(s, project_id, user)
+        arts = (await s.execute(
+            select(Article).where(Article.project_id == project_id,
+                                  Article.status == "published"))).scalars().all()
+    n = len(arts)
+    fd = getattr(proj, "freshness_days", 120) or 120
+    with_schema = sum(1 for a in arts if _valid_schema(a.schema_json or "")[0])
+    # ลิงก์ภายใน + หน้ากำพร้า: จับ href แล้วเทียบกับ url/slug ของบทความพี่น้อง
+    idx = [(a, a.url or "", ("/" + (a.slug or "")) if a.slug else "") for a in arts]
+    inbound = {a.id: 0 for a in arts}
+    total_internal = 0
+    for src in arts:
+        targets = [m.group(2).strip() for m in _HREF.finditer(src.html or "")]
+        for t in targets:
+            if not t or t == "#":
+                continue
+            for a, u, sl in idx:
+                if a.id == src.id:
+                    continue
+                if (u and u in t) or (sl and len(sl) > 1 and sl in t):
+                    inbound[a.id] += 1
+                    total_internal += 1
+                    break
+    orphans = [a for a in arts if inbound[a.id] == 0]
+    now = datetime.now(timezone.utc)
+    stale = []
+    for a in arts:
+        if getattr(a, "updated_at", None):
+            try:
+                age = (now - a.updated_at).days
+            except Exception:  # noqa: BLE001
+                continue
+            if age > fd:
+                stale.append({"id": a.id, "title": a.title, "age_days": age, "url": a.url})
+    stale.sort(key=lambda x: x["age_days"], reverse=True)
+    return {
+        "articles": n,
+        "schema_coverage": round(with_schema / n * 100) if n else 0,
+        "schema_pages": with_schema,
+        "sitemap_urls": n + 1,                      # + หน้าแรก
+        "internal_links_total": total_internal,
+        "internal_links_avg": round(total_internal / n, 1) if n else 0,
+        "orphan_pages": len(orphans),
+        "orphan_titles": [a.title for a in orphans][:10],
+        "stale_count": len(stale),
+        "freshness": stale[:20],
+        "freshness_days": fd,
+        "note": "คำนวณจากบทความจริงในฐานข้อมูลของโปรเจ็คนี้ (ไม่ใช่ค่าประเมิน)",
+    }
+
+
+@app.post("/api/projects/{project_id}/sitemap/submit")
+async def project_submit_sitemap(project_id: int, user=Depends(get_current_user)):
+    """M3 · ส่ง sitemap ของโปรเจ็คเข้า Google Search Console (ใช้บัญชี GSC ของลูกค้า)
+    ใช้ได้เมื่อโดเมนถูก verify ใน GSC ของลูกค้า (โดเมนตัวเอง/custom domain)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import creds
+    async with db.session() as s:
+        proj = await _own_project(s, project_id, user)
+        domain, home = proj.domain, project_public_home(proj)
+    if not domain:
+        raise HTTPException(422, "โปรเจ็คนี้ยังไม่ได้ตั้งโดเมน")
+    g = await creds.get_creds(project_id, "gsc")
+    sitemap_url = home.rstrip("/") + "/sitemap.xml"
+    try:
+        return await gsc.submit_sitemap("sc-domain:" + domain, sitemap_url, creds=g or None)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, str(e))
+
+
 @app.post("/api/articles/{article_id}/optimize")
 async def article_optimize(article_id: int, user=Depends(get_current_user)):
     """M3 · ป้อนจุดอ่อน AEO Score กลับให้เครื่องยนต์เขียนซ่อม → ดันคะแนน (เข้าคิวเบื้องหลัง)"""

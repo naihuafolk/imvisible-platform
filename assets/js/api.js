@@ -61,6 +61,8 @@
     insights: function (pid) { return api._get('/api/projects/' + pid + '/insights'); },
     // ---- AEO/SEO Score Engine (M3) — ตัวแปรจัดอันดับที่วัดจริง ----
     projectAeo: function (pid) { return api._get('/api/projects/' + pid + '/aeo'); },
+    seoAudit: function (pid) { return api._get('/api/projects/' + pid + '/seo-audit'); },
+    submitSitemap: function (pid) { return api._post('/api/projects/' + pid + '/sitemap/submit', {}); },
     articleAeo: function (aid) { return api._get('/api/articles/' + aid + '/aeo'); },
     articleOptimize: function (aid) { return api._post('/api/articles/' + aid + '/optimize', {}); },
     // ---- M4 approve workflow ----

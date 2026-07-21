@@ -64,6 +64,26 @@
     ]
   };
 
+  /* การ์ดสุขภาพ SEO/AEO จาก DB จริง (แทนการ์ด mock เดิมสำหรับบัญชีจริง) */
+  function seoAuditCard(dd) {
+    var kpis = '<div class="grid grid-4 mb">' +
+      ui.kpi({ label: 'Schema ครอบคลุม', value: dd.schema_coverage + '%', tone: 'brand', foot: dd.schema_pages + '/' + dd.articles + ' บทความ' }) +
+      ui.kpi({ label: 'Sitemap URLs', value: fmt.n(dd.sitemap_urls) }) +
+      ui.kpi({ label: 'ลิงก์ภายในรวม', value: fmt.n(dd.internal_links_total), foot: 'เฉลี่ย ' + dd.internal_links_avg + '/หน้า' }) +
+      ui.kpi({ label: 'หน้ากำพร้า', value: fmt.n(dd.orphan_pages), tone: dd.orphan_pages ? '' : 'pos', foot: dd.orphan_pages ? 'ยังไม่มีลิงก์ภายในชี้ถึง' : 'ทุกหน้ามีลิงก์ชี้ถึง' }) +
+      '</div>';
+    var fresh = (dd.freshness || []).length
+      ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>หน้าที่ควรรีเฟรช</th><th class="num">อายุ (วัน)</th></tr></thead><tbody>' +
+        dd.freshness.map(function (f) { return '<tr><td class="tbl-title">' + esc(f.title) + '</td><td class="num">' + fmt.n(f.age_days) + '</td></tr>'; }).join('') +
+        '</tbody></table></div><div class="hint" style="margin-top:8px">เกิน ' + dd.freshness_days + ' วัน — ระบบจะรีเฟรชให้อัตโนมัติ (Freshness Engine)</div>'
+      : '<div class="soft small center" style="padding:14px">ทุกหน้ายังสดใหม่ (ไม่เกิน ' + dd.freshness_days + ' วัน) 🎉</div>';
+    return ui.card({
+      title: '📊 สุขภาพ SEO/AEO (จากข้อมูลจริง)', sub: 'คำนวณจากบทความจริงในโปรเจ็คนี้ · ' + esc(dd.note || ''),
+      action: '<button class="btn btn-sm" id="sm_submit" title="ส่ง sitemap เข้า Google Search Console (ต้องเชื่อม GSC + โดเมนถูก verify)">↗ ส่ง sitemap เข้า Google</button>',
+      cls: 'mb', body: kpis + fresh
+    });
+  }
+
   function aeoScoreCard() {
     return ui.card({
       title: '⚡ AEO/SEO Score Engine — ตัวแปรที่ทำให้ติดเร็ว',
@@ -101,6 +121,8 @@
 
     // ⚡ ตัวชูโรง: คะแนน AEO/SEO จริง (เติมข้อมูลจริงตอน mount ถ้าเป็นบัญชีจริง)
     html += '<div id="aeo_score_slot">' + aeoScoreCard() + '</div>';
+    // สุขภาพ SEO/AEO จาก DB จริง (schema/ลิงก์ภายใน/หน้ากำพร้า/ความสด) — เติมตอน mount
+    html += '<div id="seo_audit_slot"></div>';
 
     // 1) KPI ROW
     var kpiSample = '<div class="grid grid-4 mb">' +
@@ -282,6 +304,25 @@
         if (!pid || !RP.api.enabled()) return;
         var slot = root.querySelector('#aeo_score_slot');
         if (!slot) return;
+        // สุขภาพ SEO/AEO จาก DB จริง
+        var aslot = root.querySelector('#seo_audit_slot');
+        if (aslot) RP.api.seoAudit(pid).then(function (au) {
+          if (au && au.articles) {
+            aslot.innerHTML = seoAuditCard(au);
+            var sm = aslot.querySelector('#sm_submit');
+            if (sm) sm.onclick = function () {
+              sm.disabled = true; sm.textContent = 'กำลังส่ง…';
+              RP.api.submitSitemap(pid).then(function (r) {
+                sm.disabled = false; sm.textContent = '↗ ส่ง sitemap เข้า Google';
+                RP.ui.toast(r && r.ok ? 'ส่ง sitemap เข้า Google แล้ว ✓' : 'ส่งแล้ว (สถานะ ' + ((r && r.status_code) || '?') + ') — โดเมนต้องถูก verify ใน GSC');
+              }).catch(function (e) {
+                sm.disabled = false; sm.textContent = '↗ ส่ง sitemap เข้า Google';
+                RP.ui.toast('ส่งไม่สำเร็จ: ' + RP.esc((e && e.message) || String(e)));
+              });
+            };
+          }
+        }).catch(function () {});
+
         RP.api.projectAeo(pid).then(function (dd) {
           if (dd && dd.count) {
             slot.innerHTML = ui.card({
