@@ -70,7 +70,9 @@ services:
   worker:
     build: ../backend
     restart: unless-stopped
-    command: celery -A app.worker.celery_app worker -l info
+    # ขยาย throughput: ผลิตหลายบทความพร้อมกัน (งานเป็น I/O-bound รอ LLM/รูป จึงตั้งเกินจำนวน CPU ได้)
+    # prefetch=1 กันงานยาว (บทความ) กองหลังงานเดียว · max-tasks-per-child กัน memory โต 24/7
+    command: celery -A app.worker.celery_app worker -l info --concurrency=8 --prefetch-multiplier=1 --max-tasks-per-child=40
     env_file:
       - path: ../backend/.env
         required: false

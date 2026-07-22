@@ -91,14 +91,15 @@ async def _enrich_media(html: str, topic: str) -> str:
     """แทรกรูปประกอบในเนื้อบทความ (Seedream) หลัง H2 ที่เลือก — crash-safe: ปิด/ล้ม = คืน html เดิม
     เปิดใช้เมื่อมี ARK_API_KEY (ModelArk) เท่านั้น → คุมต้นทุน"""
     import re as _re
+    import asyncio as _aio
     try:
         if not html or not media.enabled():
             return html
         ms = list(_re.finditer(r"</h2>", html, flags=_re.I))
         if not ms:
             return html
-        inserts = []
-        for i in _pick_h2_idxs(len(ms)):
+
+        async def _one(i):                       # สร้างรูปแต่ละใบ (จะรันพร้อมกันด้วย gather → เร็ว)
             start = html.rfind("<h2", 0, ms[i].start())
             h2text = _re.sub(r"<[^>]+>", "", html[start:ms[i].end()] if start >= 0 else "").strip()[:120] or topic
             try:
@@ -108,12 +109,14 @@ async def _enrich_media(html: str, topic: str) -> str:
                     "soft depth, high detail, professional magazine style, no text, no letters, no watermark.")
             except Exception:  # noqa: BLE001
                 url = ""
-            if url:
-                alt = h2text.replace('"', "'")
-                inserts.append((ms[i].end(),
+            if not url:
+                return None
+            alt = h2text.replace('"', "'")
+            return (ms[i].end(),
                     '<figure class="inline-img"><img src="' + url + '" alt="' + alt +
-                    '" loading="lazy" style="width:100%;border-radius:12px"></figure>'))
-        for pos, frag in sorted(inserts, key=lambda z: -z[0]):
+                    '" loading="lazy" style="width:100%;border-radius:12px"></figure>')
+        res = await _aio.gather(*[_one(i) for i in _pick_h2_idxs(len(ms))])
+        for pos, frag in sorted([x for x in res if x], key=lambda z: -z[0]):
             html = html[:pos] + frag + html[pos:]
         return html
     except Exception:  # noqa: BLE001
@@ -363,9 +366,11 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                                          business_context=p.business_context)   # ← บริบทจริงจากเว็บลูกค้า
             html = gen.get("html", "")
             html = await _apply_internal_links(project_id, topic, html)  # ลิงก์ภายในจริง (M3) — ห้ามปล่อยลิงก์ตาย
-            html = await _enrich_media(html, topic)                   # แทรกรูปในเนื้อ (ถ้าเปิด ModelArk)
-            cover = await _gen_cover(topic)                           # รูปปก (crash-safe: ล้ม='')
-            video = await _hero_video(topic)                          # วิดีโอ hero (ถ้าตั้ง ARK_VIDEO_MODEL)
+            import asyncio as _aio
+            html, cover, video = await _aio.gather(                    # ⚡ สร้างรูปในเนื้อ+ปก+วิดีโอ 'พร้อมกัน' → เร็วขึ้นมาก โดยคุณภาพเท่าเดิม
+                _enrich_media(html, topic),                            #   แทรกรูปในเนื้อ (ถ้าเปิด fal/ModelArk)
+                _gen_cover(topic),                                     #   รูปปก (crash-safe: ล้ม='')
+                _hero_video(topic))                                    #   วิดีโอ hero (ถ้าตั้ง ARK_VIDEO_MODEL)
             if video:
                 html = ('<figure class="hero-video"><video src="' + video +
                         '" controls preload="metadata" playsinline style="width:100%;border-radius:12px"></video></figure>') + html
