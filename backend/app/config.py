@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     # แอดมิน/เทสต์ (ไม่ต้องผ่าน Stripe): อีเมลในนี้ได้แพ็กเกจ business อัตโนมัติ (คั่นด้วย ,)
     admin_emails: str = ""
 
+    # เปิด/ปิดรับสมัครสมาชิกทั่วไป — false = ปิด (soft-launch เหลือแค่ล็อกอิน · แอดมินสร้างบัญชีเองได้)
+    registration_open: bool = True
+
     # Production hardening
     app_env: str = "dev"                 # dev | prod (prod = บังคับ JWT_SECRET + HSTS)
     sentry_dsn: str = ""                 # ตั้ง = เปิด error monitoring (ต้องลง sentry-sdk)

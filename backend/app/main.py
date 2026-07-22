@@ -100,7 +100,8 @@ async def _startup():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "ImVisible API", "db": db.enabled()}
+    return {"status": "ok", "service": "ImVisible API", "db": db.enabled(),
+            "registration_open": settings.registration_open}
 
 
 # ---------- Auth (JWT + hash รหัสผ่าน) ----------
@@ -110,6 +111,8 @@ def _user_dict(u):
 
 @app.post("/api/auth/register")
 async def register(req: RegisterRequest, _rl=Depends(rate_limit_auth)):
+    if not settings.registration_open:
+        raise HTTPException(403, "ขณะนี้ยังไม่เปิดรับสมัครสมาชิกทั่วไป")
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     if not req.accept_terms:

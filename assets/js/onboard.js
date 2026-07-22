@@ -72,9 +72,17 @@
 
   /* ---------- หน้าเข้าสู่ระบบ / สมัคร (ของจริงเป็นหลัก) ---------- */
   RP.showLogin = function (onSuccess) {
-    var mode = 'signup';
+    // soft-launch: ปิดรับสมัครไว้ก่อน เหลือแค่ล็อกอิน — regOpen มาจาก /health (registration_open=false = ปิด)
+    var regOpen = (RP.auth && RP.auth._regOpen === true);
+    var mode = 'login';
     var el = document.createElement('div');
     el.className = 'auth-screen'; el.id = 'authScreen';
+    if ((!RP.auth || RP.auth._regOpen === undefined) && RP.api && RP.api.reachable()) {
+      RP.api.health().then(function (h) {
+        RP.auth._regOpen = !(h && h.registration_open === false);
+        if (RP.auth._regOpen !== regOpen) { regOpen = RP.auth._regOpen; render(); }
+      }).catch(function () {});
+    }
     function field(label, type, id, ph) {
       return '<div class="auth-field"><label for="' + id + '">' + esc(label) + '</label>' +
         '<input id="' + id + '" type="' + type + '" placeholder="' + esc(ph) + '"></div>';
@@ -84,8 +92,10 @@
       el.innerHTML =
         '<div class="auth-card">' +
         '<div class="auth-brand"><div class="logo">I</div><div class="name">Im<span>Visible</span></div></div>' +
-        '<div class="auth-tabs"><button data-m="signup" class="' + (mode === 'signup' ? 'on' : '') + '">สมัครใช้งาน</button>' +
-        '<button data-m="login" class="' + (mode === 'login' ? 'on' : '') + '">เข้าสู่ระบบ</button></div>' +
+        (regOpen
+          ? '<div class="auth-tabs"><button data-m="signup" class="' + (mode === 'signup' ? 'on' : '') + '">สมัครใช้งาน</button>' +
+            '<button data-m="login" class="' + (mode === 'login' ? 'on' : '') + '">เข้าสู่ระบบ</button></div>'
+          : '') +
         '<h2>' + (mode === 'login' ? 'ยินดีต้อนรับกลับมา 👋' : 'เริ่มใช้ ImVisible จริง') + '</h2>' +
         '<div class="sub">' + (mode === 'login' ? 'เข้าสู่ระบบเพื่อจัดการโปรเจ็คของคุณ' : 'สมัครฟรี — ใส่แค่ลิงก์เว็บ ระบบเขียน + โฮสต์บล็อกให้อัตโนมัติ') + '</div>' +
         (mode === 'signup' ? field('ชื่อ / บริษัท', 'text', 'au_name', 'เช่น ร้านกาแฟ ABC') : '') +
@@ -98,16 +108,19 @@
             '<a href="/legal/privacy" target="_blank">นโยบายความเป็นส่วนตัว (PDPA)</a></span></label>'
           : '') +
         '<button class="btn btn-primary btn-block" id="au_submit" style="margin-top:6px">' + (mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครและเริ่มใช้งานจริง') + '</button>' +
-        (live ? '' : '<div class="hint" style="margin-top:10px">⚠️ ต่อ backend ไม่ได้ตอนนี้ — สมัคร/เข้าระบบจริงจะใช้ไม่ได้ ลองดูตัวอย่างก่อน</div>') +
-        '<div class="auth-or">หรือ</div>' +
-        '<button class="btn btn-block" id="au_demo">👀 ดูตัวอย่าง (ข้อมูลสมมติ · ไม่บันทึกจริง)</button>' +
-        '<div class="auth-foot">การสมัคร/เข้าสู่ระบบ = บัญชีจริง (JWT) เชื่อมฐานข้อมูล · โหมดตัวอย่างเก็บในเบราว์เซอร์นี้เท่านั้น</div>' +
+        (live ? '' : '<div class="hint" style="margin-top:10px">⚠️ ต่อ backend ไม่ได้ตอนนี้ — เข้าระบบจริงจะใช้ไม่ได้</div>') +
+        (regOpen
+          ? '<div class="auth-or">หรือ</div><button class="btn btn-block" id="au_demo">👀 ดูตัวอย่าง (ข้อมูลสมมติ · ไม่บันทึกจริง)</button>'
+          : '') +
+        '<div class="auth-foot">' + (regOpen
+          ? 'การสมัคร/เข้าสู่ระบบ = บัญชีจริง (JWT) เชื่อมฐานข้อมูล · โหมดตัวอย่างเก็บในเบราว์เซอร์นี้เท่านั้น'
+          : 'ขณะนี้ยังไม่เปิดรับสมัครทั่วไป — เข้าสู่ระบบเฉพาะบัญชีที่ได้รับเชิญ') + '</div>' +
         '</div>';
       Array.prototype.forEach.call(el.querySelectorAll('.auth-tabs button'), function (b) {
         b.onclick = function () { mode = b.getAttribute('data-m'); render(); };
       });
       el.querySelector('#au_submit').onclick = submit;
-      el.querySelector('#au_demo').onclick = function () { finish('demo@imvisible.tech', false); };
+      var demoBtn = el.querySelector('#au_demo'); if (demoBtn) demoBtn.onclick = function () { finish('demo@imvisible.tech', false); };
       el.querySelector('#au_pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
     }
     function submit() {
