@@ -96,10 +96,21 @@
     var pid = rDbId(p);
     var html = ui.pageHead({ eyebrow: 'ImVisible · รายงานผลงาน', title: esc(p.name),
       desc: 'อันดับ Google (1–100) · AEO/AI Citation · ความคืบหน้า — ข้อมูลจริงจากระบบ ตรวจสอบได้' }) +
+      '<div class="row between wrap mb" style="gap:8px;align-items:center">' +
+      '<span class="soft small">อันดับวัดอัตโนมัติทุกวัน 06:00 · กดเพื่อวัดเดี๋ยวนี้ (ต้องต่อ DataForSEO)</span>' +
+      '<button class="btn btn-sm btn-primary" id="rpMeasure">🔄 วัดอันดับเดี๋ยวนี้</button></div>' +
       '<div id="rp_kpi" class="mb"><div class="hint">กำลังโหลดรายงาน…</div></div>' +
       '<div id="rp_rank" class="mb"></div>' +
       '<div class="grid mb" style="grid-template-columns:1fr 1fr;gap:16px"><div id="rp_aeo"></div><div id="rp_cite"></div></div>';
     return { html: html, mount: function (root) {
+      var mb = root.querySelector('#rpMeasure');
+      if (mb) mb.onclick = function () {
+        mb.disabled = true; mb.textContent = 'กำลังวัด…';
+        RP.api.measureAllRanks(pid).then(function (d) {
+          ui.toast(d.queued ? ('สั่งวัดอันดับ ' + d.queued + ' คีย์เวิร์ดแล้ว ✓ อีกสักครู่กดรีเฟรช') : (d.note || 'ยังไม่มีบทความให้วัด'));
+          mb.textContent = '⏳ กำลังวัด';
+        }).catch(function (e) { mb.disabled = false; mb.textContent = '🔄 วัดอันดับเดี๋ยวนี้'; ui.toast('วัดไม่ได้: ' + esc(e.message || String(e))); });
+      };
       if (!(pid && RP.api.enabled())) return;
       Promise.all([
         RP.api.rankHistory(pid).catch(function () { return null; }),
