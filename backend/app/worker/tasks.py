@@ -126,7 +126,9 @@ async def _hero_video(topic: str) -> str:
 
 
 async def _google_index(url: str):
-    """⚡ #2 Instant Indexing: แจ้ง Google Indexing API ให้ crawl URL ทันที — crash-safe, no-op ถ้ายังไม่ตั้ง SA"""
+    """แจ้ง Google Indexing API (crash-safe) — เก็บ connector ไว้ 'เฉพาะ' เคสที่ Google รองรับจริง:
+    หน้า JobPosting (ประกาศงาน) / BroadcastEvent (ไลฟ์สด) เท่านั้น
+    ⚠️ ห้ามเรียกกับบล็อก/บทความทั่วไป — Google ถือเป็นการใช้ผิด (สแปม) · เว็บบล็อกใช้ IndexNow + sitemap + internal link แทน"""
     try:
         from app.connectors import indexing
         if url and indexing.enabled():
@@ -386,7 +388,6 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                         if a:
                             a.url = link; await s.commit()
                 item["published"] = link or "(no link)"
-                await _google_index(link or art_url)                  # ⚡ #2 แจ้ง Google เก็บทันที
                 item["distributed"] = await _distribute(project_id, art_id, topic, _plain(html)[:160],
                                                          link or art_url, "wordpress", bool(pub.get("indexnow")), cover)
             elif p.publish_mode == "managed":                         # 3b) Managed = สดจาก DB + แจ้ง index
@@ -400,7 +401,6 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                         indexnow_ok = True; item["indexnow"] = "pinged"
                 except Exception:
                     pass
-                await _google_index(art_url)                          # ⚡ #2 แจ้ง Google เก็บทันที
                 item["distributed"] = await _distribute(project_id, art_id, topic, _plain(html)[:160],
                                                          art_url, "blog", indexnow_ok, cover)
             else:                                                     # none = เก็บใน DB เฉย ๆ
