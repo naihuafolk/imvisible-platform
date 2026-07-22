@@ -80,13 +80,13 @@
 
   RP._activity = { card: feedCard, mount: mountLive };   // ให้แดชบอร์ดเอาไปฝังการทำงานสด
 
-  function mountLive(root) {
+  function mountLive(root, projectId) {
     if (RP._actTimer) { clearInterval(RP._actTimer); RP._actTimer = null; }
     if (!RP.isReal() || !RP.api.enabled()) return;
     function load() {
       var slot = document.getElementById('act_slot');
       if (!slot) { if (RP._actTimer) { clearInterval(RP._actTimer); RP._actTimer = null; } return; }  // ออกจากหน้าแล้ว
-      RP.api.activity(50).then(function (d) {
+      RP.api.activity(50, projectId).then(function (d) {
         var s2 = document.getElementById('act_slot');
         if (s2 && d) s2.innerHTML = feedCard(d);
       }).catch(function () {});

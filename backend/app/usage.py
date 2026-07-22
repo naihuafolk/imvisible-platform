@@ -42,7 +42,7 @@ async def user_plan(user_id: int) -> str:
     if u:
         admins = [e.strip().lower() for e in (settings.admin_emails or "").split(",") if e.strip()]
         if (u.email or "").lower() in admins:
-            return "business"
+            return "admin"          # แอดมิน = ไม่จำกัด (ไม่ต้องผ่าน Stripe)
     return plans.normalize(getattr(u, "plan", None) if u else None)
 
 

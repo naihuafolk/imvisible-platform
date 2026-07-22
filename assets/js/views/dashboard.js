@@ -185,45 +185,79 @@
 
   function reDash() { var f = RP.views.dashboard(); var c = document.getElementById('content'); c.innerHTML = '<div class="view">' + f.html + '</div>'; f.mount(c); }
 
-  /* ---------- แดชบอร์ดมินิมอลสำหรับบัญชีจริง: ตัวเลขจริง + การทำงานสด ---------- */
-  function fillKpi(root, u, summ) {
+  /* ---------- แดชบอร์ดต่อโปรเจ็ค (มินิมอล): อันดับ + คะแนน AEO/SEO + บทความ + การทำงานสด ---------- */
+  function dbId(p) {
+    if (!p) return null;
+    if (typeof p._dbid === 'number') return p._dbid;
+    var m = /^db(\d+)$/.exec(String(p.id || ''));
+    return m ? parseInt(m[1], 10) : null;
+  }
+  function gradeTone(g) { return g === 'A' ? 'green' : g === 'B' ? 'blue' : g === 'C' ? 'amber' : 'red'; }
+
+  function fillProjKpi(root, aeo, rank, cit) {
     var slot = root.querySelector('#dash_kpi'); if (!slot) return;
-    u = u || {}; summ = summ || {};
-    var pj = u.projects || {}, art = u.articles_month || {};
+    aeo = aeo || {}; rank = rank || {}; cit = cit || {};
+    var published = (aeo.articles || []).filter(function (a) { return a.status === 'published'; }).length;
     slot.innerHTML = '<div class="grid grid-4">' +
-      ui.kpi({ label: 'โปรเจ็ค', value: (pj.used != null ? pj.used : '—') + (pj.limit ? (' / ' + pj.limit) : ''), tone: 'brand' }) +
-      ui.kpi({ label: 'บทความทั้งหมด', value: (summ.articles != null ? fmt.n(summ.articles) : '—') }) +
-      ui.kpi({ label: 'เผยแพร่แล้ว', value: (summ.published != null ? fmt.n(summ.published) : '—'), tone: 'pos' }) +
-      ui.kpi({ label: 'บทความเดือนนี้', value: (art.used != null ? art.used : '—') + (art.limit ? (' / ' + art.limit) : ''),
-        foot: esc(u.plan_label || '') }) +
+      ui.kpi({ label: 'ติดหน้า 1 Google', value: rank.page1 != null ? rank.page1 : '—', tone: 'pos',
+        foot: rank.keywords_tracked ? ('จาก ' + rank.keywords_tracked + ' คีย์เวิร์ด') : 'ยังไม่ได้วัดอันดับ' }) +
+      ui.kpi({ label: 'คะแนน AEO เฉลี่ย', value: aeo.avg_score != null ? aeo.avg_score : '—', tone: 'brand',
+        foot: aeo.count ? (aeo.count + ' บทความ') : '' }) +
+      ui.kpi({ label: 'บทความเผยแพร่', value: fmt.n(published || (aeo.count ? 0 : 0)) }) +
+      ui.kpi({ label: 'AI Citation SoV', value: cit.latest_sov != null ? (cit.latest_sov + '%') : '—', tone: 'brand',
+        foot: cit.count ? 'สะสมจริง' : 'ยังไม่ได้วัด' }) +
       '</div>';
   }
 
+  function fillArts(root, aeo) {
+    var slot = root.querySelector('#dash_arts'); if (!slot) return;
+    var arts = (aeo && aeo.articles) || [];
+    var rows = arts.slice(0, 8).map(function (a) {
+      return '<div class="list-row"><span class="t nowrap">' + esc(a.title) + '</span><div class="grow"></div>' +
+        '<span class="right"><span class="badge ' + gradeTone(a.grade) + '">' + a.score + ' · ' + a.grade + '</span>' +
+        (a.url ? ' <a href="' + esc(a.url) + '" target="_blank" title="เปิดบทความ">↗</a>' : '') + '</span></div>';
+    }).join('');
+    slot.innerHTML = ui.card({ title: 'บทความล่าสุด + คะแนน AEO', flush: !rows,
+      body: rows || (RP.noData ? RP.noData('ยังไม่มีบทความ', 'ระบบกำลังเขียนบทความแรกให้ — รอสักครู่แล้วรีเฟรช') : '') });
+  }
+
   function realDash() {
+    var p = currentProject();
+    if (!p) {
+      var h0 = ui.pageHead({ eyebrow: 'ImVisible', title: 'เริ่มต้น — ใส่แค่ลิงก์',
+        desc: 'ใส่ลิงก์เว็บลูกค้า → ระบบเขียนบทความ AEO โฮสต์บล็อก และวัดอันดับให้เองอัตโนมัติ' }) +
+        ui.card({ body: RP.noData('ยังไม่มีโปรเจ็ค',
+          'สร้างโปรเจ็คแรก (ชื่อ + โดเมนลูกค้า) — ระบบจะอ่านเว็บ เขียนบทความแรก แล้วเริ่มวัดผลให้ทันที',
+          '<button class="btn btn-primary" id="dNew">＋ สร้างโปรเจ็ค</button>') });
+      return { html: h0, mount: function (root) { var b = root.querySelector('#dNew'); if (b) b.onclick = function () { RP.go('projects'); }; } };
+    }
+    var pid = dbId(p), home = p.public_home || '';
+    var head = ui.card({ cls: 'mb', body:
+      '<div class="row between wrap" style="gap:14px;align-items:center">' +
+      '<div class="row" style="gap:12px"><div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--grad-start),var(--grad-end));display:grid;place-items:center;color:#fff;font-size:20px">🌐</div>' +
+      '<div><div class="bb" style="font-size:18px">' + esc(p.name) + '</div>' +
+      '<div class="soft small">' + esc(p.domain) + ' · ' + (p.mode === 'auto' ? 'Full-Auto' : 'รออนุมัติ') + '</div></div></div>' +
+      (home ? '<a href="' + esc(home) + '" target="_blank" class="btn btn-sm">เปิดบล็อก ↗</a>' : '') + '</div>' });
     var html =
-      ui.pageHead({ eyebrow: 'ImVisible · ภาพรวม', title: 'แดชบอร์ดหลัก',
-        desc: 'ตัวเลขจริงของบัญชีคุณ + การทำงานสดของระบบ (อัปเดตเองทุก 8 วินาที)' }) +
-      '<div id="dash_kpi" class="mb"><div class="hint">กำลังโหลดสรุป…</div></div>' +
-      '<div class="row wrap mb" style="gap:10px">' +
-        '<button class="btn btn-primary" id="dNew">＋ สร้างโปรเจ็ค</button>' +
-        '<button class="btn" id="dProjects">🗂️ จัดการโปรเจ็ค</button>' +
-        '<button class="btn" id="dAct">⚡ กิจกรรมสดเต็มจอ</button>' +
-      '</div>' +
-      '<div id="act_slot"><div class="hint">กำลังโหลดการทำงานสด…</div></div>';
+      ui.pageHead({ eyebrow: 'ImVisible · รายงานโปรเจ็ค', title: esc(p.name),
+        desc: 'อันดับ Google · คะแนน AEO/SEO · บทความที่เผยแพร่ · การทำงานสด — อัปเดตเองทุก 8 วินาที' }) +
+      head +
+      '<div id="dash_kpi" class="mb"><div class="hint">กำลังโหลดรายงาน…</div></div>' +
+      '<div class="grid mb" style="grid-template-columns:1fr 1fr;gap:16px">' +
+        '<div id="dash_arts"></div>' +
+        '<div id="act_slot"><div class="hint">กำลังโหลดการทำงานสด…</div></div>' +
+      '</div>';
     return {
       html: html,
       mount: function (root) {
-        if (RP.api.enabled()) {
-          RP.api.usage().then(function (u) {
-            RP.api.activity(1).then(function (a) { fillKpi(root, u, a && a.summary); })
-              .catch(function () { fillKpi(root, u, null); });
-          }).catch(function () { var s = root.querySelector('#dash_kpi'); if (s) s.innerHTML = ''; });
+        if (pid && RP.api.enabled()) {
+          Promise.all([
+            RP.api.projectAeo(pid).catch(function () { return null; }),
+            RP.api.rankHistory(pid).catch(function () { return null; }),
+            RP.api.citationHistory(pid).catch(function () { return null; })
+          ]).then(function (r) { fillProjKpi(root, r[0], r[1], r[2]); fillArts(root, r[0]); });
         }
-        if (RP._activity) RP._activity.mount(root);   // ฝังการทำงานสด (โพลล์ /api/activity)
-        var b;
-        b = root.querySelector('#dNew'); if (b) b.onclick = function () { RP.go('projects'); };
-        b = root.querySelector('#dProjects'); if (b) b.onclick = function () { RP.go('projects'); };
-        b = root.querySelector('#dAct'); if (b) b.onclick = function () { RP.go('activity'); };
+        if (RP._activity) RP._activity.mount(root, pid);   // การทำงานสดเฉพาะโปรเจ็คนี้
       }
     };
   }

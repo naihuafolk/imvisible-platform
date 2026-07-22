@@ -9,6 +9,9 @@ PLANS: dict = {
             "price_thb": 2900, "features": ["3 โปรเจ็ค", "60 บทความ/เดือน", "วัดอันดับ+AI citation", "กระจายโซเชียล"]},
     "business": {"key": "business", "label": "Business", "projects": 10, "articles_month": 200,
                  "price_thb": 7900, "features": ["10 โปรเจ็ค", "200 บทความ/เดือน", "ทุกฟีเจอร์ Pro", "custom domain"]},
+    # แอดมิน/เจ้าของแพลตฟอร์ม — ไม่จำกัด (ไม่อยู่ในหน้าราคา · ให้ผ่าน ADMIN_EMAILS เท่านั้น)
+    "admin": {"key": "admin", "label": "แอดมิน (ไม่จำกัด)", "projects": 100000, "articles_month": 100000,
+              "price_thb": 0, "features": ["ไม่จำกัดโปรเจ็ค", "ไม่จำกัดบทความ", "ทุกฟีเจอร์"]},
 }
 DEFAULT_PLAN = "free"
 

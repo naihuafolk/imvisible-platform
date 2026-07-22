@@ -147,9 +147,10 @@ async def login(req: LoginRequest, _rl=Depends(rate_limit_auth)):
 
 
 @app.get("/api/activity")
-async def activity_feed(limit: int = 40, user=Depends(get_current_user)):
+async def activity_feed(limit: int = 40, project_id: int = 0, user=Depends(get_current_user)):
     """กิจกรรมสดของบัญชี — ไทม์ไลน์ล่าสุด (บทความ/เผยแพร่/วัดอันดับ/AI citation)
-    อ่านอย่างเดียว · เห็นเฉพาะโปรเจ็คที่ตัวเองเข้าถึงได้ (เจ้าของ+ทีม) · ไม่มีข้อมูลลับ"""
+    อ่านอย่างเดียว · เห็นเฉพาะโปรเจ็คที่ตัวเองเข้าถึงได้ (เจ้าของ+ทีม) · ไม่มีข้อมูลลับ
+    project_id > 0 = กรองเฉพาะโปรเจ็คนั้น (แดชบอร์ดต่อโปรเจ็ค)"""
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from sqlalchemy import func
@@ -161,6 +162,9 @@ async def activity_feed(limit: int = 40, user=Depends(get_current_user)):
         prows = (await s.execute(select(Project.id, Project.name).where(Project.user_id.in_(owners)))).all()
         pname = {pid: name for pid, name in prows}
         pids = list(pname.keys())
+        if project_id and project_id in pname:      # กรองต่อโปรเจ็ค
+            pids = [project_id]
+            pname = {project_id: pname[project_id]}
         if not pids:
             return {"events": [], "summary": {"projects": 0, "articles": 0, "published": 0}}
         arts = (await s.execute(select(Article).where(Article.project_id.in_(pids))
