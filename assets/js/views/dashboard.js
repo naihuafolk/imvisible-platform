@@ -4,6 +4,7 @@
 (function (RP) {
   'use strict';
   var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
+  var DASH_FOCUS = false;   // false = เห็นทุกโปรเจ็ค (overview), true = ซูมดูโปรเจ็คเดียว (detail)
 
   /* บล็อกที่ยังเป็นข้อมูลตัวอย่าง → บัญชีจริงเห็น "ยังไม่มีข้อมูล" ในการ์ดแทน */
   function gateCard(sampleHtml, title, hint, cta) {
@@ -221,16 +222,82 @@
       body: rows || (RP.noData ? RP.noData('ยังไม่มีบทความ', 'ระบบกำลังเขียนบทความแรกให้ — รอสักครู่แล้วรีเฟรช') : '') });
   }
 
-  function realDash() {
-    var p = currentProject();
-    if (!p) {
-      var h0 = ui.pageHead({ eyebrow: 'ImVisible', title: 'เริ่มต้น — ใส่แค่ลิงก์',
-        desc: 'ใส่ลิงก์เว็บลูกค้า → ระบบเขียนบทความ AEO โฮสต์บล็อก และวัดอันดับให้เองอัตโนมัติ' }) +
-        ui.card({ body: RP.noData('ยังไม่มีโปรเจ็ค',
-          'สร้างโปรเจ็คแรก (ชื่อ + โดเมนลูกค้า) — ระบบจะอ่านเว็บ เขียนบทความแรก แล้วเริ่มวัดผลให้ทันที',
-          '<button class="btn btn-primary" id="dNew">＋ สร้างโปรเจ็ค</button>') });
-      return { html: h0, mount: function (root) { var b = root.querySelector('#dNew'); if (b) b.onclick = function () { RP.go('projects'); }; } };
+  function realDash() { return DASH_FOCUS ? realDashDetail() : realDashOverview(); }
+
+  /* ---------- ภาพรวมทุกโปรเจ็ค: เห็นลูกค้าทุกรายพร้อมกัน แล้วคลิกเข้าดูทีละอัน ---------- */
+  function ovKpi(label, val) {
+    return '<div style="text-align:center;flex:1"><div class="bb" style="font-size:20px;line-height:1.1">' + val +
+      '</div><div class="soft" style="font-size:11px;margin-top:2px">' + esc(label) + '</div></div>';
+  }
+
+  function realDashOverview() {
+    var html = ui.pageHead({ eyebrow: 'ImVisible · ศูนย์ควบคุม', title: 'ทุกโปรเจ็คของคุณ',
+      desc: 'ดูลูกค้าทุกรายพร้อมกัน — อันดับ คะแนน AEO และบทความที่เผยแพร่ · คลิกโปรเจ็คเพื่อเปิดรายงานเต็ม' }) +
+      '<div class="row between wrap mb" style="gap:10px;align-items:center">' +
+      '<div class="soft small" id="ov_count">กำลังโหลด…</div>' +
+      '<button class="btn btn-sm btn-primary" id="ovNew">＋ สร้างโปรเจ็ค</button></div>' +
+      '<div id="ov_grid"><div class="hint">กำลังโหลดภาพรวมทุกโปรเจ็ค…</div></div>';
+    return {
+      html: html,
+      mount: function (root) {
+        var nb = root.querySelector('#ovNew'); if (nb) nb.onclick = function () { RP.go('projects'); };
+        if (!RP.api.enabled()) return;
+        RP.api.projectsOverview()
+          .then(function (d) { renderOverview(root, (d && d.projects) || []); })
+          .catch(function () {
+            var g = root.querySelector('#ov_grid');
+            if (g) g.innerHTML = ui.card({ body: RP.noData('โหลดภาพรวมไม่ได้', 'ลองรีเฟรชอีกครั้ง หรือตรวจการเชื่อมต่อ backend ในหน้า ⚙️ การตั้งค่า') });
+          });
+      }
+    };
+  }
+
+  function renderOverview(root, projs) {
+    var grid = root.querySelector('#ov_grid'), cnt = root.querySelector('#ov_count');
+    if (!grid) return;
+    if (!projs.length) {
+      if (cnt) cnt.textContent = 'ยังไม่มีโปรเจ็ค';
+      grid.innerHTML = ui.card({ body: RP.noData('ยังไม่มีโปรเจ็ค',
+        'สร้างโปรเจ็คแรก (ชื่อ + โดเมนลูกค้า) แล้วระบบจะเริ่มอ่านเว็บ เขียนบทความ และวัดผลให้เอง',
+        '<button class="btn btn-primary" id="ovNew2">＋ สร้างโปรเจ็ค</button>') });
+      var b2 = grid.querySelector('#ovNew2'); if (b2) b2.onclick = function () { RP.go('projects'); };
+      return;
     }
+    if (cnt) cnt.textContent = projs.length + ' โปรเจ็ค · เผยแพร่รวม ' +
+      RP.sum(projs, function (p) { return p.published || 0; }) + ' บทความ · ติดหน้า 1 รวม ' +
+      RP.sum(projs, function (p) { return p.page1 || 0; }) + ' คีย์เวิร์ด';
+    var cards = projs.map(function (p) {
+      var badge = p.mode === 'auto' ? ui.badge('Full-Auto', 'green') : ui.badge('รออนุมัติ', 'amber');
+      var home = p.public_home || '';
+      return '<div class="card card-pad" style="display:flex;flex-direction:column;gap:12px">' +
+        '<div class="row" style="gap:10px;align-items:center">' +
+        '<div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--grad-start),var(--grad-end));display:grid;place-items:center;color:#fff;font-size:17px;flex:none">🌐</div>' +
+        '<div class="grow" style="min-width:0"><div class="bb nowrap" style="overflow:hidden;text-overflow:ellipsis">' + esc(p.name) + '</div>' +
+        '<div class="soft small nowrap" style="overflow:hidden;text-overflow:ellipsis">' + esc(p.domain || '') + '</div></div>' +
+        badge + '</div>' +
+        '<div class="row" style="gap:6px;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">' +
+        ovKpi('ติดหน้า 1', p.page1 != null ? p.page1 : '—') +
+        ovKpi('AEO เฉลี่ย', p.avg_aeo != null ? p.avg_aeo : '—') +
+        ovKpi('เผยแพร่', p.published != null ? p.published : 0) +
+        '</div>' +
+        '<div class="row between" style="gap:8px">' +
+        (home ? '<a href="' + esc(home) + '" target="_blank" class="btn btn-sm">เปิดบล็อก ↗</a>' : '<span class="soft small">ยังไม่มีบล็อก</span>') +
+        '<button class="btn btn-sm btn-primary ov-open" data-id="' + p.id + '">ดูรายงาน →</button>' +
+        '</div></div>';
+    }).join('');
+    grid.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px">' + cards + '</div>';
+    Array.prototype.forEach.call(grid.querySelectorAll('.ov-open'), function (b) {
+      b.onclick = function () {
+        RP.data.project.current = 'db' + b.getAttribute('data-id');
+        DASH_FOCUS = true; reDash();
+      };
+    });
+  }
+
+  /* ---------- รายงานเต็มของโปรเจ็คเดียว (ซูมเข้า) ---------- */
+  function realDashDetail() {
+    var p = currentProject();
+    if (!p) { DASH_FOCUS = false; return realDashOverview(); }
     var pid = dbId(p), home = p.public_home || '';
     var head = ui.card({ cls: 'mb', body:
       '<div class="row between wrap" style="gap:14px;align-items:center">' +
@@ -239,6 +306,7 @@
       '<div class="soft small">' + esc(p.domain) + ' · ' + (p.mode === 'auto' ? 'Full-Auto' : 'รออนุมัติ') + '</div></div></div>' +
       (home ? '<a href="' + esc(home) + '" target="_blank" class="btn btn-sm">เปิดบล็อก ↗</a>' : '') + '</div>' });
     var html =
+      '<button class="btn btn-sm mb ovBack">← ทุกโปรเจ็ค</button>' +
       ui.pageHead({ eyebrow: 'ImVisible · รายงานโปรเจ็ค', title: esc(p.name),
         desc: 'อันดับ Google · คะแนน AEO/SEO · บทความที่เผยแพร่ · การทำงานสด — อัปเดตเองทุก 8 วินาที' }) +
       head +
@@ -250,6 +318,7 @@
     return {
       html: html,
       mount: function (root) {
+        var bk = root.querySelector('.ovBack'); if (bk) bk.onclick = function () { DASH_FOCUS = false; reDash(); };
         if (pid && RP.api.enabled()) {
           Promise.all([
             RP.api.projectAeo(pid).catch(function () { return null; }),

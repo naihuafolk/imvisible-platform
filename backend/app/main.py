@@ -146,6 +146,55 @@ async def login(req: LoginRequest, _rl=Depends(rate_limit_auth)):
     return {"token": security.create_token(u.id, u.email), "user": _user_dict(u)}
 
 
+@app.get("/api/projects/overview")
+async def projects_overview(user=Depends(get_current_user)):
+    """ภาพรวมทุกโปรเจ็คในครั้งเดียว (สำหรับ agency ดูลูกค้าทุกรายพร้อมกัน)
+    ต่อโปรเจ็ค: บทความ/เผยแพร่/คะแนน AEO เฉลี่ย/ติดหน้า 1/กิจกรรมล่าสุด"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from sqlalchemy import func, case
+    from app import team
+    from app.db.models import Project, Article, RankSnapshot
+    owners = await team.accessible_owner_ids(user["id"])
+    async with db.session() as s:
+        projs = (await s.execute(select(Project).where(Project.user_id.in_(owners))
+                                 .order_by(Project.id))).scalars().all()
+        pids = [p.id for p in projs]
+        if not pids:
+            return {"projects": []}
+        arows = (await s.execute(
+            select(Article.project_id, func.count(Article.id),
+                   func.sum(case((Article.status == "published", 1), else_=0)),
+                   func.max(Article.created_at))
+            .where(Article.project_id.in_(pids)).group_by(Article.project_id))).all()
+        stat = {pid: (c or 0, pub or 0, last) for pid, c, pub, last in arows}
+        avgrows = (await s.execute(
+            select(Article.project_id, func.avg(Article.aeo_score))
+            .where(Article.project_id.in_(pids), Article.status == "published", Article.aeo_score > 0)
+            .group_by(Article.project_id))).all()
+        aeoavg = {pid: round(float(a)) for pid, a in avgrows if a is not None}
+        snaps = (await s.execute(
+            select(RankSnapshot.project_id, RankSnapshot.keyword, RankSnapshot.on_page1)
+            .where(RankSnapshot.project_id.in_(pids))
+            .order_by(RankSnapshot.checked_at))).all()
+        latest = {}
+        for pid, kw, op in snaps:
+            latest[(pid, kw)] = bool(op)
+        page1 = {}
+        for (pid, _kw), op in latest.items():
+            if op:
+                page1[pid] = page1.get(pid, 0) + 1
+    out = []
+    for p in projs:
+        c, pub, last = stat.get(p.id, (0, 0, None))
+        out.append({"id": p.id, "name": p.name, "domain": p.domain,
+                    "public_home": project_public_home(p), "mode": p.mode,
+                    "articles": int(c), "published": int(pub),
+                    "avg_aeo": aeoavg.get(p.id), "page1": page1.get(p.id, 0),
+                    "last_at": last.isoformat() if last else ""})
+    return {"projects": out}
+
+
 @app.get("/api/activity")
 async def activity_feed(limit: int = 40, project_id: int = 0, user=Depends(get_current_user)):
     """กิจกรรมสดของบัญชี — ไทม์ไลน์ล่าสุด (บทความ/เผยแพร่/วัดอันดับ/AI citation)
