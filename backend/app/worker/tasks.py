@@ -280,9 +280,12 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
             return {"error": "project %s not found" % project_id}
         owner_id = proj.user_id
     if owner_id:                                    # โควตาแพ็กเกจ: กันลูปอัตโนมัติผลิตเกินแพ็กเกจ
-        from app import usage
-        if not await usage.can_produce_article(owner_id):
+        from app import usage, plans
+        _allowed = plans.limits(await usage.user_plan(owner_id))["articles_month"]
+        _remaining = max(0, _allowed - await usage.articles_this_month(owner_id))
+        if _remaining <= 0:
             return {"project": proj.name, "produced": 0, "note": "ถึงโควตาบทความของแพ็กเกจเดือนนี้แล้ว"}
+        max_new = min(max_new, _remaining)          # กันผลิตเกินโควตาเมื่อ batch>1 (เช่น grow_clusters)
     async with db.session() as s:
         proj = await s.get(Project, project_id)
         # ให้แน่ใจว่าโปรเจ็คมี slug (โปรเจ็คเก่า/สร้างก่อนฟีเจอร์ Managed Hosting)
@@ -636,11 +639,13 @@ async def _optimize_low_scores(threshold: int, per_project: int) -> str:
         return "DB not configured"
     n = 0
     async with db.session() as s:
-        pids = (await s.execute(select(Project.id))).scalars().all()
-        for pid in pids:
+        projs = (await s.execute(select(Project.id, Project.mode))).all()
+        for pid, mode in projs:
+            # โหมด auto: ซ่อม 'ร่างที่คะแนนยังไม่ถึงเกณฑ์' ด้วย → พอถึงเกณฑ์จะเผยแพร่เอง (กันร่างค้างถาวร)
+            statuses = ["published", "draft"] if mode == "auto" else ["published"]
             rows = (await s.execute(
                 select(Article.id).where(Article.project_id == pid,
-                                         Article.status == "published",
+                                         Article.status.in_(statuses),
                                          Article.aeo_score < threshold)
                 .order_by(Article.aeo_score.asc()).limit(per_project))).scalars().all()
             for aid in rows:

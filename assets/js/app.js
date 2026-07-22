@@ -177,6 +177,7 @@
     var mp = document.getElementById('modePill');
     if (mp) mp.onclick = function () {
       var cur = RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0];
+      if (!cur) { RP.ui.toast('เลือกโปรเจ็คก่อน'); return; }   // กัน null-deref เมื่อยังไม่มีโปรเจ็ค
       cur.mode = cur.mode === 'auto' ? 'approve' : 'auto';
       mp.outerHTML = modePill();
       RP.ui.toast('โหมดเผยแพร่: <b>' + (cur.mode === 'auto' ? 'Full-Auto 100%' : 'Auto + Human Approve') + '</b>');

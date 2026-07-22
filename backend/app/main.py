@@ -71,6 +71,8 @@ _rl_hits: dict = defaultdict(deque)
 async def rate_limit_auth(request: Request):
     ip = (request.client.host if request.client else "") or "unknown"
     now = time.time()
+    if len(_rl_hits) > 10000:          # กันคีย์ล้น (IP หมุนเวียน) → OOM · ล้างเมื่อโตเกิน
+        _rl_hits.clear()
     dq = _rl_hits[ip]
     while dq and now - dq[0] > 60:
         dq.popleft()
@@ -86,14 +88,21 @@ _LOGIN_LOCK_MAX = 6           # ล้มเหลวเกินนี้ใน
 
 
 def _login_locked(email: str) -> bool:
-    dq = _login_fails[email]
+    dq = _login_fails.get(email)          # ใช้ .get กันสร้างคีย์เปล่าตอนเช็ก
+    if not dq:
+        return False
     now = time.time()
     while dq and now - dq[0] > _LOGIN_LOCK_WINDOW:
         dq.popleft()
+    if not dq:                            # หมดอายุ → ลบคีย์ทิ้ง (กัน memory leak)
+        _login_fails.pop(email, None)
+        return False
     return len(dq) >= _LOGIN_LOCK_MAX
 
 
 def _login_record_fail(email: str):
+    if len(_login_fails) > 10000:         # กันคีย์ล้น (อีเมลสุ่ม) → OOM
+        _login_fails.clear()
     _login_fails[email].append(time.time())
 
 

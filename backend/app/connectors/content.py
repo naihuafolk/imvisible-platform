@@ -71,7 +71,7 @@ MASTER_SYSTEM = """คุณคือ "ImVisible Content Engine" — บรร�
 # ============ generic model callers ============
 
 async def _anthropic_chat(system: str, user: str, max_tokens: int = 16000) -> str:
-    async with httpx.AsyncClient(timeout=300) as c:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=15.0)) as c:
         r = await c.post(
             "https://api.anthropic.com/v1/messages",
             headers={"x-api-key": settings.anthropic_api_key,

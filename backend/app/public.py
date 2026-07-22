@@ -216,7 +216,7 @@ def _share_bar(url: str, title: str) -> str:
     from urllib.parse import quote
     u = quote(url or "", safe="")
     t = quote(title or "", safe="")
-    cu = (url or "").replace("\\", "\\\\").replace("'", "\\'")
+    cu = (url or "").replace('"', "").replace("'", "").replace("\\", "").replace("<", "").replace(">", "")  # ตัดอักขระอันตราย (กัน attribute injection/XSS)
     return (
         '<div class="share-bar"><span class="share-lbl">แชร์บทความนี้</span>'
         '<a class="sh sh-fb" href="https://www.facebook.com/sharer/sharer.php?u=' + u + '" target="_blank" rel="noopener">Facebook</a>'
