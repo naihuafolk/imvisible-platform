@@ -65,21 +65,24 @@ async def _gen_cover(topic: str) -> str:
     try:
         if not media.enabled():
             return ""
-        prompt = ("Editorial magazine cover illustration for a blog article about: %s. "
-                  "Modern, clean, minimal, professional, blue and white color palette, "
-                  "abstract geometric shapes, no text, no letters, high quality." % topic)
+        prompt = ("Premium editorial magazine cover illustration for an article about: %s. "
+                  "Modern, clean, minimalist, sophisticated abstract geometric composition, "
+                  "ImVisible brand blue and white palette, soft depth and lighting, high detail, "
+                  "professional, tasteful, no text, no letters, no watermark." % topic)
         return await media.generate_image(prompt) or ""
     except Exception:  # noqa: BLE001
         return ""
 
 
 def _pick_h2_idxs(n: int) -> list:
-    """เลือก H2 ที่จะแทรกรูป (สูงสุด 2 จุด กระจายกลาง ๆ เลี่ยงหัว/ท้าย)"""
+    """เลือก H2 ที่จะแทรกรูป (กระจายกลาง ๆ เลี่ยงหัว/ท้าย) — บทความยาวใส่ได้ถึง 3 จุด"""
     if n <= 0:
         return []
     if n <= 2:
         return [min(1, n - 1)]
-    return sorted(set([1, n - 2]))[:2]
+    if n <= 4:
+        return sorted(set([1, n - 2]))[:2]
+    return sorted(set([1, n // 2, n - 2]))[:3]
 
 
 async def _enrich_media(html: str, topic: str) -> str:
@@ -98,8 +101,9 @@ async def _enrich_media(html: str, topic: str) -> str:
             h2text = _re.sub(r"<[^>]+>", "", html[start:ms[i].end()] if start >= 0 else "").strip()[:120] or topic
             try:
                 url = await media.generate_image(
-                    "Editorial illustration for the section '" + h2text + "' of an article about '" + topic +
-                    "'. Modern, clean, minimal, professional, blue and white palette, abstract, no text, no letters.")
+                    "Premium editorial illustration for the section '" + h2text + "' of an article about '" + topic +
+                    "'. Modern, clean, minimalist, meaningful abstract concept, blue and white palette, "
+                    "soft depth, high detail, professional magazine style, no text, no letters, no watermark.")
             except Exception:  # noqa: BLE001
                 url = ""
             if url:

@@ -242,7 +242,7 @@ async def _stage1(topic, questions, domain, competitors, language, year, busines
 async def _stage2(blueprint_json, language, year):
     sysp = _fill(MASTER_SYSTEM, year=year) + _S2_SYSTEM_ADD
     user = _fill(_S2_USER, language=language, year=year, blueprint_json=blueprint_json)
-    prov, text = await _llm(sysp, user, tier="fast")
+    prov, text = await _llm(sysp, user, tier="strong")   # ร่างด้วยโมเดลแรง (Claude) → คุณภาพสูงตั้งแต่ต้น
     return prov, _strip_fence(text)
 
 

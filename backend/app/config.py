@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     ark_video_model: str = ""
     # 9b) fal.ai (FLUX) — ผู้ให้บริการรูปทางเลือก · คีย์รูปแบบ id:secret · ถ้าตั้งไว้จะใช้ fal ก่อน ModelArk
     fal_key: str = ""
-    fal_image_model: str = "fal-ai/flux/schnell"
+    fal_image_model: str = "fal-ai/flux/dev"   # คุณภาพสูง (schnell=เร็ว/ถูก · dev=คมกว่า · flux-pro/v1.1=สุด)
     # 9c) งบต้นทุน API/เดือน (บาท) สำหรับแจ้งเตือนแอดมิน — 0 = ไม่ตั้งงบ (ไม่เตือน)
     cost_budget_thb: int = 0
     # 9d) Google Indexing API (instant indexing) — วาง JSON ของ service account ทั้งก้อน
