@@ -27,9 +27,12 @@ async def _fal_image(prompt: str, image_size: str = "landscape_16_9") -> str:
     model = settings.fal_image_model or "fal-ai/flux/schnell"
     headers = {"Authorization": "Key " + settings.fal_key, "Content-Type": "application/json"}
     body = {"prompt": prompt, "num_images": 1}
-    if "flux-pro" in model or "ultra" in model:   # flux-pro/ultra ใช้ aspect_ratio
+    if "seedream" in model:                        # Seedream: image_size = object {width,height} 16:9 HD + enhance
+        body["image_size"] = {"width": 1920, "height": 1080}
+        body["enhance_prompt_mode"] = "standard"
+    elif "flux-pro" in model or "ultra" in model:  # flux-pro/ultra ใช้ aspect_ratio
         body["aspect_ratio"] = "16:9"
-    else:                                          # schnell/dev ใช้ image_size (enum)
+    else:                                          # flux schnell/dev ใช้ image_size (enum string)
         body["image_size"] = image_size
     async with httpx.AsyncClient(timeout=120) as c:
         r = await c.post("https://fal.run/" + model, headers=headers, json=body)

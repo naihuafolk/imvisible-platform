@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     ark_video_model: str = ""
     # 9b) fal.ai (FLUX) — ผู้ให้บริการรูปทางเลือก · คีย์รูปแบบ id:secret · ถ้าตั้งไว้จะใช้ fal ก่อน ModelArk
     fal_key: str = ""
-    fal_image_model: str = "fal-ai/flux-pro/v1.1-ultra"   # editorial คุณภาพสุด (schnell=ถูก · dev=กลาง · flux-pro ultra=สุด)
+    fal_image_model: str = "fal-ai/bytedance/seedream/v4/text-to-image"   # Seedream v4 (ByteDance) — รูปสวยสุดสำหรับ editorial · ทางเลือก: flux-pro/v1.1-ultra
     # 9c) งบต้นทุน API/เดือน (บาท) สำหรับแจ้งเตือนแอดมิน — 0 = ไม่ตั้งงบ (ไม่เตือน)
     cost_budget_thb: int = 0
     # 9e) ประตูคุณภาพ: คะแนน AEO ขั้นต่ำที่จะ 'เผยแพร่อัตโนมัติ' (ต่ำกว่านี้ = เก็บร่าง+ปรับก่อน) — พรีเมียมเท่านั้น
