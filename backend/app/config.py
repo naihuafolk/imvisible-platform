@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     fal_image_model: str = "fal-ai/flux/schnell"
     # 9c) งบต้นทุน API/เดือน (บาท) สำหรับแจ้งเตือนแอดมิน — 0 = ไม่ตั้งงบ (ไม่เตือน)
     cost_budget_thb: int = 0
+    # 9d) Google Indexing API (instant indexing) — วาง JSON ของ service account ทั้งก้อน
+    #     (ต้องเพิ่ม service account เป็น owner ของ property ใน GSC ก่อนถึงจะแจ้ง index ได้)
+    google_indexing_sa_json: str = ""
 
     # โครงสร้างพื้นฐาน (คิวงาน + ฐานข้อมูล ตาม stack หน้า 7)
     redis_url: str = "redis://localhost:6379/0"

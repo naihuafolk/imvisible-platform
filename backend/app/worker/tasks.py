@@ -125,6 +125,16 @@ async def _hero_video(topic: str) -> str:
         return ""
 
 
+async def _google_index(url: str):
+    """⚡ #2 Instant Indexing: แจ้ง Google Indexing API ให้ crawl URL ทันที — crash-safe, no-op ถ้ายังไม่ตั้ง SA"""
+    try:
+        from app.connectors import indexing
+        if url and indexing.enabled():
+            await indexing.submit(url)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 # =========================================================
 #  งานเดี่ยว (เรียกจาก API/แดชบอร์ด หรือจากลูปอัตโนมัติ)
 # =========================================================
@@ -376,6 +386,7 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                         if a:
                             a.url = link; await s.commit()
                 item["published"] = link or "(no link)"
+                await _google_index(link or art_url)                  # ⚡ #2 แจ้ง Google เก็บทันที
                 item["distributed"] = await _distribute(project_id, art_id, topic, _plain(html)[:160],
                                                          link or art_url, "wordpress", bool(pub.get("indexnow")), cover)
             elif p.publish_mode == "managed":                         # 3b) Managed = สดจาก DB + แจ้ง index
@@ -389,6 +400,7 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                         indexnow_ok = True; item["indexnow"] = "pinged"
                 except Exception:
                     pass
+                await _google_index(art_url)                          # ⚡ #2 แจ้ง Google เก็บทันที
                 item["distributed"] = await _distribute(project_id, art_id, topic, _plain(html)[:160],
                                                          art_url, "blog", indexnow_ok, cover)
             else:                                                     # none = เก็บใน DB เฉย ๆ
@@ -725,6 +737,99 @@ async def _ensure_schema(per_project: int) -> str:
                 optimize_article.delay(aid)
                 n += 1
     return "queued schema/optimize for %d articles missing schema" % n
+
+
+@celery_app.task(name="app.worker.tasks.gsc_ctr_boost")
+def gsc_ctr_boost(per_project: int = 3) -> str:
+    """⚡ #4 CTR Optimizer: ใช้ Google Search Console หา query ที่ 'มีคนเห็นแต่ CTR ต่ำ + อันดับ 5-15'
+    → เข้าคิว optimize (รีไรต์ title/meta ให้คนคลิกมากขึ้น) → CTR สูงหนุนอันดับ · ต้องต่อ GSC ต่อโปรเจ็คก่อน"""
+    return _run(_gsc_ctr_boost(per_project))
+
+
+async def _gsc_ctr_boost(per_project: int) -> str:
+    from app.db.models import Project, Article
+    from app.connectors import gsc
+    if not db.enabled():
+        return "DB not configured"
+    n = 0
+    async with db.session() as s:
+        projs = (await s.execute(select(Project))).scalars().all()
+    for p in projs:
+        g = await creds.get_creds(p.id, "gsc")
+        if not g or not p.domain:                             # ยังไม่ต่อ GSC = ข้าม (gated)
+            continue
+        try:
+            summ = await gsc.summary("sc-domain:" + p.domain, 28, creds=g)
+        except Exception:  # noqa: BLE001
+            continue
+        picks = [q for q in (summ.get("top_queries") or [])
+                 if 5 <= (q.get("position") or 0) <= 15 and (q.get("ctr") or 0) < 3
+                 and (q.get("impressions") or 0) >= 10]
+        for q in picks[:per_project]:
+            async with db.session() as s:
+                aid = (await s.execute(
+                    select(Article.id).where(Article.project_id == p.id,
+                                             Article.title == q["query"],
+                                             Article.status == "published").limit(1))).scalar()
+            if aid:
+                optimize_article.delay(aid)
+                n += 1
+    return "queued CTR-boost optimize for %d low-CTR queries" % n
+
+
+@celery_app.task(name="app.worker.tasks.competitor_gap_scan")
+def competitor_gap_scan(per_project: int = 2, add_max: int = 4) -> str:
+    """⚡ #7 Competitor Gap Monitor: ดูหน้าที่คู่แข่งติดอันดับสำหรับคีย์ที่เรายังไม่ติด
+    → เพิ่ม 'หัวข้อ gap' เข้าแผนหัวข้อ (topic_plan) ให้รอบผลิตถัดไปเขียนแซง · ต้องต่อ DataForSEO"""
+    return _run(_competitor_gap_scan(per_project, add_max))
+
+
+async def _competitor_gap_scan(per_project: int, add_max: int) -> str:
+    from app.db.models import Project, Article, RankSnapshot
+    if not db.enabled():
+        return "DB not configured"
+    added = 0
+    async with db.session() as s:
+        projs = (await s.execute(select(Project))).scalars().all()
+    for p in projs:
+        dfs = await creds.get_creds(p.id, "dataforseo")
+        async with db.session() as s:
+            snaps = (await s.execute(
+                select(RankSnapshot.keyword, RankSnapshot.on_page1)
+                .where(RankSnapshot.project_id == p.id).order_by(RankSnapshot.checked_at))).all()
+            existing = set((await s.execute(
+                select(Article.title).where(Article.project_id == p.id))).scalars().all())
+        latest = {}
+        for kw, op in snaps:
+            latest[kw] = bool(op)
+        weak = [kw for kw, op in latest.items() if not op][:per_project]   # คีย์ที่ยังไม่ติดหน้า 1
+        gap_topics = []
+        for kw in weak:
+            try:
+                comps = await serp.top_competitors(kw, n=5, creds=dfs or None)
+            except Exception:  # noqa: BLE001
+                comps = []
+            for c in comps:
+                t = (c.get("title") or "").strip()
+                if t and t not in existing and t not in gap_topics and len(t) <= 120:
+                    gap_topics.append(t)
+        gap_topics = gap_topics[:add_max]
+        if not gap_topics:
+            continue
+        async with db.session() as s:
+            proj = await s.get(Project, p.id)
+            try:
+                plan = json.loads(proj.topic_plan) if (proj.topic_plan or "").strip() else []
+            except Exception:  # noqa: BLE001
+                plan = []
+            have = {(it.get("topic") if isinstance(it, dict) else str(it)) for it in plan}
+            for t in gap_topics:
+                if t not in have:
+                    plan.append({"topic": t, "cluster": "competitor-gap"})
+                    added += 1
+            proj.topic_plan = json.dumps(plan, ensure_ascii=False)
+            await s.commit()
+    return "added %d competitor-gap topics to content plans" % added
 
 
 @celery_app.task(name="app.worker.tasks.distribute_article")

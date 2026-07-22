@@ -65,6 +65,14 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.refresh_interlinks",
         "schedule": crontab(hour=4, minute=30, day_of_week=6),
     },
+    "gsc-ctr-weekly": {              # ⚡ #4 CTR optimizer (ต้องต่อ GSC) ทุกวันพฤหัส 05:30
+        "task": "app.worker.tasks.gsc_ctr_boost",
+        "schedule": crontab(hour=5, minute=30, day_of_week=4),
+    },
+    "competitor-gap-weekly": {       # ⚡ #7 competitor gap (ต้องต่อ DataForSEO) ทุกวันศุกร์ 05:00
+        "task": "app.worker.tasks.competitor_gap_scan",
+        "schedule": crontab(hour=5, minute=0, day_of_week=5),
+    },
     "learn-weekly": {                # M6 · สรุป+ปรับกลยุทธ์ ทุกวันอาทิตย์ 20:00
         "task": "app.worker.tasks.learning_loop",
         "schedule": crontab(hour=20, minute=0, day_of_week=0),
