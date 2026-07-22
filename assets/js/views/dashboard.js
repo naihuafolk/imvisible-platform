@@ -210,16 +210,29 @@
       '</div>';
   }
 
+  function shareBtns(url, title) {
+    if (!url) return '';
+    var u = encodeURIComponent(url), t = encodeURIComponent(title || '');
+    var st = 'margin-left:7px;text-decoration:none;font-size:14px';
+    return ' <a href="https://www.facebook.com/sharer/sharer.php?u=' + u + '" target="_blank" title="แชร์ Facebook" style="' + st + '">📘</a>' +
+      '<a href="https://social-plugins.line.me/lineit/share?url=' + u + '" target="_blank" title="แชร์ LINE" style="' + st + '">💬</a>' +
+      '<a href="https://twitter.com/intent/tweet?url=' + u + '&text=' + t + '" target="_blank" title="แชร์ X" style="' + st + '">𝕏</a>' +
+      '<button class="share-copy" data-url="' + esc(url) + '" title="คัดลอกลิงก์" style="' + st + ';border:none;background:none;cursor:pointer">🔗</button>';
+  }
+
   function fillArts(root, aeo) {
     var slot = root.querySelector('#dash_arts'); if (!slot) return;
     var arts = (aeo && aeo.articles) || [];
     var rows = arts.slice(0, 8).map(function (a) {
       return '<div class="list-row"><span class="t nowrap">' + esc(a.title) + '</span><div class="grow"></div>' +
-        '<span class="right"><span class="badge ' + gradeTone(a.grade) + '">' + a.score + ' · ' + a.grade + '</span>' +
-        (a.url ? ' <a href="' + esc(a.url) + '" target="_blank" title="เปิดบทความ">↗</a>' : '') + '</span></div>';
+        '<span class="right" style="white-space:nowrap"><span class="badge ' + gradeTone(a.grade) + '">' + a.score + ' · ' + a.grade + '</span>' +
+        (a.url ? ' <a href="' + esc(a.url) + '" target="_blank" title="เปิดบทความ" style="text-decoration:none">↗</a>' + shareBtns(a.url, a.title) : '') + '</span></div>';
     }).join('');
-    slot.innerHTML = ui.card({ title: 'บทความล่าสุด + คะแนน AEO', flush: !rows,
+    slot.innerHTML = ui.card({ title: 'บทความล่าสุด + คะแนน AEO', sub: 'กด ↗ เปิด · 📘💬𝕏 แชร์ · 🔗 คัดลอกลิงก์', flush: !rows,
       body: rows || (RP.noData ? RP.noData('ยังไม่มีบทความ', 'ระบบกำลังเขียนบทความแรกให้ — รอสักครู่แล้วรีเฟรช') : '') });
+    Array.prototype.forEach.call(slot.querySelectorAll('.share-copy'), function (b) {
+      b.onclick = function () { try { navigator.clipboard.writeText(b.getAttribute('data-url')); } catch (e) {} b.textContent = '✓'; setTimeout(function () { b.textContent = '🔗'; }, 1500); };
+    });
   }
 
   function realDash() { return DASH_FOCUS ? realDashDetail() : realDashOverview(); }

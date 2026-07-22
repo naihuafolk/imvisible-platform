@@ -202,8 +202,28 @@ article hr{border:0;border-top:1px solid var(--line);margin:2.3em 0}
 .empty{color:var(--muted);padding:48px 0;text-align:center}
 .foot{border-top:1px solid var(--line);margin-top:58px;padding:26px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7}
 .foot a{color:var(--blue)}
+.share-bar{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:42px 0 0;padding-top:24px;border-top:1px solid var(--line)}
+.share-lbl{font-weight:800;font-size:14px;color:var(--muted);margin-right:4px}
+.share-bar .sh{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:11px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:14px;font-weight:700;cursor:pointer;transition:border-color .15s,transform .15s}
+.share-bar .sh:hover{border-color:var(--blue);transform:translateY(-1px);text-decoration:none}
+.share-bar .sh-fb{color:#1877f2}.share-bar .sh-line{color:#06c755}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 """
+
+
+def _share_bar(url: str, title: str) -> str:
+    """ปุ่มแชร์ท้ายบทความ (Facebook / LINE / X / คัดลอกลิงก์) — ให้คนอ่านช่วยแชร์ต่อ = reach + โอกาส earned link"""
+    from urllib.parse import quote
+    u = quote(url or "", safe="")
+    t = quote(title or "", safe="")
+    cu = (url or "").replace("\\", "\\\\").replace("'", "\\'")
+    return (
+        '<div class="share-bar"><span class="share-lbl">แชร์บทความนี้</span>'
+        '<a class="sh sh-fb" href="https://www.facebook.com/sharer/sharer.php?u=' + u + '" target="_blank" rel="noopener">Facebook</a>'
+        '<a class="sh sh-line" href="https://social-plugins.line.me/lineit/share?url=' + u + '" target="_blank" rel="noopener">LINE</a>'
+        '<a class="sh sh-x" href="https://twitter.com/intent/tweet?url=' + u + '&text=' + t + '" target="_blank" rel="noopener">X (Twitter)</a>'
+        '<button class="sh sh-copy" type="button" onclick="navigator.clipboard.writeText(\'' + cu + '\');this.textContent=\'คัดลอกแล้ว ✓\'">คัดลอกลิงก์</button>'
+        '</div>')
 
 
 def _head(title, desc, canonical, lang, jsonld_list, og_type="article", published=None, modified=None, image=""):
@@ -328,6 +348,7 @@ def render_article_page(proj, art, related=None) -> str:
         + '<span class="eyebrow">%s</span>' % _esc(cluster)
         + header + byline + cover_html + toc_html
         + "<article>" + body + "</article>"
+        + _share_bar(canonical, art.title)
         + abox + rel_html
         + _footer(proj) + "</div></main></body></html>"
     )
