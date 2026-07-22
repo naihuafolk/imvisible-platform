@@ -216,6 +216,51 @@ async def projects_overview(user=Depends(get_current_user)):
     return {"projects": out}
 
 
+@app.get("/api/admin/costs")
+async def admin_costs(user=Depends(get_current_user)):
+    """ต้นทุน API เดือนนี้ (ประมาณการ = ใช้งานจริงจาก DB × ราคาต่อหน่วยโดยประมาณ) — เฉพาะแอดมิน
+    ไว้เตรียมเติมเงิน/เครดิตของแต่ละผู้ให้บริการ (ไม่ใช่บิลจริง · ยอดจริงดูที่ console แต่ละเจ้า)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import usage
+    if (await usage.user_plan(user["id"])) != "admin":
+        raise HTTPException(403, "หน้านี้สำหรับแอดมินเท่านั้น")
+    from datetime import datetime, timezone
+    from sqlalchemy import func
+    from app.db.models import Project, Article, RankSnapshot, CitationSnapshot
+    from app.config import settings
+    now = datetime.now(timezone.utc)
+    mstart = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    async with db.session() as s:
+        articles = int((await s.execute(select(func.count(Article.id)).where(Article.created_at >= mstart))).scalar() or 0)
+        with_img = int((await s.execute(select(func.count(Article.id)).where(Article.created_at >= mstart, Article.cover_url != ""))).scalar() or 0)
+        ranks = int((await s.execute(select(func.count(RankSnapshot.id)).where(RankSnapshot.checked_at >= mstart))).scalar() or 0)
+        cites = int((await s.execute(select(func.count(CitationSnapshot.id)).where(CitationSnapshot.sampled_at >= mstart))).scalar() or 0)
+        projects = int((await s.execute(select(func.count(Project.id)))).scalar() or 0)
+    # ราคาต่อหน่วยโดยประมาณ (บาท) — อ้างอิงราคาสาธารณะทั่วไป ปรับได้ภายหลัง
+    U = {"article": 12.0, "image": 5.0, "rank": 0.3, "citation": 2.0}
+    lines = [
+        {"key": "llm", "name": "LLM — เขียนบทความ (3-stage)", "provider": "Anthropic / OpenAI / Gemini",
+         "usage": articles, "unit": "บทความ", "unit_cost": U["article"], "est": round(articles * U["article"]),
+         "topup": "console.anthropic.com · platform.openai.com · aistudio.google.com",
+         "active": bool(settings.anthropic_api_key or settings.openai_api_key or settings.gemini_api_key)},
+        {"key": "image", "name": "รูปภาพ — ปก + ในเนื้อ (Seedream)", "provider": "ModelArk (BytePlus)",
+         "usage": with_img, "unit": "บทความมีรูป", "unit_cost": U["image"], "est": round(with_img * U["image"]),
+         "topup": "BytePlus Console › ModelArk", "active": bool(settings.ark_api_key)},
+        {"key": "rank", "name": "วัดอันดับ + ขุดคีย์เวิร์ด", "provider": "DataForSEO",
+         "usage": ranks, "unit": "ครั้ง", "unit_cost": U["rank"], "est": round(ranks * U["rank"]),
+         "topup": "app.dataforseo.com › Billing", "active": bool(settings.dataforseo_login and settings.dataforseo_password)},
+        {"key": "citation", "name": "วัด AI Citation (ถาม AI จริง)", "provider": "LLM หลายเจ้า",
+         "usage": cites, "unit": "ครั้ง", "unit_cost": U["citation"], "est": round(cites * U["citation"]),
+         "topup": "เดียวกับ LLM", "active": bool(settings.anthropic_api_key or settings.gemini_api_key or settings.openai_api_key or settings.perplexity_api_key)},
+    ]
+    return {"month": mstart.strftime("%Y-%m"), "projects": projects,
+            "lines": lines, "total_est": sum(x["est"] for x in lines),
+            "video_enabled": bool(settings.ark_video_model),
+            "fixed_note": "เซิร์ฟเวอร์ BytePlus ECS + Postgres + Redis = ค่าคงที่รายเดือน (ดูที่บิล BytePlus)",
+            "note": "ประมาณการ = การใช้งานจริงเดือนนี้ (จาก DB) × ราคาต่อหน่วยโดยประมาณ · ไม่ใช่บิลจริง · ยอดเครดิตคงเหลือจริง ดูที่ console ของแต่ละผู้ให้บริการ"}
+
+
 @app.get("/api/activity")
 async def activity_feed(limit: int = 40, project_id: int = 0, user=Depends(get_current_user)):
     """กิจกรรมสดของบัญชี — ไทม์ไลน์ล่าสุด (บทความ/เผยแพร่/วัดอันดับ/AI citation)

@@ -175,7 +175,7 @@
         : (conn ? 'เชื่อมแล้ว (จาก backend)' : 'ยังไม่ตั้งคีย์ (จาก backend)');
       return '<div class="card card-pad">' +
         '<div class="row between wrap" style="gap:8px"><div class="bb">' + esc(i.name) + '</div>' +
-        ui.badge(conn ? '● เชื่อมแล้ว' : 'ต้องเชื่อม', conn ? 'green' : 'amber') + '</div>' +
+        ui.badge(conn ? '● เชื่อมแล้ว' : (i.required ? 'ต้องเชื่อม' : 'ไม่บังคับ'), conn ? 'green' : (i.required ? 'amber' : '')) + '</div>' +
         '<div class="soft small" style="margin:2px 0 8px">ผู้ให้บริการ: ' + esc(i.provider) + (i.required ? ' · <b style="color:var(--red-text)">จำเป็น</b>' : ' · เสริม') + '</div>' +
         '<div class="small" style="margin-bottom:12px">⚙️ ใช้กับ: ' + esc(i.powers) + '</div>' +
         '<div class="row between"><span class="soft small">' + esc(src) + '</span>' +
@@ -184,12 +184,34 @@
     var required = a.integrations.filter(function (i) { return i.required; });
     var optional = a.integrations.filter(function (i) { return !i.required; });
     // บัญชีจริง: การ์ดเชื่อมคีย์ของลูกค้าเอง (per-tenant) — มาก่อนสถานะคีย์กลาง
-    return liveCard() + (RP.isReal() && curProj() ? projectCredsCard() : '') + progress +
+    return '<div id="admincost_slot"></div>' +
+      liveCard() + (RP.isReal() && curProj() ? projectCredsCard() : '') + progress +
       '<div class="bb mb" style="font-size:15px">การเชื่อมต่อที่จำเป็น</div>' +
       '<div class="grid grid-2 mb-l">' + required.map(intCard).join('') + '</div>' +
-      '<div class="bb mb" style="font-size:15px">การเชื่อมต่อเสริม</div>' +
-      '<div class="grid grid-2">' + optional.map(intCard).join('') + '</div>' +
-      '<div class="hint" style="margin-top:14px">🔒 คีย์และโทเคนทั้งหมดถูกเก็บเข้ารหัสฝั่งเซิร์ฟเวอร์ · ค่าใช้จ่าย API เรียกตามการใช้งานจริงของแต่ละโปรเจ็ค (~2,300–5,400 บาท/โปรเจ็ค/เดือน ตามเอกสาร)</div>';
+      '<details style="margin-top:6px"><summary class="bb" style="font-size:15px;cursor:pointer">การเชื่อมต่อเสริม (ไม่บังคับ — ข้ามได้) ›</summary>' +
+      '<div class="soft small" style="margin:8px 0">ระบบทำงานครบโดยไม่ต้องเชื่อมพวกนี้ — เชื่อมเฉพาะถ้าต้องการฟีเจอร์นั้นจริง ๆ</div>' +
+      '<div class="grid grid-2">' + optional.map(intCard).join('') + '</div></details>' +
+      '<div class="hint" style="margin-top:14px">🔒 คีย์และโทเคนทั้งหมดถูกเก็บเข้ารหัสฝั่งเซิร์ฟเวอร์ · ต้นทุน API จริงดูได้ที่การ์ด "ต้นทุน & เครดิต" ด้านบน (เฉพาะแอดมิน)</div>';
+  }
+
+  /* ---------- การ์ดต้นทุน & เครดิต (แอดมินเท่านั้น — เติมจาก /api/admin/costs) ---------- */
+  function costCardHtml(d) {
+    var rows = (d.lines || []).map(function (l) {
+      return '<tr><td><div class="t">' + esc(l.name) + '</div>' +
+        '<div class="soft small">' + esc(l.provider) + (l.active ? '' : ' · <span style="color:var(--amber-600)">ยังไม่ได้ตั้งคีย์</span>') + '</div></td>' +
+        '<td class="num">' + fmt.n(l.usage) + ' <span class="soft small">' + esc(l.unit) + '</span></td>' +
+        '<td class="num soft">฿' + l.unit_cost + '</td>' +
+        '<td class="num bb">฿' + fmt.n(l.est) + '</td>' +
+        '<td class="soft small">' + esc(l.topup) + '</td></tr>';
+    }).join('');
+    return ui.card({ title: '💰 ต้นทุน & เครดิต (แอดมิน)', sub: 'ประมาณการค่า API เดือน ' + esc(d.month) + ' · ' + d.projects + ' โปรเจ็ค', flush: true, cls: 'mb',
+      body: '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>บริการ</th><th class="right">ใช้เดือนนี้</th><th class="right">/หน่วย</th><th class="right">ประมาณการ</th><th>เติมเงินที่</th></tr></thead><tbody>' +
+        rows +
+        '<tr><td class="bb">รวมประมาณการเดือนนี้</td><td></td><td></td><td class="num bb" style="color:var(--brand-700);font-size:16px">฿' + fmt.n(d.total_est) + '</td><td></td></tr>' +
+        '</tbody></table></div>' +
+        '<div class="card-pad soft small">📌 ' + esc(d.note) + '</div>' +
+        '<div class="card-pad soft small" style="padding-top:0">🖥️ ' + esc(d.fixed_note) +
+        (d.video_enabled ? '' : ' · 🎬 วิดีโอ (Seedance) ปิดอยู่เพื่อประหยัด — เปิดโดยตั้ง ARK_VIDEO_MODEL') + '</div>' });
   }
 
   /* ---------- TAB 2: ตั้งค่าโปรเจ็คนี้ ---------- */
@@ -336,6 +358,10 @@
       };
     });
     // per-tenant: เชื่อมคีย์ของลูกค้าเอง (ต่อโปรเจ็ค)
+    var acSlot = root.querySelector('#admincost_slot');   // ต้นทุน (แอดมินเท่านั้น — ไม่ใช่แอดมิน = endpoint 403 → ซ่อน)
+    if (acSlot && RP.api.enabled()) {
+      RP.api.adminCosts().then(function (d) { acSlot.innerHTML = costCardHtml(d); }).catch(function () { acSlot.innerHTML = ''; });
+    }
     var pcSlot = root.querySelector('#pcreds_slot');
     if (pcSlot) {
       var pcPid = dbId(curProj());

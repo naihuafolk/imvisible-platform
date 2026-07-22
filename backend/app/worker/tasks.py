@@ -73,6 +73,58 @@ async def _gen_cover(topic: str) -> str:
         return ""
 
 
+def _pick_h2_idxs(n: int) -> list:
+    """เลือก H2 ที่จะแทรกรูป (สูงสุด 2 จุด กระจายกลาง ๆ เลี่ยงหัว/ท้าย)"""
+    if n <= 0:
+        return []
+    if n <= 2:
+        return [min(1, n - 1)]
+    return sorted(set([1, n - 2]))[:2]
+
+
+async def _enrich_media(html: str, topic: str) -> str:
+    """แทรกรูปประกอบในเนื้อบทความ (Seedream) หลัง H2 ที่เลือก — crash-safe: ปิด/ล้ม = คืน html เดิม
+    เปิดใช้เมื่อมี ARK_API_KEY (ModelArk) เท่านั้น → คุมต้นทุน"""
+    import re as _re
+    try:
+        if not html or not media.enabled():
+            return html
+        ms = list(_re.finditer(r"</h2>", html, flags=_re.I))
+        if not ms:
+            return html
+        inserts = []
+        for i in _pick_h2_idxs(len(ms)):
+            start = html.rfind("<h2", 0, ms[i].start())
+            h2text = _re.sub(r"<[^>]+>", "", html[start:ms[i].end()] if start >= 0 else "").strip()[:120] or topic
+            try:
+                url = await media.generate_image(
+                    "Editorial illustration for the section '" + h2text + "' of an article about '" + topic +
+                    "'. Modern, clean, minimal, professional, blue and white palette, abstract, no text, no letters.")
+            except Exception:  # noqa: BLE001
+                url = ""
+            if url:
+                alt = h2text.replace('"', "'")
+                inserts.append((ms[i].end(),
+                    '<figure class="inline-img"><img src="' + url + '" alt="' + alt +
+                    '" loading="lazy" style="width:100%;border-radius:12px"></figure>'))
+        for pos, frag in sorted(inserts, key=lambda z: -z[0]):
+            html = html[:pos] + frag + html[pos:]
+        return html
+    except Exception:  # noqa: BLE001
+        return html
+
+
+async def _hero_video(topic: str) -> str:
+    """วิดีโอ hero (Seedance) — ปิดเป็นค่าเริ่มต้น (เปิดเมื่อ operator ตั้ง ARK_VIDEO_MODEL) เพราะช้า+แพง"""
+    try:
+        from app.config import settings
+        if not media.enabled() or not settings.ark_video_model:
+            return ""
+        return await media.generate_video("Short cinematic b-roll, blue-white minimal aesthetic, about: " + topic) or ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 # =========================================================
 #  งานเดี่ยว (เรียกจาก API/แดชบอร์ด หรือจากลูปอัตโนมัติ)
 # =========================================================
@@ -288,7 +340,12 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                                          business_context=p.business_context)   # ← บริบทจริงจากเว็บลูกค้า
             html = gen.get("html", "")
             html = await _apply_internal_links(project_id, topic, html)  # ลิงก์ภายในจริง (M3) — ห้ามปล่อยลิงก์ตาย
+            html = await _enrich_media(html, topic)                   # แทรกรูปในเนื้อ (ถ้าเปิด ModelArk)
             cover = await _gen_cover(topic)                           # รูปปก (crash-safe: ล้ม='')
+            video = await _hero_video(topic)                          # วิดีโอ hero (ถ้าตั้ง ARK_VIDEO_MODEL)
+            if video:
+                html = ('<figure class="hero-video"><video src="' + video +
+                        '" controls preload="metadata" playsinline style="width:100%;border-radius:12px"></video></figure>') + html
             schema = gen.get("schema", "") or ""
             desc = _plain(html)[:300]
             aeo = _aeo_of(html, topic, desc, schema, cover)          # คะแนน AEO/SEO จริง (ตัวแปรจัดอันดับ)
