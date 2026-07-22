@@ -168,6 +168,24 @@ async def _analyze_project(project_id: int) -> dict:
             "context": ctx_text[:220], "brand_terms": brands_txt, "plan_size": len(plan)}
 
 
+def _starter_topics(seed: str, lang: str) -> list[str]:
+    """หัวข้อตั้งต้นจากชื่อแบรนด์/โดเมน — ใช้เมื่อยังไม่มีแผนหัวข้อ และขุดคีย์เวิร์ดไม่ได้
+    (เช่น ไม่มี/คีย์ DataForSEO ใช้ไม่ได้) เพื่อให้ทุกโปรเจ็ค 'เริ่มผลิตได้เสมอ'
+    หมายเหตุ: เป็นหัวข้อบทความจริงที่ AI จะเขียนเนื้อหาให้ ไม่ใช่ตัวเลข/ผลลัพธ์ปลอม"""
+    seed = (seed or "").strip() or "แบรนด์"
+    if lang == "English":
+        return [f"What is {seed}? A complete guide",
+                f"{seed}: benefits, features and how it works",
+                f"How to choose {seed} — a buyer's guide",
+                f"{seed} vs the alternatives: which is best?",
+                f"{seed} FAQ: everything you need to know"]
+    return [f"{seed} คืออะไร? คู่มือฉบับสมบูรณ์",
+            f"{seed} ดีอย่างไร จุดเด่นและวิธีใช้งาน",
+            f"วิธีเลือก {seed} ให้เหมาะกับคุณ",
+            f"{seed} เทียบกับตัวเลือกอื่น แบบไหนดีกว่า",
+            f"รวมคำถามที่พบบ่อยเกี่ยวกับ {seed}"]
+
+
 @celery_app.task(name="app.worker.tasks.produce_for_project")
 def produce_for_project(project_id: int, max_new: int = 1) -> dict:
     """1 โปรเจ็ค: ขุดคำถาม → เลือกหัวข้อใหม่ (กันซ้ำ) → เขียนด้วย AI →
@@ -231,17 +249,20 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                 cluster_of[t] = str(it.get("cluster") or "")[:200]
         all_q = planned[:20]
         topics = [t for t in planned if t not in existing][:max_new]
+    lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
     if not topics:
         seed = (p.name or p.domain or "").strip()
+        all_q = []
         try:
             mined = await mining.mine(seed, creds=dfs or None)
-        except Exception as e:  # noqa: BLE001
-            return {"project": p.name, "produced": 0, "note": "mining failed: " + str(e)[:120]}
-        all_q = [q.get("q") for q in mined.get("questions", []) if q.get("q")]
+            all_q = [q.get("q") for q in mined.get("questions", []) if q.get("q")]
+        except Exception:  # noqa: BLE001
+            all_q = []
+        if not all_q:                    # ขุดคีย์เวิร์ดไม่ได้ (ไม่มี/คีย์ DataForSEO ใช้ไม่ได้) → หัวข้อตั้งต้นจากแบรนด์เอง (ผลิตได้เสมอ)
+            all_q = _starter_topics(seed, lang)
         topics = [q for q in all_q if q not in existing][:max_new]
     if not topics:
         return {"project": p.name, "produced": 0, "note": "ไม่มีหัวข้อใหม่ให้ผลิต"}
-    lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
     auto = (p.mode == "auto")
     results = []
     for topic in topics:

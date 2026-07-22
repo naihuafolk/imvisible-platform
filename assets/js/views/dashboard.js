@@ -253,7 +253,8 @@
       desc: 'ดูลูกค้าทุกรายพร้อมกัน — อันดับ คะแนน AEO และบทความที่เผยแพร่ · คลิกโปรเจ็คเพื่อเปิดรายงานเต็ม' }) +
       '<div class="row between wrap mb" style="gap:10px;align-items:center">' +
       '<div class="soft small" id="ov_count">กำลังโหลด…</div>' +
-      '<button class="btn btn-sm btn-primary" id="ovNew">＋ สร้างโปรเจ็ค</button></div>' +
+      '<div class="row" style="gap:8px"><span id="ov_bulk"></span>' +
+      '<button class="btn btn-sm btn-primary" id="ovNew">＋ สร้างโปรเจ็ค</button></div></div>' +
       '<div id="ov_grid"><div class="hint">กำลังโหลดภาพรวมทุกโปรเจ็ค…</div></div>';
     return {
       html: html,
@@ -284,6 +285,17 @@
     if (cnt) cnt.textContent = projs.length + ' โปรเจ็ค · เผยแพร่รวม ' +
       RP.sum(projs, function (p) { return p.published || 0; }) + ' บทความ · ติดหน้า 1 รวม ' +
       RP.sum(projs, function (p) { return p.page1 || 0; }) + ' คีย์เวิร์ด';
+    var idleIds = projs.filter(function (p) { return p.status === 'idle'; }).map(function (p) { return p.id; });
+    var bulk = root.querySelector('#ov_bulk');
+    if (bulk) {
+      bulk.innerHTML = idleIds.length ? '<button class="btn btn-sm ov-startall">▶ เริ่มผลิตที่ยังว่าง (' + idleIds.length + ')</button>' : '';
+      var bb = bulk.querySelector('.ov-startall');
+      if (bb) bb.onclick = function () {
+        bb.disabled = true; bb.textContent = 'กำลังสั่ง…';
+        Promise.all(idleIds.map(function (id) { return RP.api.grow(id).catch(function () { return null; }); }))
+          .then(function () { ui.toast('สั่งเริ่มผลิต ' + idleIds.length + ' โปรเจ็คแล้ว ✓ — ระบบกำลังเขียนให้ อีกสักครู่กดรีเฟรช'); bb.textContent = '⏳ กำลังผลิต'; });
+      };
+    }
     var cards = projs.map(function (p) {
       var stBadge = ui.badge((p.status_tone === 'green' || p.status_tone === 'red' ? '● ' : '') + (p.status_label || '—'), ovBadgeTone(p.status_tone));
       var home = p.public_home || '';
