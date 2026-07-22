@@ -78,6 +78,8 @@
     return { html: html, mount: mountLive };
   };
 
+  RP._activity = { card: feedCard, mount: mountLive };   // ให้แดชบอร์ดเอาไปฝังการทำงานสด
+
   function mountLive(root) {
     if (RP._actTimer) { clearInterval(RP._actTimer); RP._actTimer = null; }
     if (!RP.isReal() || !RP.api.enabled()) return;

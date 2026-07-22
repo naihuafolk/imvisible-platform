@@ -185,7 +185,52 @@
 
   function reDash() { var f = RP.views.dashboard(); var c = document.getElementById('content'); c.innerHTML = '<div class="view">' + f.html + '</div>'; f.mount(c); }
 
-  RP.views.dashboard = function () {
+  /* ---------- แดชบอร์ดมินิมอลสำหรับบัญชีจริง: ตัวเลขจริง + การทำงานสด ---------- */
+  function fillKpi(root, u, summ) {
+    var slot = root.querySelector('#dash_kpi'); if (!slot) return;
+    u = u || {}; summ = summ || {};
+    var pj = u.projects || {}, art = u.articles_month || {};
+    slot.innerHTML = '<div class="grid grid-4">' +
+      ui.kpi({ label: 'โปรเจ็ค', value: (pj.used != null ? pj.used : '—') + (pj.limit ? (' / ' + pj.limit) : ''), tone: 'brand' }) +
+      ui.kpi({ label: 'บทความทั้งหมด', value: (summ.articles != null ? fmt.n(summ.articles) : '—') }) +
+      ui.kpi({ label: 'เผยแพร่แล้ว', value: (summ.published != null ? fmt.n(summ.published) : '—'), tone: 'pos' }) +
+      ui.kpi({ label: 'บทความเดือนนี้', value: (art.used != null ? art.used : '—') + (art.limit ? (' / ' + art.limit) : ''),
+        foot: esc(u.plan_label || '') }) +
+      '</div>';
+  }
+
+  function realDash() {
+    var html =
+      ui.pageHead({ eyebrow: 'ImVisible · ภาพรวม', title: 'แดชบอร์ดหลัก',
+        desc: 'ตัวเลขจริงของบัญชีคุณ + การทำงานสดของระบบ (อัปเดตเองทุก 8 วินาที)' }) +
+      '<div id="dash_kpi" class="mb"><div class="hint">กำลังโหลดสรุป…</div></div>' +
+      '<div class="row wrap mb" style="gap:10px">' +
+        '<button class="btn btn-primary" id="dNew">＋ สร้างโปรเจ็ค</button>' +
+        '<button class="btn" id="dProjects">🗂️ จัดการโปรเจ็ค</button>' +
+        '<button class="btn" id="dAct">⚡ กิจกรรมสดเต็มจอ</button>' +
+      '</div>' +
+      '<div id="act_slot"><div class="hint">กำลังโหลดการทำงานสด…</div></div>';
+    return {
+      html: html,
+      mount: function (root) {
+        if (RP.api.enabled()) {
+          RP.api.usage().then(function (u) {
+            RP.api.activity(1).then(function (a) { fillKpi(root, u, a && a.summary); })
+              .catch(function () { fillKpi(root, u, null); });
+          }).catch(function () { var s = root.querySelector('#dash_kpi'); if (s) s.innerHTML = ''; });
+        }
+        if (RP._activity) RP._activity.mount(root);   // ฝังการทำงานสด (โพลล์ /api/activity)
+        var b;
+        b = root.querySelector('#dNew'); if (b) b.onclick = function () { RP.go('projects'); };
+        b = root.querySelector('#dProjects'); if (b) b.onclick = function () { RP.go('projects'); };
+        b = root.querySelector('#dAct'); if (b) b.onclick = function () { RP.go('activity'); };
+      }
+    };
+  }
+
+  RP.views.dashboard = function () { return RP.isReal() ? realDash() : sampleDash(); };
+
+  function sampleDash() {
     var p = currentProject();
 
     var projectBar;

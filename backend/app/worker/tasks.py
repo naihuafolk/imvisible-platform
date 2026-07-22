@@ -111,9 +111,16 @@ async def _measure_rank(keyword: str, domain: str, project_id: int | None) -> di
 # =========================================================
 
 @celery_app.task(name="app.worker.tasks.analyze_project")
-def analyze_project(project_id: int) -> dict:
-    """🔎 Site Intelligence: อ่านเว็บลูกค้าจริง → สกัดบริบทธุรกิจ + คำแบรนด์ + วางแผนหัวข้อ"""
-    return _run(_analyze_project(project_id))
+def analyze_project(project_id: int, then_produce: bool = True) -> dict:
+    """🔎 Site Intelligence: อ่านเว็บลูกค้าจริง → สกัดบริบทธุรกิจ + คำแบรนด์ + วางแผนหัวข้อ
+    แล้ว 'ผลิตบทความแรกเองทันที' (ออโตจริง — สร้างโปรเจ็คแล้วมีบทความเลย ไม่ต้องรอ beat/สั่งเอง)"""
+    r = _run(_analyze_project(project_id))
+    if then_produce:
+        try:
+            produce_for_project.delay(project_id, 1)   # ฝังออโต: วิเคราะห์เสร็จ → เขียนบทความแรก
+        except Exception:  # noqa: BLE001
+            pass
+    return r
 
 
 async def _analyze_project(project_id: int) -> dict:
