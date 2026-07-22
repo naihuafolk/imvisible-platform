@@ -65,10 +65,12 @@ async def _gen_cover(topic: str) -> str:
     try:
         if not media.enabled():
             return ""
-        prompt = ("Premium editorial magazine cover illustration for an article about: %s. "
-                  "Modern, clean, minimalist, sophisticated abstract geometric composition, "
-                  "ImVisible brand blue and white palette, soft depth and lighting, high detail, "
-                  "professional, tasteful, no text, no letters, no watermark." % topic)
+        prompt = ("Editorial cover illustration for a premium Thai business magazine article titled: %s. "
+                  "Sophisticated conceptual illustration, flat vector shapes with subtle paper-grain texture, "
+                  "generous negative space, cool cobalt-blue and clean white palette with one soft accent tone, "
+                  "crisp geometric composition, layered depth, gentle studio lighting, calm and premium mood. "
+                  "Award-winning editorial art direction, magazine-quality, ultra-detailed. "
+                  "Absolutely no text, no letters, no words, no numbers, no logos, no watermark, no signature, no UI." % topic)
         return await media.generate_image(prompt) or ""
     except Exception:  # noqa: BLE001
         return ""
