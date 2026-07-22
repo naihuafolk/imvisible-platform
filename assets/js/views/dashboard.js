@@ -229,6 +229,24 @@
     return '<div style="text-align:center;flex:1"><div class="bb" style="font-size:20px;line-height:1.1">' + val +
       '</div><div class="soft" style="font-size:11px;margin-top:2px">' + esc(label) + '</div></div>';
   }
+  function agoText(iso) {
+    if (!iso) return 'ยังไม่มี';
+    var t = new Date(iso).getTime(); if (isNaN(t)) return '';
+    var s = Math.floor((Date.now() - t) / 1000);
+    if (s < 60) return 'เมื่อกี้';
+    var m = Math.floor(s / 60); if (m < 60) return m + ' นาทีที่แล้ว';
+    var h = Math.floor(m / 60); if (h < 24) return h + ' ชม.ที่แล้ว';
+    return Math.floor(h / 24) + ' วันที่แล้ว';
+  }
+  function ovBadgeTone(t) { return t === 'green' ? 'green' : t === 'amber' ? 'amber' : t === 'red' ? 'red' : ''; }
+
+  /* เปิดรายงานเต็มของโปรเจ็คหนึ่ง (เรียกจากทุกหน้า) */
+  RP.openProjectReport = function (dbId) {
+    var id = String(dbId);
+    RP.data.project.current = /^\d+$/.test(id) ? ('db' + id) : id;   // ตัวเลขล้วน = id จาก overview → เติม db
+    DASH_FOCUS = true;
+    if (location.hash === '#/dashboard' || location.hash === '#/') reDash(); else RP.go('dashboard');
+  };
 
   function realDashOverview() {
     var html = ui.pageHead({ eyebrow: 'ImVisible · ศูนย์ควบคุม', title: 'ทุกโปรเจ็คของคุณ',
@@ -267,29 +285,45 @@
       RP.sum(projs, function (p) { return p.published || 0; }) + ' บทความ · ติดหน้า 1 รวม ' +
       RP.sum(projs, function (p) { return p.page1 || 0; }) + ' คีย์เวิร์ด';
     var cards = projs.map(function (p) {
-      var badge = p.mode === 'auto' ? ui.badge('Full-Auto', 'green') : ui.badge('รออนุมัติ', 'amber');
+      var stBadge = ui.badge((p.status_tone === 'green' || p.status_tone === 'red' ? '● ' : '') + (p.status_label || '—'), ovBadgeTone(p.status_tone));
       var home = p.public_home || '';
-      return '<div class="card card-pad" style="display:flex;flex-direction:column;gap:12px">' +
-        '<div class="row" style="gap:10px;align-items:center">' +
+      var idle = p.status === 'idle';
+      var leftBtn = idle
+        ? '<button class="btn btn-sm ov-start" data-id="' + p.id + '">▶ เริ่มผลิต</button>'
+        : (home ? '<a href="' + esc(home) + '" target="_blank" class="btn btn-sm">เปิดบล็อก ↗</a>' : '<span class="soft small">ยังไม่มีบล็อก</span>');
+      return '<div class="card card-pad" style="display:flex;flex-direction:column;gap:10px">' +
+        '<div class="row" style="gap:10px;align-items:flex-start">' +
         '<div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--grad-start),var(--grad-end));display:grid;place-items:center;color:#fff;font-size:17px;flex:none">🌐</div>' +
         '<div class="grow" style="min-width:0"><div class="bb nowrap" style="overflow:hidden;text-overflow:ellipsis">' + esc(p.name) + '</div>' +
-        '<div class="soft small nowrap" style="overflow:hidden;text-overflow:ellipsis">' + esc(p.domain || '') + '</div></div>' +
-        badge + '</div>' +
-        '<div class="row" style="gap:6px;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">' +
+        '<div class="soft small nowrap" style="overflow:hidden;text-overflow:ellipsis">' + esc(p.domain || '') + ' · ' + (p.mode === 'auto' ? 'Full-Auto' : 'รออนุมัติ') + '</div></div>' +
+        stBadge + '</div>' +
+        '<div class="row" style="gap:6px;padding:9px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">' +
         ovKpi('ติดหน้า 1', p.page1 != null ? p.page1 : '—') +
         ovKpi('AEO เฉลี่ย', p.avg_aeo != null ? p.avg_aeo : '—') +
         ovKpi('เผยแพร่', p.published != null ? p.published : 0) +
         '</div>' +
-        '<div class="row between" style="gap:8px">' +
-        (home ? '<a href="' + esc(home) + '" target="_blank" class="btn btn-sm">เปิดบล็อก ↗</a>' : '<span class="soft small">ยังไม่มีบล็อก</span>') +
+        '<div class="soft" style="font-size:11px">' + (idle
+          ? 'ยังไม่มีบทความ — กด “เริ่มผลิต” ให้ระบบเขียนบทความแรก'
+          : 'อัปเดตล่าสุด: ' + esc(agoText(p.last_at))) + '</div>' +
+        '<div class="row between" style="gap:8px">' + leftBtn +
         '<button class="btn btn-sm btn-primary ov-open" data-id="' + p.id + '">ดูรายงาน →</button>' +
         '</div></div>';
     }).join('');
     grid.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px">' + cards + '</div>';
     Array.prototype.forEach.call(grid.querySelectorAll('.ov-open'), function (b) {
+      b.onclick = function () { RP.openProjectReport(b.getAttribute('data-id')); };
+    });
+    Array.prototype.forEach.call(grid.querySelectorAll('.ov-start'), function (b) {
       b.onclick = function () {
-        RP.data.project.current = 'db' + b.getAttribute('data-id');
-        DASH_FOCUS = true; reDash();
+        var id = b.getAttribute('data-id');
+        b.disabled = true; b.textContent = 'กำลังสั่ง…';
+        RP.api.grow(id).then(function () {
+          ui.toast('สั่งเริ่มผลิตบทความแล้ว ✓ — ระบบกำลังเขียนให้ อีกสักครู่กดรีเฟรช');
+          b.textContent = '⏳ กำลังผลิต';
+        }).catch(function (e) {
+          b.disabled = false; b.textContent = '▶ เริ่มผลิต';
+          ui.toast('สั่งไม่ได้: ' + esc(e.message || String(e)));
+        });
       };
     });
   }

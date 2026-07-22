@@ -28,28 +28,47 @@
   }
 
   function projectCard(p) {
-    var isCur = p.id === RP.data.project.current;
     var real = RP.isReal();
+    var numId = String(p.id).replace(/^db/, '');
     var setup = p.status === 'setup';
     var connected = (p.health.gsc ? 1 : 0) + (p.health.serp ? 1 : 0) + (p.health.ai ? 1 : 0) + (p.health.publish ? 1 : 0);
-    return '<div class="card card-pad" style="' + (isCur ? 'border-color:var(--brand-500);box-shadow:0 0 0 2px rgba(99,102,241,.15)' : '') + '">' +
-      '<div class="row between wrap" style="gap:8px">' +
-      '<div class="bb" style="font-size:16px">' + esc(p.name) + (isCur ? ' ' + ui.badge('กำลังใช้งาน', 'green') : '') + '</div>' +
-      (real || !p.plan ? '' : ui.badge('แพ็กเกจ ' + p.plan, 'purple')) + '</div>' +
-      '<div class="soft small" style="margin-top:2px">🌐 ' + esc(p.domain) + ' · ' + esc(p.country) + ' · สร้างเมื่อ ' + esc(p.created) + '</div>' +
-      (!real && setup ? '<div class="hint" style="margin-top:10px">⚠️ ตั้งค่ายังไม่ครบ (' + connected + '/4) — เชื่อม AI Citation + ปลายทางเผยแพร่ให้ครบก่อนเริ่มวัดผล</div>' : '') +
-      healthRow(p.health) +
-      '<div class="row wrap" style="gap:18px;margin:6px 0 12px">' +
-      stat('คีย์เวิร์ดติดตาม', realNum(fmt.n(p.keywords))) + stat('คลัสเตอร์', realNum(p.clusters)) +
-      stat('โหมด', p.mode === 'auto' ? 'Full-Auto' : 'Human Approve') + stat('Freshness', p.freshnessDays + ' วัน') +
+    return '<div class="card card-pad">' +
+      '<div class="row between wrap" style="gap:8px;align-items:flex-start">' +
+      '<div style="min-width:0"><div class="bb" style="font-size:16px">' + esc(p.name) + '</div>' +
+      '<div class="soft small" style="margin-top:2px">🌐 ' + esc(p.domain) + ' · ' + esc(p.country) +
+      ' · ' + (p.mode === 'auto' ? 'Full-Auto' : 'Human Approve') + ' · Freshness ' + esc(p.freshnessDays) + ' วัน</div></div>' +
+      '<span class="proj-status" data-pid="' + esc(numId) + '">' + (real ? '<span class="soft small">…</span>' : (p.plan ? ui.badge('แพ็กเกจ ' + p.plan, 'purple') : '')) + '</span>' +
       '</div>' +
-      (real ? '<div class="hint" style="margin:0 0 12px">ยังไม่มีข้อมูล — ระบบจะแสดงจำนวนคีย์เวิร์ด/คลัสเตอร์จริงหลังเก็บข้อมูลรอบแรก (ปกติ 1–7 วันหลังเชื่อมต่อครบ)</div>' : '') +
-      '<div class="row gap-s wrap">' +
-      (isCur ? '<button class="btn btn-sm" disabled style="opacity:.6">● ใช้งานอยู่</button>'
-             : '<button class="btn btn-primary btn-sm use-proj" data-id="' + p.id + '">เปิดใช้งานโปรเจ็คนี้</button>') +
-      '<button class="btn btn-sm cfg-proj" data-id="' + p.id + '">⚙️ ตั้งค่า</button>' +
-      '<button class="btn btn-sm open-dash" data-id="' + p.id + '">เปิดแดชบอร์ด →</button>' +
+      (!real && setup ? '<div class="hint" style="margin-top:10px">⚠️ ตั้งค่ายังไม่ครบ (' + connected + '/4) — เชื่อม AI Citation + ปลายทางเผยแพร่ให้ครบก่อนเริ่มวัดผล</div>' : '') +
+      (real ? '' : healthRow(p.health)) +
+      '<div class="soft small proj-nums" data-pid="' + esc(numId) + '" style="margin:12px 0">' + (real ? 'กำลังโหลดข้อมูล…' : '') + '</div>' +
+      (real ? '<div class="soft small" style="margin:0 0 12px">🔌 สถานะการเชื่อมต่อดูที่ ⚙️ ตั้งค่า › การเชื่อมต่อ · ผลงาน/การทำงานสดดูที่ 📊 แดชบอร์ด</div>' : '') +
+      '<div class="row gap-s wrap" style="align-items:center">' +
+      '<button class="btn btn-primary btn-sm open-dash" data-id="' + esc(p.id) + '">📊 เปิดรายงาน</button>' +
+      '<button class="btn btn-sm cfg-proj" data-id="' + esc(p.id) + '">⚙️ ตั้งค่า</button>' +
+      '<button class="btn btn-sm del-proj" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '" style="margin-left:auto;color:var(--red-600,#dc2626)">🗑 ลบ</button>' +
       '</div></div>';
+  }
+
+  /* ลบโปรเจ็คถาวร (ยืนยันก่อน) */
+  function confirmDelete(id, name) {
+    var pid = String(id).replace(/^db/, '');
+    ui.modal({ title: 'ลบโปรเจ็คนี้?', sub: name, width: 460, body:
+      '<div class="note-box mb" style="border:1px solid var(--red-300,#fecaca);background:var(--red-50,#fef2f2)">⚠️ ลบ <b>' + esc(name) + '</b> และข้อมูลทั้งหมด (บทความ อันดับ AI Citation ช่องทาง คีย์) <b>ออกถาวร กู้คืนไม่ได้</b></div>' +
+      '<div class="row between" style="margin-top:14px"><button class="btn btn-sm" id="delCancel">ยกเลิก</button>' +
+      '<button class="btn btn-sm" id="delGo" style="background:var(--red-600,#dc2626);color:#fff;border:none">ลบถาวร</button></div>' });
+    var go = document.getElementById('delGo'), cc = document.getElementById('delCancel');
+    if (cc) cc.onclick = function () { ui.closeModal(); };
+    if (go) go.onclick = function () {
+      if (!RP.api.reachable()) { ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'); return; }
+      go.disabled = true; go.textContent = 'กำลังลบ…';
+      RP.api.deleteProject(pid).then(function () {
+        ui.closeModal();
+        ui.toast('ลบโปรเจ็ค <b>' + esc(name) + '</b> แล้ว ✓');
+        if (RP.data.project.current === id) RP.data.project.current = '';
+        if (RP.loadRealData) RP.loadRealData(function () { mountNow(); }); else mountNow();
+      }).catch(function (e) { go.disabled = false; go.textContent = 'ลบถาวร'; ui.toast('ลบไม่ได้: ' + esc(e.message || String(e))); });
+    };
   }
   function stat(l, v) { return '<div><div class="soft" style="font-size:11px">' + esc(l) + '</div><div class="bb">' + v + '</div></div>'; }
 
@@ -166,7 +185,7 @@
       : RP.noData('ยังไม่มีโปรเจ็ค', 'สร้างโปรเจ็คแรกด้วยปุ่ม “＋ สร้างโปรเจ็คใหม่” ด้านบน — ระบบจะเริ่มเก็บข้อมูลจริงหลังเชื่อมต่อครบ');
     var html =
       ui.pageHead({ eyebrow: 'ระบบ · Multi-Project', title: 'จัดการโปรเจ็ค',
-        desc: 'หนึ่งบัญชีดูแลได้หลายเว็บ/หลายลูกค้า — แต่ละโปรเจ็คมีคีย์เวิร์ด คู่แข่ง ปลายทางเผยแพร่ และการวัดผลของตัวเอง (จำนวนโปรเจ็คตามแพ็กเกจ)' }) +
+        desc: 'หน้านี้ไว้ “จัดการ” — สร้าง ตั้งค่า และลบโปรเจ็ค · ทุกโปรเจ็คทำงานอัตโนมัติพร้อมกัน (ไม่ต้องเปิดทีละอัน) · อยากดูผลงาน/สถานะสด ไปที่ 📊 แดชบอร์ด' }) +
       RP.sampleNotice('หน้าจัดการโปรเจ็ค (โปรเจ็คตัวอย่าง คีย์เวิร์ด คลัสเตอร์ แพ็กเกจ และสถานะการเชื่อมต่อ)') +
       RP.collectingNotice('ของแต่ละโปรเจ็ค (คีย์เวิร์ด/คลัสเตอร์/สถานะการเชื่อมต่อ)') +
       quotaCard() +
@@ -190,20 +209,34 @@
             mountNow();
           }).catch(function (e) { RP.ui.toast('โหลดไม่ได้: ' + RP.esc(e.message) + ' (ต้องเข้าสู่ระบบจริง + ตั้ง DATABASE_URL)'); });
         };
-        Array.prototype.forEach.call(root.querySelectorAll('.use-proj'), function (b) {
-          b.onclick = function () {
-            RP.data.project.current = b.getAttribute('data-id');
-            var p = RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0];
-            ui.toast('สลับมาที่โปรเจ็ค <b>' + esc(p.name) + '</b>');
-            mountNow();
-          };
-        });
         Array.prototype.forEach.call(root.querySelectorAll('.cfg-proj'), function (b) {
           b.onclick = function () { RP.data.project.current = b.getAttribute('data-id'); RP.go('settings'); };
         });
         Array.prototype.forEach.call(root.querySelectorAll('.open-dash'), function (b) {
-          b.onclick = function () { RP.data.project.current = b.getAttribute('data-id'); RP.go('dashboard'); };
+          b.onclick = function () {
+            if (RP.openProjectReport) RP.openProjectReport(b.getAttribute('data-id'));
+            else { RP.data.project.current = b.getAttribute('data-id'); RP.go('dashboard'); }
+          };
         });
+        Array.prototype.forEach.call(root.querySelectorAll('.del-proj'), function (b) {
+          b.onclick = function () { confirmDelete(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
+        });
+        // เติมสถานะทำงานจริง + ตัวเลขจริง ลงการ์ด (จาก /api/projects/overview)
+        if (RP.isReal() && RP.api.enabled()) {
+          RP.api.projectsOverview().then(function (d) {
+            var m = {}; (d.projects || []).forEach(function (x) { m[x.id] = x; });
+            function tone(t) { return t === 'green' ? 'green' : t === 'amber' ? 'amber' : t === 'red' ? 'red' : ''; }
+            Array.prototype.forEach.call(root.querySelectorAll('.proj-status'), function (el) {
+              var x = m[parseInt(el.getAttribute('data-pid'), 10)]; if (!x) return;
+              el.innerHTML = ui.badge((x.status_tone === 'green' || x.status_tone === 'red' ? '● ' : '') + x.status_label, tone(x.status_tone));
+            });
+            Array.prototype.forEach.call(root.querySelectorAll('.proj-nums'), function (el) {
+              var x = m[parseInt(el.getAttribute('data-pid'), 10)]; if (!x) return;
+              el.textContent = 'บทความ ' + (x.articles || 0) + ' · เผยแพร่ ' + (x.published || 0) +
+                ' · ติดหน้า 1 ' + (x.page1 || 0) + (x.avg_aeo != null ? ' · AEO ' + x.avg_aeo : '');
+            });
+          }).catch(function () {});
+        }
       }
     };
   };

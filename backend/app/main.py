@@ -184,14 +184,34 @@ async def projects_overview(user=Depends(get_current_user)):
         for (pid, _kw), op in latest.items():
             if op:
                 page1[pid] = page1.get(pid, 0) + 1
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+
+    def _status(arts, last):
+        """สถานะทำงานจริง จากบทความล่าสุดที่ระบบผลิต (ไม่ปลอม)"""
+        if arts == 0:
+            return ("idle", "ยังไม่เริ่มผลิต", "slate")
+        if isinstance(last, datetime):
+            lt = last if last.tzinfo else last.replace(tzinfo=timezone.utc)
+            age = (now - lt).days
+        else:
+            age = 999
+        if age <= 3:
+            return ("active", "ทำงานปกติ", "green")
+        if age <= 10:
+            return ("slow", "ช้าลง", "amber")
+        return ("stalled", "ไม่เคลื่อนไหว", "red")
+
     out = []
     for p in projs:
         c, pub, last = stat.get(p.id, (0, 0, None))
+        skey, slabel, stone = _status(int(c), last)
         out.append({"id": p.id, "name": p.name, "domain": p.domain,
                     "public_home": project_public_home(p), "mode": p.mode,
                     "articles": int(c), "published": int(pub),
                     "avg_aeo": aeoavg.get(p.id), "page1": page1.get(p.id, 0),
-                    "last_at": last.isoformat() if last else ""})
+                    "last_at": last.isoformat() if last else "",
+                    "status": skey, "status_label": slabel, "status_tone": stone})
     return {"projects": out}
 
 
@@ -530,6 +550,28 @@ async def grow_project(project_id: int, user=Depends(get_current_user)):
         return {"queued": True, "task_id": str(task.id), "project": p.name, "mode": p.mode}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, "ต่อคิวงานไม่ได้ (backend/worker/redis พร้อมไหม): " + str(e))
+
+
+@app.delete("/api/projects/{project_id}")
+async def delete_project(project_id: int, user=Depends(get_current_user)):
+    """ลบโปรเจ็คถาวร + ข้อมูลลูกทั้งหมด (บทความ/อันดับ/citation/ช่องทาง/คีย์/ล็อก) — เจ้าของเท่านั้น"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from sqlalchemy import delete as sa_delete
+    from app.db.models import (Project, Article, RankSnapshot, CitationSnapshot,
+                               DistributionChannel, ProjectCredential, DistributionEvent)
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        name = p.name
+        # ลบลูกก่อน (DistributionEvent อ้าง article_id → ต้องลบก่อน Article)
+        for model in (DistributionEvent, RankSnapshot, CitationSnapshot,
+                      DistributionChannel, ProjectCredential, Article):
+            await s.execute(sa_delete(model).where(model.project_id == project_id))
+        await s.delete(p)
+        await s.commit()
+    return {"deleted": True, "project": name}
 
 
 @app.post("/api/projects/{project_id}/analyze")

@@ -61,6 +61,7 @@
     projects: function () { return api._get('/api/projects'); },
     projectsOverview: function () { return api._get('/api/projects/overview'); },
     createProject: function (o) { return api._post('/api/projects', o); },
+    deleteProject: function (pid) { return api._del('/api/projects/' + pid); },
     grow: function (pid) { return api._post('/api/projects/' + pid + '/grow', {}); },
     projectArticles: function (pid) { return api._get('/api/projects/' + pid + '/articles'); },
     setPublishTarget: function (pid, o) { return api._put('/api/projects/' + pid + '/publish', o); },
