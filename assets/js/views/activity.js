@@ -105,6 +105,8 @@
         '<div class="rp-cooler"><span>💧</span></div>' +
         '<span class="rp-plant" style="left:3%">🪴</span>' +
         '<span class="rp-plant" style="right:2%">🌿</span>' +
+        '<div class="rp-rankboard"><div class="rp-rb-title">📊 อันดับสด (ของจริง)</div>' +
+          '<div class="rp-rb-list"><div class="rp-rb-empty">รอผลวัดอันดับ…</div></div></div>' +
         '<div class="rp-stats">' + statsHtml() + '</div>' +
         '<div class="rp-reports"></div>' +
       '</div>' +
@@ -127,6 +129,7 @@
     var room = host.querySelector('.rp-room');
     var roles = compact ? ROLES.slice(0, 4) : ROLES;
     var chars = [], seen = null, raf = null, timer = null, lastT = 0;
+    var rankBoard = {}, celebrated = {};   // อันดับสดต่อคีย์เวิร์ด (จาก event จริง) + คีย์ที่ฉลองไปแล้ว
 
     roles.forEach(function (role, i) {
       var el = document.createElement('div');
@@ -224,10 +227,51 @@
       setPill('st_rank', '📈 ' + evs.filter(function (e) { return e.type === 'rank'; }).length + ' วัดอันดับ');
       setPill('st_cite', '🤖 ' + evs.filter(function (e) { return e.type === 'citation'; }).length + ' วัด AI');
     }
+    function renderRankBoard() {
+      var list = host.querySelector('.rp-rb-list'); if (!list) return;
+      var rows = Object.keys(rankBoard).map(function (kw) { var r = rankBoard[kw]; return { kw: kw, rank: r.rank, on_page1: r.on_page1 }; });
+      rows.sort(function (a, b) { return (a.rank == null ? 999 : a.rank) - (b.rank == null ? 999 : b.rank); });
+      if (!rows.length) { list.innerHTML = '<div class="rp-rb-empty">รอผลวัดอันดับ…</div>'; return; }
+      list.innerHTML = rows.slice(0, 6).map(function (r) {
+        var col = r.rank != null && r.rank <= 10 ? '#4ade80' : r.rank != null && r.rank <= 30 ? '#fbbf24' : '#94a3b8';
+        return '<div class="rp-rb-row"><span class="rp-rb-kw">' + esc(r.kw) + '</span>' +
+          (r.on_page1 ? '<span class="rp-rb-p1">🏆</span>' : '') +
+          '<span class="rp-rb-rank" style="color:' + col + '">' + (r.rank != null ? '#' + r.rank : '—') + '</span></div>';
+      }).join('');
+    }
+    function celebrate(kw) {
+      if (compact) return;
+      var b = document.createElement('div'); b.className = 'rp-celebrate';
+      b.innerHTML = '🎉 ติดหน้า 1! <b>' + esc(kw || '') + '</b>';
+      room.appendChild(b);
+      setTimeout(function () { b.classList.add('rp-cel-out'); setTimeout(function () { if (b.parentNode) b.remove(); }, 600); }, 3200);
+      var colors = ['#f59e0b', '#22c55e', '#3b82f6', '#ec4899', '#a855f7'];
+      for (var i = 0; i < 26; i++) {
+        (function () {
+          var f = document.createElement('span'); f.className = 'rp-confetti';
+          f.style.left = (Math.random() * 100) + '%';
+          f.style.background = colors[Math.floor(Math.random() * colors.length)];
+          f.style.animationDelay = (Math.random() * 0.5) + 's';
+          f.style.animationDuration = (1.6 + Math.random() * 1.2) + 's';
+          room.appendChild(f);
+          f.addEventListener('animationend', function () { if (f.parentNode) f.remove(); });
+        })();
+      }
+      for (var j = 0; j < chars.length; j++) if (chars[j].role.key === 'rank') {
+        (function (rc) { rc.el.classList.add('cheer'); say(rc, 'ติดหน้า 1 แล้ว! 🎉', 3000); setTimeout(function () { rc.el.classList.remove('cheer'); }, 2200); })(chars[j]);
+      }
+    }
     function tick(d) {
       var s = d.summary || {}, evs = d.events || [];
       updateStats(s, evs);
       var meta = host.querySelector('.rp-stage-meta'); if (meta) meta.textContent = '· อัปเดต ' + new Date().toLocaleTimeString('th-TH');
+      evs.forEach(function (e) {           // สร้างกระดานอันดับสดจาก event จริง (อันล่าสุดต่อคีย์เวิร์ด)
+        if (e.type === 'rank' && e.keyword) {
+          var cur = rankBoard[e.keyword];
+          if (!cur || (e.at && (!cur.at || e.at >= cur.at))) rankBoard[e.keyword] = { rank: e.rank, on_page1: !!e.on_page1, at: e.at };
+        }
+      });
+      renderRankBoard();
       if (seen === null) {
         seen = {}; evs.forEach(function (e) { seen[evKey(e)] = 1; });
         evs.slice(0, 2).reverse().forEach(function (e) { pushReport(e); });
@@ -235,7 +279,10 @@
         var fresh = [];
         evs.forEach(function (e) { var k = evKey(e); if (!seen[k]) { seen[k] = 1; fresh.push(e); } });
         fresh.reverse();
-        fresh.slice(-5).forEach(function (e) { reactToEvent(e); pushReport(e); });
+        fresh.slice(-5).forEach(function (e) {
+          reactToEvent(e); pushReport(e);
+          if (e.type === 'rank' && e.on_page1 && e.keyword && !celebrated[e.keyword]) { celebrated[e.keyword] = 1; celebrate(e.keyword); }   // ฉลองเมื่อติดหน้า 1 (ครั้งแรกต่อคีย์)
+        });
       }
       var log = host.querySelector('.rp-log');
       if (log) log.innerHTML = evs.length ? evs.map(evRow).join('')
@@ -378,6 +425,23 @@
     // stats strip
     '.rp-stats{position:absolute;left:10px;bottom:8px;display:flex;flex-wrap:wrap;gap:6px;z-index:40}',
     '.rp-pill{background:rgba(255,255,255,.9);border:1px solid #e2e8f0;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700;color:#334155;box-shadow:0 2px 6px rgba(2,6,23,.06)}',
+    // กระดานอันดับสด (จอผนัง)
+    '.rp-rankboard{position:absolute;top:12px;left:3%;width:min(230px,34%);background:linear-gradient(180deg,#0f172a,#111c34);border:2px solid #1e2b4a;border-radius:11px;padding:8px 11px;box-shadow:0 8px 20px rgba(2,6,23,.28);z-index:6}',
+    '.rp-rb-title{font-size:11px;font-weight:800;color:#7dd3fc;margin-bottom:7px;letter-spacing:.02em}',
+    '.rp-rb-list{display:flex;flex-direction:column;gap:4px}',
+    '.rp-rb-row{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#e2e8f0}',
+    '.rp-rb-kw{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.rp-rb-rank{font-weight:800;font-variant-numeric:tabular-nums;min-width:34px;text-align:right}',
+    '.rp-rb-p1{font-size:11px}.rp-rb-empty{font-size:10.5px;color:#64748b}',
+    // ฉลอง: ป้าย + พลุ + หุ่นกระโดด
+    '.rp-celebrate{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(.5);background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#3b2500;font-weight:800;font-size:16px;padding:10px 20px;border-radius:14px;box-shadow:0 14px 34px rgba(245,158,11,.5);z-index:95;white-space:nowrap;animation:rp-cel-in .5s cubic-bezier(.2,1.5,.4,1) forwards}',
+    '.rp-celebrate.rp-cel-out{opacity:0;transform:translate(-50%,-150%) scale(1);transition:.6s}',
+    '@keyframes rp-cel-in{to{transform:translate(-50%,-50%) scale(1)}}',
+    '.rp-confetti{position:absolute;top:-10px;width:8px;height:13px;border-radius:2px;z-index:93;pointer-events:none;animation:rp-fall linear forwards}',
+    '@keyframes rp-fall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(370px) rotate(560deg);opacity:.15}}',
+    '.rp-ch.cheer .rp-figure{animation:rp-jump .42s ease-in-out 5}',
+    '@keyframes rp-jump{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}',
+    '.rp-robot::after{content:"";position:absolute;left:50%;bottom:-3px;transform:translateX(-50%);width:34px;height:7px;border-radius:50%;background:rgba(2,6,23,.16);z-index:-1}',   // เงาใต้หุ่น (ดูมีมิติ)
     // tones
     '.rp-ch[data-tone="blue"]{--c:#2563eb;--c2:#7db0ff}.rp-ch[data-tone="violet"]{--c:#7c3aed;--c2:#b79bff}',
     '.rp-ch[data-tone="amber"]{--c:#d97706;--c2:#fbbf24}.rp-ch[data-tone="green"]{--c:#16a34a;--c2:#5fe08a}',
@@ -417,7 +481,7 @@
     '.rp-log{padding:4px 14px 8px;max-height:360px;overflow:auto}',
     // compact + big
     '.rp-office.rp-compact{padding:10px 12px 12px}.rp-office.rp-compact .rp-room{height:220px}',
-    '.rp-office.rp-compact .rp-reports,.rp-office.rp-compact .rp-board,.rp-office.rp-compact .rp-stats{display:none}',
+    '.rp-office.rp-compact .rp-reports,.rp-office.rp-compact .rp-board,.rp-office.rp-compact .rp-stats,.rp-office.rp-compact .rp-rankboard{display:none}',
     '.rp-office.rp-big{border:none;background:transparent;padding:0}.rp-office.rp-big .rp-room{height:min(460px,60vh)}',
     // modal
     '.rp-modal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:grid;place-items:center;padding:18px;animation:rp-fade .2s}',
