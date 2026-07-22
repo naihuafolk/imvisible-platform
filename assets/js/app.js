@@ -22,7 +22,8 @@
       { id: 'm6', code: 'M6', ico: '🧠', lbl: 'Learning Loop' }
     ]},
     { section: 'รายงาน', items: [
-      { id: 'report', code: '', ico: '📑', lbl: 'รายงานผลงาน' }
+      { id: 'report', code: '', ico: '📑', lbl: 'รายงานผลงาน' },
+      { id: 'blog', code: '', ico: '🌐', lbl: 'บล็อก & การเข้าถึง' }
     ]},
     { section: 'ระบบ', items: [
       { id: 'projects', code: '', ico: '🗂️', lbl: 'จัดการโปรเจ็ค' },
@@ -39,7 +40,8 @@
     m4: 'M4 · เผยแพร่อัตโนมัติ',
     m5: 'M5 · วัดผล & Rank Tracker',
     m6: 'M6 · Learning Loop',
-    report: 'รายงาน & Roadmap',
+    report: 'รายงานผลงาน',
+    blog: 'บล็อก & การเข้าถึง',
     projects: 'จัดการโปรเจ็ค',
     settings: 'การตั้งค่า'
   };
@@ -55,19 +57,30 @@
     var by = {};
     NAV.forEach(function (g) { g.items.forEach(function (it) { by[it.id] = it; }); });
     return [
-      { section: 'ภาพรวม', items: [by.dashboard, by.report, by.activity] },
+      { section: 'ภาพรวม', items: [by.dashboard, by.report, by.blog, by.activity] },
       { section: 'โปรเจ็ค', items: [by.projects] },
       { section: 'ระบบ', items: [by.settings] },
       { section: 'เครื่องมือ (ขั้นสูง)', collapsed: true, items: [by.m1, by.m2, by.m3, by.m4, by.m5, by.m6] }
     ];
   }
 
+  function projCount() {
+    return ((RP.data.project && RP.data.project.list) || []).filter(function (p) {
+      return !(RP.isReal && RP.isReal()) || /^db/.test(String(p && p.id));
+    }).length;
+  }
+  function navTag(id) {
+    if (id === 'activity') return '<span class="n-tag live">Live</span>';
+    if (id === 'projects' || id === 'blog') { var n = projCount(); if (n) return '<span class="n-tag count">' + n + '</span>'; }
+    return '';
+  }
   function renderSidebar() {
     var navHtml = navGroups().map(function (grp) {
       var items = grp.items.filter(Boolean).map(function (it) {
         return '<button class="nav-item" data-route="' + it.id + '">' +
           '<span class="ico">' + it.ico + '</span>' +
           '<span class="lbl">' + it.lbl + '</span>' +
+          navTag(it.id) +
           (it.code ? '<span class="code">' + it.code + '</span>' : '') +
           '</button>';
       }).join('');

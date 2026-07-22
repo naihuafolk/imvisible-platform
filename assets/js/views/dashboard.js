@@ -392,6 +392,60 @@
 
   RP.views.dashboard = function () { return RP.isReal() ? realDash() : sampleDash(); };
 
+  /* ---------- หน้า "บล็อก & การเข้าถึง" — บล็อกทุกแบรนด์ + การเข้าถึงจริง + แชร์ ---------- */
+  function renderBlogGrid(root, projs) {
+    var grid = root.querySelector('#blog_grid'); if (!grid) return;
+    if (!projs.length) {
+      grid.innerHTML = ui.card({ body: RP.noData('ยังไม่มีบล็อก', 'สร้างโปรเจ็คแล้วระบบจะโฮสต์บล็อกให้อัตโนมัติ', '<button class="btn btn-primary" id="blNew">＋ สร้างโปรเจ็ค</button>') });
+      var nb = grid.querySelector('#blNew'); if (nb) nb.onclick = function () { RP.go('projects'); }; return;
+    }
+    var cards = projs.map(function (p) {
+      var home = p.public_home || '', u = home ? encodeURIComponent(home) : '';
+      var tone = p.status_tone === 'green' ? 'green' : p.status_tone === 'amber' ? 'amber' : p.status_tone === 'red' ? 'red' : '';
+      var tags = [
+        p.mode === 'auto' ? ui.badge('Full-Auto', 'green') : ui.badge('รออนุมัติ', 'amber'),
+        p.status_label ? ui.badge((p.status_tone === 'green' || p.status_tone === 'red' ? '● ' : '') + p.status_label, tone) : '',
+        p.published ? ui.badge('เผยแพร่ ' + p.published, 'blue') : '',
+        p.page1 ? ui.badge('ติดหน้า 1 · ' + p.page1, 'purple') : '',
+        p.avg_aeo != null ? ui.badge('AEO ' + p.avg_aeo, '') : ''
+      ].filter(Boolean).join(' ');
+      var share = home ? (
+        '<a href="https://www.facebook.com/sharer/sharer.php?u=' + u + '" target="_blank" title="แชร์ Facebook" style="text-decoration:none;font-size:16px">📘</a>' +
+        '<a href="https://social-plugins.line.me/lineit/share?url=' + u + '" target="_blank" title="แชร์ LINE" style="text-decoration:none;font-size:16px">💬</a>' +
+        '<a href="https://twitter.com/intent/tweet?url=' + u + '" target="_blank" title="แชร์ X" style="text-decoration:none;font-size:16px">𝕏</a>' +
+        '<button class="btn btn-sm blog-copy" data-url="' + esc(home) + '">🔗 คัดลอก</button>') : '';
+      return '<div class="card card-pad" style="display:flex;flex-direction:column;gap:11px">' +
+        '<div class="row" style="gap:10px;align-items:center"><div style="width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--grad-start),var(--grad-end));display:grid;place-items:center;color:#fff;font-size:18px;flex:none">🌐</div>' +
+        '<div class="grow" style="min-width:0"><div class="bb nowrap" style="overflow:hidden;text-overflow:ellipsis">' + esc(p.name) + '</div>' +
+        '<div class="soft small nowrap" style="overflow:hidden;text-overflow:ellipsis">' + esc(p.domain || '') + '</div></div></div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:5px">' + tags + '</div>' +
+        '<div class="soft small" style="border-top:1px solid var(--border);padding-top:9px">📈 การเข้าถึงจริง: ติดหน้า 1 <b>' + (p.page1 || 0) + '</b> คีย์เวิร์ด · เผยแพร่ <b>' + (p.published || 0) + '</b> บทความ</div>' +
+        '<div class="row between" style="gap:8px;align-items:center;flex-wrap:wrap">' +
+          (home ? '<a href="' + esc(home) + '" target="_blank" class="btn btn-sm btn-primary">เปิดบล็อก ↗</a>' : '<span class="soft small">ยังไม่มีบล็อก</span>') +
+          '<span style="display:flex;gap:7px;align-items:center">' + share + '</span>' +
+        '</div></div>';
+    }).join('');
+    grid.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">' + cards + '</div>';
+    Array.prototype.forEach.call(grid.querySelectorAll('.blog-copy'), function (b) {
+      b.onclick = function () { try { navigator.clipboard.writeText(b.getAttribute('data-url')); } catch (e) {} b.textContent = '✓ คัดลอกแล้ว'; setTimeout(function () { b.textContent = '🔗 คัดลอก'; }, 1500); };
+    });
+  }
+
+  RP.views.blog = function () {
+    if (!RP.isReal()) {
+      return { html: ui.pageHead({ eyebrow: 'บล็อก', title: 'บล็อก & การเข้าถึง', desc: 'เข้าสู่ระบบบัญชีจริงเพื่อดูบล็อกและการเข้าถึงของทุกแบรนด์' }) +
+        ui.card({ body: RP.noData('โหมดตัวอย่าง', 'บัญชีจริงจะเห็นบล็อกที่เผยแพร่ + ลิงก์ + การเข้าถึงจริงที่นี่') }), mount: function () {} };
+    }
+    var html = ui.pageHead({ eyebrow: 'ImVisible · บล็อก', title: 'บล็อก & การเข้าถึง',
+      desc: 'บล็อกที่เผยแพร่ของทุกแบรนด์ · การเข้าถึงจริง (ติดหน้า 1 · บทความ) · ลิงก์แชร์ — ข้อมูลจริงจากระบบ' }) +
+      '<div id="blog_grid"><div class="hint">กำลังโหลดบล็อกทุกแบรนด์…</div></div>';
+    return { html: html, mount: function (root) {
+      if (!RP.api.enabled()) return;
+      RP.api.projectsOverview().then(function (d) { renderBlogGrid(root, (d && d.projects) || []); })
+        .catch(function () { var g = root.querySelector('#blog_grid'); if (g) g.innerHTML = ui.card({ body: RP.noData('โหลดบล็อกไม่ได้', 'ลองรีเฟรชอีกครั้ง') }); });
+    } };
+  };
+
   function sampleDash() {
     var p = currentProject();
 
