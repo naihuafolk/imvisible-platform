@@ -79,6 +79,24 @@ async def rate_limit_auth(request: Request):
     dq.append(now)
 
 
+# ---------- Login lockout (กัน brute-force / credential stuffing 'ต่อบัญชี') ----------
+_login_fails: dict = defaultdict(deque)
+_LOGIN_LOCK_WINDOW = 900      # 15 นาที
+_LOGIN_LOCK_MAX = 6           # ล้มเหลวเกินนี้ในหน้าต่างเวลา = ล็อกชั่วคราว
+
+
+def _login_locked(email: str) -> bool:
+    dq = _login_fails[email]
+    now = time.time()
+    while dq and now - dq[0] > _LOGIN_LOCK_WINDOW:
+        dq.popleft()
+    return len(dq) >= _LOGIN_LOCK_MAX
+
+
+def _login_record_fail(email: str):
+    _login_fails[email].append(time.time())
+
+
 @app.on_event("startup")
 async def _startup():
     # ความปลอดภัย: prod ห้ามใช้ JWT_SECRET ค่า dev (fail closed — ไม่ยอมสตาร์ท)
@@ -137,11 +155,16 @@ async def register(req: RegisterRequest, _rl=Depends(rate_limit_auth)):
 async def login(req: LoginRequest, _rl=Depends(rate_limit_auth)):
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    email = (req.email or "").strip().lower()
+    if _login_locked(email):                       # ล็อกชั่วคราวหลังผิดหลายครั้ง (กันยิงรหัส)
+        raise HTTPException(429, "เข้าสู่ระบบผิดหลายครั้งเกินไป — กรุณารอสักครู่ (~15 นาที) แล้วลองใหม่")
     from app.db.models import User
     async with db.session() as s:
         u = (await s.execute(select(User).where(User.email == req.email))).scalar_one_or_none()
     if not u or not security.verify_password(req.password, u.password_hash):
+        _login_record_fail(email)
         raise HTTPException(401, "อีเมลหรือรหัสผ่านไม่ถูกต้อง")
+    _login_fails.pop(email, None)                  # สำเร็จ → ล้างตัวนับล้มเหลว
     from app import team
     await team.link_invites(u.id, u.email)        # ผูกคำเชิญที่มีมาหลังสมัคร
     return {"token": security.create_token(u.id, u.email), "user": _user_dict(u)}
@@ -1469,7 +1492,7 @@ async def integrations():
 
 
 @app.post("/api/mine")
-async def mine_questions(req: MineRequest):
+async def mine_questions(req: MineRequest, user=Depends(get_current_user)):
     """M1 · ขุดคำถามจริง (Google Suggest + People Also Ask)"""
     try:
         return await mining.mine(req.seed, req.location_code, req.language_code)
@@ -1478,7 +1501,7 @@ async def mine_questions(req: MineRequest):
 
 
 @app.post("/api/rank/check")
-async def rank_check(req: RankCheckRequest):
+async def rank_check(req: RankCheckRequest, user=Depends(get_current_user)):
     """M5 · อันดับ Google จริง (DataForSEO) — ตรวจสอบได้: เสิร์ชเองก็เห็น"""
     try:
         return await serp.rank_check(req.keyword, req.domain, req.location_code, req.language_code)
@@ -1487,7 +1510,7 @@ async def rank_check(req: RankCheckRequest):
 
 
 @app.post("/api/gsc/summary")
-async def gsc_summary(req: GSCSummaryRequest):
+async def gsc_summary(req: GSCSummaryRequest, user=Depends(get_current_user)):
     """M5 · คลิก/Impressions/อันดับ จริงจาก Google Search Console"""
     try:
         return await gsc.summary(req.site_url, req.days)
@@ -1496,7 +1519,7 @@ async def gsc_summary(req: GSCSummaryRequest):
 
 
 @app.post("/api/citation/sample")
-async def citation_sample(req: CitationSampleRequest):
+async def citation_sample(req: CitationSampleRequest, user=Depends(get_current_user)):
     """M5 · AI Citation / Share of Voice (Prompt Sampling — ค่าประมาณเชิงสถิติ)"""
     try:
         return await citation.sample(req.questions, req.brand_terms, req.domain, req.engines)
@@ -1505,7 +1528,7 @@ async def citation_sample(req: CitationSampleRequest):
 
 
 @app.post("/api/content/generate")
-async def content_generate(req: ContentGenerateRequest):
+async def content_generate(req: ContentGenerateRequest, user=Depends(get_current_user)):
     """M2 · ผลิตบทความสูตร AEO ด้วย LLM จริง"""
     try:
         return await content.generate(req.topic, req.fmt, req.words)
@@ -1514,7 +1537,7 @@ async def content_generate(req: ContentGenerateRequest):
 
 
 @app.post("/api/publish")
-async def publish_post(req: PublishRequest):
+async def publish_post(req: PublishRequest, user=Depends(get_current_user)):
     """M4 · เผยแพร่ขึ้น WordPress จริง + IndexNow ping"""
     try:
         return await publish.publish_and_index(req.title, req.html, req.status, req.url_path)
