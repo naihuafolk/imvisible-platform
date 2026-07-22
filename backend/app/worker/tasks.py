@@ -606,6 +606,47 @@ async def _optimize_low_scores(threshold: int, per_project: int) -> str:
     return "queued optimize for %d low-scoring articles" % n
 
 
+@celery_app.task(name="app.worker.tasks.boost_rankings")
+def boost_rankings(lo: int = 11, hi: int = 40, per_project: int = 4) -> str:
+    """⚡ คันเร่งอันดับ: ดันหน้า 'จ่อหน้า 1 (อันดับ 11-40)' หรือ 'เคยติดหน้า 1 แล้วหลุด'
+    ให้เข้าคิว optimize ซ่อม (เติมเนื้อ/ลิงก์ใน/สดขึ้น) → ดันขึ้นหน้า 1 หรือดึงกลับ · ใช้ข้อมูลอันดับจริง"""
+    return _run(_boost_rankings(lo, hi, per_project))
+
+
+async def _boost_rankings(lo: int, hi: int, per_project: int) -> str:
+    from app.db.models import Project, Article, RankSnapshot
+    if not db.enabled():
+        return "DB not configured"
+    n = 0
+    async with db.session() as s:
+        pids = (await s.execute(select(Project.id))).scalars().all()
+        for pid in pids:
+            snaps = (await s.execute(
+                select(RankSnapshot.keyword, RankSnapshot.rank, RankSnapshot.on_page1)
+                .where(RankSnapshot.project_id == pid)
+                .order_by(RankSnapshot.checked_at))).all()
+            latest, ever_p1 = {}, {}
+            for kw, rank, op in snaps:                        # ไล่จากเก่า→ใหม่ → latest ได้ค่าล่าสุด
+                latest[kw] = (rank, bool(op))
+                ever_p1[kw] = ever_p1.get(kw, False) or bool(op)
+            targets = []
+            for kw, (rank, op) in latest.items():
+                if op:                                        # ติดหน้า 1 อยู่แล้ว = ไม่ต้องดัน
+                    continue
+                striking = (rank is not None and lo <= rank <= hi)   # จ่อหน้า 1
+                dropped = ever_p1.get(kw, False)                     # เคยหน้า 1 แล้วหลุด
+                if striking or dropped:
+                    targets.append(kw)
+            for kw in targets[:per_project]:
+                aid = (await s.execute(
+                    select(Article.id).where(Article.project_id == pid, Article.title == kw,
+                                             Article.status == "published").limit(1))).scalar()
+                if aid:
+                    optimize_article.delay(aid)
+                    n += 1
+    return "queued rank-boost for %d pages (striking %d-%d / dropped off page1)" % (n, lo, hi)
+
+
 @celery_app.task(name="app.worker.tasks.distribute_article")
 def distribute_article(project_id: int, article_id: int) -> dict:
     """สั่งกระจายบทความที่เผยแพร่แล้วซ้ำ (เช่น เพิ่งเชื่อมช่องใหม่) — ใช้จาก API"""

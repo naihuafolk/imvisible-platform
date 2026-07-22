@@ -167,11 +167,12 @@
 
     function intCard(i) {
       var lc = liveConnected(i.id);
-      // บัญชีจริงที่ยังไม่เคยดึงสถานะ = ยังไม่ได้วัด → ห้ามโชว์ไฟเขียวจากข้อมูลตัวอย่าง
-      var unverified = (lc === null) && RP.isReal() && !RP.data.__real;
-      var conn = lc === null ? (unverified ? false : i.connected) : lc;
+      var real = RP.isReal();
+      // บัญชีจริง: ไม่มีสถานะจริง = "ยังไม่ตรวจ" เสมอ — ห้ามใช้ค่าตัวอย่าง (i.connected/i.detail) เด็ดขาด
+      var unverified = (lc === null) && real;
+      var conn = lc === null ? (real ? false : i.connected) : lc;
       var src = lc === null
-        ? (unverified ? 'ยังไม่ได้ตรวจสอบสถานะ — กด "ดึงสถานะจริงจาก backend"' : i.detail)
+        ? (unverified ? 'กำลังดึงสถานะจริงจาก backend…' : i.detail)
         : (conn ? 'เชื่อมแล้ว (จาก backend)' : 'ยังไม่ตั้งคีย์ (จาก backend)');
       return '<div class="card card-pad">' +
         '<div class="row between wrap" style="gap:8px"><div class="bb">' + esc(i.name) + '</div>' +
@@ -361,6 +362,14 @@
     var acSlot = root.querySelector('#admincost_slot');   // ต้นทุน (แอดมินเท่านั้น — ไม่ใช่แอดมิน = endpoint 403 → ซ่อน)
     if (acSlot && RP.api.enabled()) {
       RP.api.adminCosts().then(function (d) { acSlot.innerHTML = costCardHtml(d); }).catch(function () { acSlot.innerHTML = ''; });
+    }
+    // บัญชีจริง: ดึงสถานะการเชื่อมต่อจริงอัตโนมัติ (ไม่ให้เห็นสถานะตัวอย่าง) — ครั้งเดียว แล้ว re-render
+    if (RP.isReal() && RP.api.enabled() && liveInt === null && curTab === 'connect') {
+      RP.api.integrations().then(function (r) {
+        liveInt = (r && r.integrations) || [];
+        var bd = root.querySelector('#setBody');
+        if (bd && curTab === 'connect') { bd.innerHTML = bodyFor(curTab); wire(root); }
+      }).catch(function () { liveInt = []; });
     }
     var pcSlot = root.querySelector('#pcreds_slot');
     if (pcSlot) {

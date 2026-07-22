@@ -37,6 +37,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.measure_all_ranks",
         "schedule": crontab(hour=6, minute=0),
     },
+    "boost-rankings-daily": {        # ⚡ ดันหน้าจ่อหน้า1 (11-40) / หลุดหน้า1 ทุกวัน 06:30 (หลังวัดอันดับ)
+        "task": "app.worker.tasks.boost_rankings",
+        "schedule": crontab(hour=6, minute=30),
+    },
     "sample-citation-weekly": {      # M5 · Prompt Sampling ทุกวันจันทร์ 07:00
         "task": "app.worker.tasks.sample_all_citations",
         "schedule": crontab(hour=7, minute=0, day_of_week=1),
