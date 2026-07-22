@@ -22,7 +22,7 @@
       { id: 'm6', code: 'M6', ico: '🧠', lbl: 'Learning Loop' }
     ]},
     { section: 'รายงาน', items: [
-      { id: 'report', code: '', ico: '📑', lbl: 'รายงาน & Roadmap' }
+      { id: 'report', code: '', ico: '📑', lbl: 'รายงานผลงาน' }
     ]},
     { section: 'ระบบ', items: [
       { id: 'projects', code: '', ico: '🗂️', lbl: 'จัดการโปรเจ็ค' },
@@ -55,10 +55,10 @@
     var by = {};
     NAV.forEach(function (g) { g.items.forEach(function (it) { by[it.id] = it; }); });
     return [
-      { section: 'ภาพรวม', items: [by.dashboard, by.activity] },
+      { section: 'ภาพรวม', items: [by.dashboard, by.report, by.activity] },
       { section: 'โปรเจ็ค', items: [by.projects] },
       { section: 'ระบบ', items: [by.settings] },
-      { section: 'เครื่องมือ (ขั้นสูง)', collapsed: true, items: [by.m1, by.m2, by.m3, by.m4, by.m5, by.m6, by.report] }
+      { section: 'เครื่องมือ (ขั้นสูง)', collapsed: true, items: [by.m1, by.m2, by.m3, by.m4, by.m5, by.m6] }
     ];
   }
 
