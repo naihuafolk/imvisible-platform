@@ -85,7 +85,7 @@
       '</div>' +
       '<nav class="nav">' + navHtml + '</nav>' +
       '<div class="sidebar-foot">' + userChip() +
-        '<div class="small soft">เอกสารโครงการ v' + RP.data.meta.version + ' · ระบบทำงานเองได้ ~' + RP.data.meta.autoLevel + '%</div></div>';
+        '<div class="small soft">ImVisible · AEO + SEO อัตโนมัติด้วย AI</div></div>';
   }
 
   function userChip() {
