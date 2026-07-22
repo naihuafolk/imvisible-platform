@@ -49,16 +49,33 @@
     return RP.views[h] ? h : 'dashboard';
   }
 
+  /* เมนูตามบัญชี: บัญชีจริง = มินิมอลสุด (ภาพรวม + จัดการ + ตั้งค่า) · M1–M6 = เครื่องยนต์เบื้องหลัง ยุบไว้ใต้ "ขั้นสูง" */
+  function navGroups() {
+    if (!(RP.isReal && RP.isReal())) return NAV;   // โหมดตัวอย่าง = โชว์ครบเพื่อพรีวิว
+    var by = {};
+    NAV.forEach(function (g) { g.items.forEach(function (it) { by[it.id] = it; }); });
+    return [
+      { section: 'ภาพรวม', items: [by.dashboard, by.activity] },
+      { section: 'โปรเจ็ค', items: [by.projects] },
+      { section: 'ระบบ', items: [by.settings] },
+      { section: 'เครื่องมือ (ขั้นสูง)', collapsed: true, items: [by.m1, by.m2, by.m3, by.m4, by.m5, by.m6, by.report] }
+    ];
+  }
+
   function renderSidebar() {
-    var navHtml = NAV.map(function (grp) {
-      return '<div class="nav-section">' + grp.section + '</div>' +
-        grp.items.map(function (it) {
-          return '<button class="nav-item" data-route="' + it.id + '">' +
-            '<span class="ico">' + it.ico + '</span>' +
-            '<span class="lbl">' + it.lbl + '</span>' +
-            (it.code ? '<span class="code">' + it.code + '</span>' : '') +
-            '</button>';
-        }).join('');
+    var navHtml = navGroups().map(function (grp) {
+      var items = grp.items.filter(Boolean).map(function (it) {
+        return '<button class="nav-item" data-route="' + it.id + '">' +
+          '<span class="ico">' + it.ico + '</span>' +
+          '<span class="lbl">' + it.lbl + '</span>' +
+          (it.code ? '<span class="code">' + it.code + '</span>' : '') +
+          '</button>';
+      }).join('');
+      if (grp.collapsed) {
+        return '<details class="nav-adv"><summary class="nav-section" style="cursor:pointer;list-style:disclosure-closed">' +
+          grp.section + '</summary>' + items + '</details>';
+      }
+      return '<div class="nav-section">' + grp.section + '</div>' + items;
     }).join('');
 
     return '<div class="brand">' +
