@@ -51,6 +51,7 @@
     me: function () { return api._get('/api/auth/me'); },
     // ---- Projects (DB จริง) ----
     usage: function () { return api._get('/api/usage'); },
+    activity: function (limit) { return api._get('/api/activity?limit=' + (limit || 40)); },
     plans: function () { return api._get('/api/plans'); },
     team: function () { return api._get('/api/team'); },
     inviteTeam: function (email, role) { return api._post('/api/team/invite', { email: email, role: role || 'viewer' }); },

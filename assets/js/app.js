@@ -10,7 +10,8 @@
 
   var NAV = [
     { section: 'ภาพรวม', items: [
-      { id: 'dashboard', code: '', ico: '📊', lbl: 'แดชบอร์ดหลัก' }
+      { id: 'dashboard', code: '', ico: '📊', lbl: 'แดชบอร์ดหลัก' },
+      { id: 'activity', code: '', ico: '⚡', lbl: 'กิจกรรมสด' }
     ]},
     { section: 'โมดูลของแพลตฟอร์ม', items: [
       { id: 'm1', code: 'M1', ico: '🔎', lbl: 'ขุดคำถาม & คีย์เวิร์ด' },
@@ -31,6 +32,7 @@
 
   var TITLES = {
     dashboard: 'แดชบอร์ดหลัก',
+    activity: 'กิจกรรมสด',
     m1: 'M1 · ขุดคำถาม & คีย์เวิร์ด',
     m2: 'M2 · โรงงานคอนเทนต์',
     m3: 'M3 · AEO Optimizer',

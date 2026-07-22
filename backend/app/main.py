@@ -146,6 +146,58 @@ async def login(req: LoginRequest, _rl=Depends(rate_limit_auth)):
     return {"token": security.create_token(u.id, u.email), "user": _user_dict(u)}
 
 
+@app.get("/api/activity")
+async def activity_feed(limit: int = 40, user=Depends(get_current_user)):
+    """กิจกรรมสดของบัญชี — ไทม์ไลน์ล่าสุด (บทความ/เผยแพร่/วัดอันดับ/AI citation)
+    อ่านอย่างเดียว · เห็นเฉพาะโปรเจ็คที่ตัวเองเข้าถึงได้ (เจ้าของ+ทีม) · ไม่มีข้อมูลลับ"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from sqlalchemy import func
+    from app import team
+    from app.db.models import Project, Article, DistributionEvent, RankSnapshot, CitationSnapshot
+    limit = max(5, min(int(limit), 100))
+    owners = await team.accessible_owner_ids(user["id"])
+    async with db.session() as s:
+        prows = (await s.execute(select(Project.id, Project.name).where(Project.user_id.in_(owners)))).all()
+        pname = {pid: name for pid, name in prows}
+        pids = list(pname.keys())
+        if not pids:
+            return {"events": [], "summary": {"projects": 0, "articles": 0, "published": 0}}
+        arts = (await s.execute(select(Article).where(Article.project_id.in_(pids))
+                                .order_by(Article.id.desc()).limit(limit))).scalars().all()
+        dist = (await s.execute(select(DistributionEvent).where(DistributionEvent.project_id.in_(pids))
+                                .order_by(DistributionEvent.id.desc()).limit(limit))).scalars().all()
+        ranks = (await s.execute(select(RankSnapshot).where(RankSnapshot.project_id.in_(pids))
+                                 .order_by(RankSnapshot.id.desc()).limit(limit))).scalars().all()
+        cits = (await s.execute(select(CitationSnapshot).where(CitationSnapshot.project_id.in_(pids))
+                                .order_by(CitationSnapshot.id.desc()).limit(limit))).scalars().all()
+        total_art = (await s.execute(select(func.count(Article.id)).where(Article.project_id.in_(pids)))).scalar() or 0
+        published = (await s.execute(select(func.count(Article.id)).where(
+            Article.project_id.in_(pids), Article.status == "published"))).scalar() or 0
+
+    def _iso(dt):
+        return dt.isoformat() if dt else ""
+
+    ev = []
+    for a in arts:
+        ev.append({"type": "article", "at": _iso(getattr(a, "created_at", None) or a.updated_at),
+                   "project": pname.get(a.project_id, ""), "title": a.title,
+                   "status": a.status, "score": a.aeo_score, "url": a.url})
+    for d in dist:
+        ev.append({"type": "distribute", "at": _iso(d.created_at), "project": pname.get(d.project_id, ""),
+                   "channel": d.channel, "status": d.status, "detail": (d.detail or "")[:120], "url": d.url})
+    for r in ranks:
+        ev.append({"type": "rank", "at": _iso(r.checked_at), "project": pname.get(r.project_id, ""),
+                   "keyword": r.keyword, "rank": r.rank, "on_page1": bool(r.on_page1)})
+    for c in cits:
+        ev.append({"type": "citation", "at": _iso(c.sampled_at), "project": pname.get(c.project_id, ""),
+                   "engine": c.engine, "sov": c.sov_percent})
+    ev = [e for e in ev if e["at"]]
+    ev.sort(key=lambda e: e["at"], reverse=True)
+    return {"events": ev[:limit],
+            "summary": {"projects": len(pids), "articles": int(total_art), "published": int(published)}}
+
+
 @app.get("/api/plans")
 async def list_plans():
     """แพ็กเกจ + ราคา + โควตา (เปิดสาธารณะ — ใช้แสดงหน้าราคา/อัปเกรด)"""
