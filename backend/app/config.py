@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     ark_base_url: str = "https://ark.ap-southeast.bytepluses.com/api/v3"
     ark_image_model: str = "dola-seedream-5-0-pro-260628"
     ark_video_model: str = ""
+    # 9b) fal.ai (FLUX) — ผู้ให้บริการรูปทางเลือก · คีย์รูปแบบ id:secret · ถ้าตั้งไว้จะใช้ fal ก่อน ModelArk
+    fal_key: str = ""
+    fal_image_model: str = "fal-ai/flux/schnell"
 
     # โครงสร้างพื้นฐาน (คิวงาน + ฐานข้อมูล ตาม stack หน้า 7)
     redis_url: str = "redis://localhost:6379/0"

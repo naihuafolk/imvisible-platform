@@ -13,7 +13,7 @@ from app.config import settings
 
 
 def enabled() -> bool:
-    return bool(settings.ark_api_key)
+    return bool(settings.fal_key or settings.ark_api_key)
 
 
 def _headers() -> dict:
@@ -22,8 +22,36 @@ def _headers() -> dict:
     return {"Authorization": "Bearer " + settings.ark_api_key, "Content-Type": "application/json"}
 
 
+async def _fal_image(prompt: str, image_size: str = "landscape_16_9") -> str:
+    """fal.ai (FLUX) — text→image · sync endpoint fal.run · auth 'Key id:secret' · คืน URL รูป"""
+    model = settings.fal_image_model or "fal-ai/flux/schnell"
+    headers = {"Authorization": "Key " + settings.fal_key, "Content-Type": "application/json"}
+    body = {"prompt": prompt, "image_size": image_size, "num_images": 1}
+    async with httpx.AsyncClient(timeout=120) as c:
+        r = await c.post("https://fal.run/" + model, headers=headers, json=body)
+        r.raise_for_status()
+        data = r.json()
+    imgs = data.get("images") or []
+    if imgs:
+        return imgs[0].get("url") or ""
+    poll = data.get("response_url") or data.get("status_url")   # เผื่อ endpoint คืนแบบคิว
+    if poll:
+        for _ in range(30):
+            await asyncio.sleep(2)
+            async with httpx.AsyncClient(timeout=60) as c:
+                rr = await c.get(poll, headers=headers)
+                rr.raise_for_status()
+                d2 = rr.json()
+            imgs = d2.get("images") or []
+            if imgs:
+                return imgs[0].get("url") or ""
+    raise RuntimeError("fal.ai ไม่ส่งภาพกลับมา: " + str(data)[:200])
+
+
 async def generate_image(prompt: str, size: str = "2K") -> str:
-    """Seedream — text→image · คืน URL รูป (หรือ b64)"""
+    """text→image · ใช้ fal.ai (FLUX) ถ้าตั้ง FAL_KEY ไว้ ไม่งั้นใช้ Seedream (ModelArk) · คืน URL รูป"""
+    if settings.fal_key:
+        return await _fal_image(prompt, "landscape_16_9")
     url = settings.ark_base_url.rstrip("/") + "/images/generations"
     payload = {"model": settings.ark_image_model, "prompt": prompt,
                "size": size, "output_format": "png", "watermark": False}
