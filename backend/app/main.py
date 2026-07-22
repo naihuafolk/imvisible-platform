@@ -256,8 +256,15 @@ async def admin_costs(user=Depends(get_current_user)):
          "usage": cites, "unit": "ครั้ง", "unit_cost": U["citation"], "est": round(cites * U["citation"]),
          "topup": "เดียวกับ LLM", "active": bool(settings.anthropic_api_key or settings.gemini_api_key or settings.openai_api_key or settings.perplexity_api_key)},
     ]
+    total = sum(x["est"] for x in lines)
+    budget = int(settings.cost_budget_thb or 0)
+    alert_level, alert_pct = "off", None
+    if budget > 0:
+        alert_pct = round(total / budget * 100)
+        alert_level = "over" if total >= budget else ("warn" if alert_pct >= 80 else "ok")
     return {"month": mstart.strftime("%Y-%m"), "projects": projects,
-            "lines": lines, "total_est": sum(x["est"] for x in lines),
+            "lines": lines, "total_est": total,
+            "budget": budget, "alert_level": alert_level, "alert_pct": alert_pct,
             "video_enabled": bool(settings.ark_video_model),
             "fixed_note": "เซิร์ฟเวอร์ BytePlus ECS + Postgres + Redis = ค่าคงที่รายเดือน (ดูที่บิล BytePlus)",
             "note": "ประมาณการ = การใช้งานจริงเดือนนี้ (จาก DB) × ราคาต่อหน่วยโดยประมาณ · ไม่ใช่บิลจริง · ยอดเครดิตคงเหลือจริง ดูที่ console ของแต่ละผู้ให้บริการ"}
@@ -881,14 +888,21 @@ async def project_rank_history(project_id: int, user=Depends(get_current_user)):
             .order_by(RankSnapshot.checked_at))).scalars().all()
 
     latest: dict[str, dict] = {}          # อันดับล่าสุดต่อคีย์เวิร์ด (rows เรียง asc → ตัวหลังทับ = ใหม่สุด)
+    series: dict[str, list] = {}          # keyword → ลำดับอันดับตามเวลา (ไว้คิด best/prev)
     day_page1: dict[str, dict] = {}       # day → {keyword: on_page1} สำหรับแนวโน้มหน้า 1
     for r in rows:
         latest[r.keyword] = {"keyword": r.keyword, "rank": r.rank,
                              "on_page1": bool(r.on_page1),
                              "checked_at": r.checked_at.isoformat() if r.checked_at else ""}
+        series.setdefault(r.keyword, []).append(r.rank)
         d = r.checked_at.date().isoformat() if r.checked_at else ""
         if d:
             day_page1.setdefault(d, {})[r.keyword] = bool(r.on_page1)
+    for kw, info in latest.items():        # อันดับดีสุดที่เคยทำได้ + อันดับก่อนหน้า (ไว้โชว์การเคลื่อนไหว ▲▼)
+        seq = series.get(kw, [])
+        rr = [x for x in seq if x is not None]
+        info["best_rank"] = min(rr) if rr else None
+        info["prev_rank"] = seq[-2] if len(seq) >= 2 else None
 
     kws = sorted(latest.values(),
                  key=lambda k: (k["rank"] is None, k["rank"] if k["rank"] is not None else 999))

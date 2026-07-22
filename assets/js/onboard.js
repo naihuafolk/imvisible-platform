@@ -36,9 +36,23 @@
     };
   }
 
+  /* บัญชีจริง: ล้างข้อมูล demo ที่แชร์ใน RP.data ทิ้งถาวร — กันหลุดแม้ gate รายหน้าพลาด/auth race
+     (ตัวเลข KPI/คลัสเตอร์/ทีม/owner สมมติ ต้องไม่มีทางโผล่ให้บัญชีจริงเห็นเด็ดขาด) */
+  function scrubDemo() {
+    var d = RP.data; if (!d) return;
+    d.kpis = []; d.clusters = []; d.facts = [];
+    if (d.account) {
+      d.account.team = [];
+      var u = (RP.auth && RP.auth.user && RP.auth.user()) || null;
+      d.account.owner = (u && u.email) || '';
+      (d.account.integrations || []).forEach(function (i) { i.connected = false; i.detail = ''; });
+    }
+  }
+
   /* ---------- โหลดข้อมูลจริงจาก backend (โปรเจ็ค + สถานะการเชื่อมต่อ) ---------- */
   RP.loadRealData = function (cb) {
     if (!(RP.api && RP.api.token && RP.api.reachable())) { if (cb) cb(false, 0); return; }
+    scrubDemo();   // ล้าง demo ทันทีที่รู้ว่าเป็นบัญชีจริง (ก่อน fetch เสร็จด้วย)
     RP.api.projects().then(function (res) {
       var list = (res.projects || []).map(mapProj);
       // บัญชีจริง: แทนที่ "เสมอ" แม้ยังไม่มีโปรเจ็ค — ห้ามให้โปรเจ็คตัวอย่างหลงเหลือในบัญชีจริงเด็ดขาด

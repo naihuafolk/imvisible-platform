@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     # 9b) fal.ai (FLUX) — ผู้ให้บริการรูปทางเลือก · คีย์รูปแบบ id:secret · ถ้าตั้งไว้จะใช้ fal ก่อน ModelArk
     fal_key: str = ""
     fal_image_model: str = "fal-ai/flux/schnell"
+    # 9c) งบต้นทุน API/เดือน (บาท) สำหรับแจ้งเตือนแอดมิน — 0 = ไม่ตั้งงบ (ไม่เตือน)
+    cost_budget_thb: int = 0
 
     # โครงสร้างพื้นฐาน (คิวงาน + ฐานข้อมูล ตาม stack หน้า 7)
     redis_url: str = "redis://localhost:6379/0"

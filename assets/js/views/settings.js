@@ -205,8 +205,12 @@
         '<td class="num bb">฿' + fmt.n(l.est) + '</td>' +
         '<td class="soft small">' + esc(l.topup) + '</td></tr>';
     }).join('');
+    var alertHtml = '';
+    if (d.alert_level === 'over') alertHtml = '<div class="card-pad"><div class="note-box" style="border:1px solid var(--red-300,#fecaca);background:var(--red-50,#fef2f2);color:var(--red-700,#b91c1c);font-weight:700">🔴 ต้นทุนเดือนนี้ ฿' + fmt.n(d.total_est) + ' เกินงบ ฿' + fmt.n(d.budget) + ' (' + d.alert_pct + '%) — เติมเครดิตด่วน!</div></div>';
+    else if (d.alert_level === 'warn') alertHtml = '<div class="card-pad"><div class="note-box" style="border:1px solid var(--amber-300,#fcd34d);background:var(--amber-50,#fffbeb);color:var(--amber-700,#b45309);font-weight:700">⚠️ ต้นทุนเดือนนี้ ฿' + fmt.n(d.total_est) + ' = ' + d.alert_pct + '% ของงบ ฿' + fmt.n(d.budget) + ' — เตรียมเติมเครดิต</div></div>';
+    else if (d.alert_level === 'off') alertHtml = '<div class="card-pad soft small">💡 ตั้งงบ <code>COST_BUDGET_THB</code> ใน .env เพื่อรับแจ้งเตือนเมื่อต้นทุนใกล้/เกินงบ</div>';
     return ui.card({ title: '💰 ต้นทุน & เครดิต (แอดมิน)', sub: 'ประมาณการค่า API เดือน ' + esc(d.month) + ' · ' + d.projects + ' โปรเจ็ค', flush: true, cls: 'mb',
-      body: '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>บริการ</th><th class="right">ใช้เดือนนี้</th><th class="right">/หน่วย</th><th class="right">ประมาณการ</th><th>เติมเงินที่</th></tr></thead><tbody>' +
+      body: alertHtml + '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>บริการ</th><th class="right">ใช้เดือนนี้</th><th class="right">/หน่วย</th><th class="right">ประมาณการ</th><th>เติมเงินที่</th></tr></thead><tbody>' +
         rows +
         '<tr><td class="bb">รวมประมาณการเดือนนี้</td><td></td><td></td><td class="num bb" style="color:var(--brand-700);font-size:16px">฿' + fmt.n(d.total_est) + '</td><td></td></tr>' +
         '</tbody></table></div>' +
