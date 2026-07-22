@@ -67,6 +67,8 @@ class Settings(BaseSettings):
     fal_image_model: str = "fal-ai/flux-pro/v1.1-ultra"   # editorial คุณภาพสุด (schnell=ถูก · dev=กลาง · flux-pro ultra=สุด)
     # 9c) งบต้นทุน API/เดือน (บาท) สำหรับแจ้งเตือนแอดมิน — 0 = ไม่ตั้งงบ (ไม่เตือน)
     cost_budget_thb: int = 0
+    # 9e) ประตูคุณภาพ: คะแนน AEO ขั้นต่ำที่จะ 'เผยแพร่อัตโนมัติ' (ต่ำกว่านี้ = เก็บร่าง+ปรับก่อน) — พรีเมียมเท่านั้น
+    min_publish_score: int = 82
     # 9d) Google Indexing API (instant indexing) — วาง JSON ของ service account ทั้งก้อน
     #     (ต้องเพิ่ม service account เป็น owner ของ property ใน GSC ก่อนถึงจะแจ้ง index ได้)
     google_indexing_sa_json: str = ""

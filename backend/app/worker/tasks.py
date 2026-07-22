@@ -341,6 +341,8 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
     if not topics:
         return {"project": p.name, "produced": 0, "note": "ไม่มีหัวข้อใหม่ให้ผลิต"}
     auto = (p.mode == "auto")
+    from app.config import settings as _cfg
+    min_score = int(getattr(_cfg, "min_publish_score", 82) or 82)   # ประตูคุณภาพ: ต่ำกว่านี้ = ไม่เผยแพร่ (เก็บร่าง + ปรับก่อน)
     results = []
     for topic in topics:
         try:
@@ -367,6 +369,7 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
             schema = gen.get("schema", "") or ""
             desc = _plain(html)[:300]
             aeo = _aeo_of(html, topic, desc, schema, cover)          # คะแนน AEO/SEO จริง (ตัวแปรจัดอันดับ)
+            publish_now = auto and (aeo >= min_score)                # ⭐ พรีเมียมเท่านั้นถึงเผยแพร่อัตโนมัติ (กันบทความห่วยหลุด)
             async with db.session() as s:
                 art = Article(project_id=project_id, title=topic, html=html,
                               schema_json=schema,
@@ -374,17 +377,24 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                               cluster=cluster_of.get(topic, ""),
                               aeo_score=aeo,
                               words=_wordcount(html), fmt="บทความยาว",
-                              status="published" if auto else "draft")
+                              status="published" if publish_now else "draft")
                 s.add(art); await s.commit(); await s.refresh(art)
                 art.slug = urls.article_slug(topic, art.id)
-                if auto and p.publish_mode == "managed":   # managed = เสิร์ฟจาก DB → ตั้ง URL สาธารณะเลย
+                if publish_now and p.publish_mode == "managed":   # managed = เสิร์ฟจาก DB → ตั้ง URL สาธารณะเลย
                     art.url = urls.public_url_for(p, art)
                 await s.commit()
                 art_id, art_slug, art_url = art.id, art.slug, art.url
             item = {"topic": topic, "article_id": art_id, "provider": gen.get("provider"),
-                    "publish_mode": p.publish_mode}
-            if not auto:                                              # โหมด approve → เก็บเป็นร่าง
-                item["status"] = "draft (รออนุมัติ)"
+                    "publish_mode": p.publish_mode, "aeo": aeo}
+            if not publish_now:
+                if auto:                                              # ออโต้แต่คะแนนยังไม่ถึงพรีเมียม → เก็บร่าง + สั่งปรับให้ถึงเกณฑ์ก่อน
+                    item["status"] = "draft (AEO %d < %d — กำลังปรับให้ถึงพรีเมียมก่อนเผยแพร่)" % (aeo, min_score)
+                    try:
+                        optimize_article.delay(art_id)
+                    except Exception:  # noqa: BLE001
+                        pass
+                else:                                                 # โหมด approve → เก็บเป็นร่างรออนุมัติ
+                    item["status"] = "draft (รออนุมัติ)"
             elif p.publish_mode == "wordpress":                       # 3a) เผยแพร่ขึ้น WordPress ลูกค้า (M4)
                 pub = await publish.publish_and_index(topic, html, "publish", None, creds=wp or None)
                 link = (pub.get("wordpress") or {}).get("link", "")
@@ -584,6 +594,7 @@ async def _optimize_article(article_id: int, min_score: int) -> dict:
                 "score_before": before["score"], "score_after": after["score"],
                 "note": "ผลใหม่ไม่ดีกว่าเดิม — คงบทความเดิมไว้"}
 
+    was_draft = False
     async with db.session() as s:
         a = await s.get(Article, article_id)
         if a:
@@ -594,7 +605,21 @@ async def _optimize_article(article_id: int, min_score: int) -> dict:
             a.aeo_score = after["score"]
             a.updated_at = datetime.now(timezone.utc)          # bump dateModified (สดขึ้นด้วย)
             await s.commit()
-    return {"article_id": article_id, "optimized": True,
+            was_draft = (a.status == "draft")
+    # ปิดลูปคุณภาพ: ร่างที่ปรับจนคะแนนถึงเกณฑ์พรีเมียมแล้ว + โปรเจ็คโหมด auto → เผยแพร่อัตโนมัติ
+    promoted = False
+    from app.config import settings as _cfg
+    if was_draft and after["score"] >= int(getattr(_cfg, "min_publish_score", 82) or 82):
+        from app.db.models import Project
+        async with db.session() as s:
+            pr = await s.get(Project, project_id)
+            promoted = bool(pr and pr.mode == "auto")
+        if promoted:
+            try:
+                approve_article.delay(article_id)
+            except Exception:  # noqa: BLE001
+                pass
+    return {"article_id": article_id, "optimized": True, "promoted": promoted,
             "score_before": before["score"], "score_after": after["score"],
             "gain": after["score"] - before["score"]}
 
