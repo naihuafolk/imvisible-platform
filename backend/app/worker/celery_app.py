@@ -53,6 +53,18 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.optimize_low_scores",
         "schedule": crontab(hour=5, minute=0),
     },
+    "grow-clusters-weekly": {        # ⚡ #3 ขยายคลัสเตอร์เป็นชุด (อำนาจหัวข้อ) ทุกวันพุธ 04:00
+        "task": "app.worker.tasks.grow_clusters",
+        "schedule": crontab(hour=4, minute=0, day_of_week=3),
+    },
+    "ensure-schema-weekly": {        # ⚡ #8 เติม schema (JSON-LD) ที่ขาด ทุกวันอังคาร 04:00
+        "task": "app.worker.tasks.ensure_schema",
+        "schedule": crontab(hour=4, minute=0, day_of_week=2),
+    },
+    "refresh-interlinks-weekly": {   # ⚡ #5 หมุนลิงก์ภายใน (authority routing) ทุกวันเสาร์ 04:30
+        "task": "app.worker.tasks.refresh_interlinks",
+        "schedule": crontab(hour=4, minute=30, day_of_week=6),
+    },
     "learn-weekly": {                # M6 · สรุป+ปรับกลยุทธ์ ทุกวันอาทิตย์ 20:00
         "task": "app.worker.tasks.learning_loop",
         "schedule": crontab(hour=20, minute=0, day_of_week=0),

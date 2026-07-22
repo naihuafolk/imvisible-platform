@@ -647,6 +647,86 @@ async def _boost_rankings(lo: int, hi: int, per_project: int) -> str:
     return "queued rank-boost for %d pages (striking %d-%d / dropped off page1)" % (n, lo, hi)
 
 
+@celery_app.task(name="app.worker.tasks.grow_clusters")
+def grow_clusters(batch: int = 3) -> str:
+    """⚡ #3 Cluster Autopilot: ผลิตเป็นชุด (batch) ต่อโปรเจ็ค → ขยายคลัสเตอร์ให้ลึก = สร้างอำนาจหัวข้อ
+    ติดเร็วขึ้นทั้งกลุ่ม (produce เลือกหัวข้อจากแผนที่จัดกลุ่มไว้ + interlink เชื่อมพี่น้องคลัสเตอร์เดียวกัน)"""
+    return _run(_grow_clusters(batch))
+
+
+async def _grow_clusters(batch: int) -> str:
+    from app.db.models import Project
+    if not db.enabled():
+        return "DB not configured"
+    async with db.session() as s:
+        ids = (await s.execute(select(Project.id))).scalars().all()
+    for pid in ids:
+        produce_for_project.delay(pid, batch)   # โควตายังบังคับใน produce → ไม่ผลิตเกินแพ็กเกจ
+    return "queued cluster wave (batch=%d) for %d projects" % (batch, len(ids))
+
+
+@celery_app.task(name="app.worker.tasks.refresh_interlinks")
+def refresh_interlinks(per_project: int = 10) -> str:
+    """⚡ #5 Authority Internal Linking: re-apply ลิงก์ภายในทุกบทความ → บทความเก่า (index แล้ว/แข็ง)
+    ได้ลิงก์ไปหาบทความใหม่ = ส่ง crawl equity ให้หน้าใหม่ถูกเก็บ+ติดเร็วขึ้น"""
+    return _run(_refresh_interlinks(per_project))
+
+
+async def _refresh_interlinks(per_project: int) -> str:
+    from app.db.models import Project, Article
+    if not db.enabled():
+        return "DB not configured"
+    n = 0
+    async with db.session() as s:
+        pids = (await s.execute(select(Project.id))).scalars().all()
+    for pid in pids:
+        async with db.session() as s:
+            arts = (await s.execute(
+                select(Article.id, Article.title, Article.html)
+                .where(Article.project_id == pid, Article.status == "published")
+                .order_by(Article.id.asc()).limit(per_project))).all()
+        for aid, title, html in arts:
+            try:
+                new_html = await _apply_internal_links(pid, title, html or "")
+            except Exception:  # noqa: BLE001
+                new_html = html
+            if new_html and new_html != html:
+                async with db.session() as s:
+                    a = await s.get(Article, aid)
+                    if a:
+                        a.html = new_html
+                        a.words = _wordcount(new_html)
+                        await s.commit()
+                        n += 1
+    return "refreshed internal links on %d articles" % n
+
+
+@celery_app.task(name="app.worker.tasks.ensure_schema")
+def ensure_schema(per_project: int = 4) -> str:
+    """⚡ #8 AEO Schema completeness: หาบทความที่ยังไม่มี schema (JSON-LD) → เข้าคิว optimize
+    (สร้าง schema + ดันคะแนน AEO) → ชิง Featured Snippet / ให้ AI หยิบไปตอบง่ายขึ้น"""
+    return _run(_ensure_schema(per_project))
+
+
+async def _ensure_schema(per_project: int) -> str:
+    from app.db.models import Project, Article
+    if not db.enabled():
+        return "DB not configured"
+    n = 0
+    async with db.session() as s:
+        pids = (await s.execute(select(Project.id))).scalars().all()
+        for pid in pids:
+            rows = (await s.execute(
+                select(Article.id).where(
+                    Article.project_id == pid, Article.status == "published",
+                    (Article.schema_json == "") | (Article.schema_json.is_(None)))
+                .limit(per_project))).scalars().all()
+            for aid in rows:
+                optimize_article.delay(aid)
+                n += 1
+    return "queued schema/optimize for %d articles missing schema" % n
+
+
 @celery_app.task(name="app.worker.tasks.distribute_article")
 def distribute_article(project_id: int, article_id: int) -> dict:
     """สั่งกระจายบทความที่เผยแพร่แล้วซ้ำ (เช่น เพิ่งเชื่อมช่องใหม่) — ใช้จาก API"""
