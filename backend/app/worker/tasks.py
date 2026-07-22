@@ -114,12 +114,17 @@ async def _measure_rank(keyword: str, domain: str, project_id: int | None) -> di
 def analyze_project(project_id: int, then_produce: bool = True) -> dict:
     """🔎 Site Intelligence: อ่านเว็บลูกค้าจริง → สกัดบริบทธุรกิจ + คำแบรนด์ + วางแผนหัวข้อ
     แล้ว 'ผลิตบทความแรกเองทันที' (ออโตจริง — สร้างโปรเจ็คแล้วมีบทความเลย ไม่ต้องรอ beat/สั่งเอง)"""
-    r = _run(_analyze_project(project_id))
-    if then_produce:
-        try:
-            produce_for_project.delay(project_id, 1)   # ฝังออโต: วิเคราะห์เสร็จ → เขียนบทความแรก
-        except Exception:  # noqa: BLE001
-            pass
+    try:
+        r = _run(_analyze_project(project_id))
+    except Exception as e:  # noqa: BLE001
+        r = {"analyzed": False, "error": str(e)[:200]}
+    finally:
+        # ฝังออโต: ต้องสั่งผลิตเสมอ แม้ analyze จะล่ม (ไม่งั้นโปรเจ็คจะค้างไม่มีบทความ)
+        if then_produce:
+            try:
+                produce_for_project.delay(project_id, 1)
+            except Exception:  # noqa: BLE001
+                pass
     return r
 
 
@@ -334,8 +339,12 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
             results.append(item)
         except Exception as e:  # noqa: BLE001
             results.append({"topic": topic, "error": str(e)})
-    return {"project": p.name, "mode": p.mode, "publish_mode": p.publish_mode,
-            "produced": len(results), "items": results}
+    written = [r for r in results if r.get("article_id")]   # นับเฉพาะบทความที่เขียนลง DB จริง (ไม่โม้)
+    out = {"project": p.name, "mode": p.mode, "publish_mode": p.publish_mode,
+           "produced": len(written), "attempted": len(results), "items": results}
+    if not written and results:                            # ผลิตไม่ได้เลย → บอกเหตุผลจริง (มักคือคีย์ AI)
+        out["note"] = "เขียนบทความไม่สำเร็จ: " + str(results[0].get("error") or "")[:160]
+    return out
 
 
 def publish_host_base() -> str:
