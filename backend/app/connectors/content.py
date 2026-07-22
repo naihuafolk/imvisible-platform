@@ -130,6 +130,41 @@ async def _llm(system: str, user: str, tier: str = "fast") -> tuple[str, str]:
     raise RuntimeError("LLM ทุกตัวคืนค่าว่าง/ล้มเหลว (ตรวจคีย์ ANTHROPIC/OPENAI/GEMINI)")
 
 
+async def suggest_keywords(domain: str, name: str = "", language: str = "ภาษาไทย", n: int = 12) -> list[dict]:
+    """AI เสนอคีย์เวิร์ด/หัวข้อที่ธุรกิจนี้ควรทำ (เร็ว 1 คอล) — ช่วยลูกค้าที่คิดคีย์เวิร์ดไม่ออก
+    หมายเหตุ: ไม่แต่งตัวเลขปริมาณค้นหา/สถิติ ให้เฉพาะ intent เชิงคุณภาพ (เป็นคำแนะนำ ไม่ใช่ค่าที่วัดจริง)"""
+    sysmsg = ("คุณคือนักวางกลยุทธ์ SEO/AEO ที่เข้าใจพฤติกรรมการค้นหาของคนไทย "
+              "เสนอคีย์เวิร์ด/หัวข้อที่ 'คนค้นหาจริงเพื่อตัดสินใจ' (ไม่ใช่ชื่อแบรนด์) "
+              "ห้ามแต่งตัวเลขปริมาณการค้นหา/สถิติใด ๆ ตอบเป็น JSON valid เท่านั้น ห้าม markdown fence")
+    usermsg = ("ธุรกิจ/เว็บไซต์: %s (โดเมน %s) · ภาษา %s\n"
+               "เสนอคีย์เวิร์ด/หัวข้อ %d รายการ ที่ควรทำคอนเทนต์เพื่อดึงลูกค้าเป้าหมาย "
+               "คละ intent (หาข้อมูล / เปรียบเทียบ / พร้อมซื้อ)\n"
+               'ส่ง JSON เท่านั้น: {"keywords":[{"kw":"คีย์เวิร์ด","intent":"ซื้อ|เทียบ|หาข้อมูล","why":"เหตุผลสั้นมาก"}]}'
+               % ((name or domain), domain, language, n))
+    _prov, text = await _llm(sysmsg, usermsg, tier="fast")
+    raw = _strip_fence(text).strip()
+    try:
+        data = json.loads(raw)
+    except Exception:  # noqa: BLE001
+        i, j = raw.find("{"), raw.rfind("}")
+        data = json.loads(raw[i:j + 1]) if (i >= 0 and j > i) else {}
+    items = data.get("keywords") if isinstance(data, dict) else (data if isinstance(data, list) else [])
+    out, seen = [], set()
+    for it in items or []:
+        if isinstance(it, dict):
+            kw = str(it.get("kw") or it.get("keyword") or "").strip()
+            intent = str(it.get("intent") or "").strip()[:16]
+            why = str(it.get("why") or "").strip()[:140]
+        elif isinstance(it, str):
+            kw, intent, why = it.strip(), "", ""
+        else:
+            continue
+        if kw and kw.lower() not in seen:
+            seen.add(kw.lower())
+            out.append({"kw": kw[:120], "intent": intent, "why": why})
+    return out[:n]
+
+
 # ============ stage prompts ============
 
 _S1_SYSTEM = ("คุณคือ SEO/AEO strategist ที่ reverse-engineer หน้า SERP ไทยได้แม่นยำ และอ่านใจคนไทยที่กำลังค้นหาเพื่อตัดสินใจซื้อ "

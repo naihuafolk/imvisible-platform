@@ -161,7 +161,9 @@ async def _analyze_project(project_id: int) -> dict:
         if p:
             p.business_context = ctx_text
             p.brand_terms = brands_txt
-            p.topic_plan = json.dumps(plan, ensure_ascii=False) if plan else ""
+            # ไม่ทับแผนหัวข้อที่ลูกค้าเลือกไว้ตอนสร้าง (คีย์เวิร์ดที่ AI ช่วยคิด/ติ๊กเอง)
+            if plan and not (getattr(p, "topic_plan", "") or "").strip():
+                p.topic_plan = json.dumps(plan, ensure_ascii=False)
             p.analyzed_at = datetime.now(timezone.utc)
             await s.commit()
     return {"project": name, "analyzed": True, "pages_read": ctx.get("_pages_read") or [],

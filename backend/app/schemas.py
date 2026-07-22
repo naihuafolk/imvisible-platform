@@ -92,6 +92,14 @@ class ProjectCreate(BaseModel):
     mode: str = "approve"
     publish_mode: str = "managed"    # managed (เราโฮสต์ให้) | wordpress | none
     custom_domain: str = ""          # เช่น blog.abccoffee.com (ตั้ง CNAME มาที่เรา)
+    keywords: list[str] = []         # คีย์เวิร์ด/หัวข้อเริ่มต้นที่ลูกค้าเลือก (AI ช่วยคิด) → ใช้ผลิตบทความแรกจริง
+
+
+class KeywordSuggestRequest(BaseModel):
+    url: str = ""                    # ลูกค้าวางลิงก์ → AI ช่วยคิดคีย์เวิร์ดจากเว็บ (ไม่ต้องคิดเอง)
+    domain: str = ""
+    name: str = ""
+    language: str = "th"
 
 
 class PublishTargetUpdate(BaseModel):

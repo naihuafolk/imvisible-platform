@@ -27,6 +27,7 @@ from app.schemas import (
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
+    KeywordSuggestRequest,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social, billing, pagespeed
 from app.auth import security
@@ -481,6 +482,12 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
                 slug = "%s-%s" % (base_slug, secrets.token_hex(3))
         if p is None:
             raise HTTPException(409, "สร้างโปรเจ็คไม่สำเร็จ (โดเมน/slug ชนกัน) ลองใหม่อีกครั้ง")
+        # คีย์เวิร์ดที่ลูกค้าเลือก (AI ช่วยคิด) → บันทึกเป็นแผนหัวข้อตั้งต้น เพื่อให้ระบบผลิตบทความจากคีย์เหล่านี้จริง
+        seeds = [str(k).strip() for k in (req.keywords or []) if str(k).strip()][:20]
+        if seeds:
+            import json as _json
+            p.topic_plan = _json.dumps([{"topic": k, "cluster": ""} for k in seeds], ensure_ascii=False)
+            await s.commit()
         await s.refresh(p)
         result = _proj_dict(p)
         new_id = p.id
@@ -492,6 +499,32 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
     except Exception:  # noqa: BLE001
         result["analyzing"] = False
     return result
+
+
+@app.post("/api/keywords/suggest")
+async def keywords_suggest(req: KeywordSuggestRequest, user=Depends(get_current_user)):
+    """🤖 AI ช่วยคิดคีย์เวิร์ดตอนสร้างโปรเจ็ค — ลูกค้าวางลิงก์ก็พอ ไม่ต้องคิดคีย์เวิร์ดเอง"""
+    from urllib.parse import urlparse
+    from app.connectors import content
+    domain = (req.domain or "").strip().lower()
+    if not domain and req.url:
+        u = req.url.strip()
+        if "://" not in u:
+            u = "https://" + u
+        domain = (urlparse(u).hostname or "").removeprefix("www.")
+    if not domain:
+        raise HTTPException(422, "กรุณาระบุลิงก์/โดเมนเว็บไซต์ก่อน")
+    lang = "English" if str(req.language).lower().startswith("en") else "ภาษาไทย"
+    source = "ai"
+    try:
+        kws = await content.suggest_keywords(domain, req.name or "", lang, 12)
+    except Exception:  # noqa: BLE001
+        kws = []
+    if not kws:                                   # AI ล่ม/คีย์ไม่พร้อม → หัวข้อตั้งต้นจากแบรนด์ (ยังใช้งานได้)
+        from app.worker.tasks import _starter_topics
+        kws = [{"kw": t, "intent": "", "why": ""} for t in _starter_topics(req.name or domain, lang)]
+        source = "starter"
+    return {"domain": domain, "keywords": kws, "source": source}
 
 
 @app.put("/api/projects/{project_id}/publish")

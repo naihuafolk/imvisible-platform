@@ -101,75 +101,103 @@
       '</div>';
   }
 
-  /* ---- Wizard: สร้างโปรเจ็คใหม่ ---- */
+  /* ---- Wizard: สร้างโปรเจ็คใหม่ (วางลิงก์ → AI คิดคีย์เวิร์ด → ติ๊กเลือก → สร้าง) ---- */
+  function uniq(arr) { var s = {}, o = []; arr.forEach(function (x) { x = (x || '').trim(); if (x && !s[x.toLowerCase()]) { s[x.toLowerCase()] = 1; o.push(x); } }); return o; }
+  function curLang() { var s = document.getElementById('np_country'); return (s && /อังกฤษ|en/i.test(s.value)) ? 'en' : 'th'; }
+  function styleChip(el) {
+    var on = el.getAttribute('data-on') === '1';
+    el.style.cssText = 'display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none;padding:6px 12px;margin:0 6px 6px 0;border-radius:999px;font-size:13px;' +
+      'border:1px solid ' + (on ? 'var(--brand-500,#6366f1)' : 'var(--border,#e5e7eb)') + ';' +
+      'background:' + (on ? 'var(--brand-50,#eef2ff)' : 'var(--card,#fff)') + ';color:' + (on ? 'var(--brand-700,#4338ca)' : 'inherit');
+    el.innerHTML = (on ? '✓ ' : '＋ ') + esc(el.getAttribute('data-kw'));
+  }
+  function renderChips(container, ks, source) {
+    var head = '<div class="row between wrap" style="margin-bottom:8px;gap:8px"><div class="soft small">' +
+      (source === 'ai' ? '🤖 AI แนะนำ — ' : '') + 'ติ๊กเลือกหัวข้อที่อยากให้เขียน (เลือกได้หลายอัน)</div>' +
+      '<button type="button" class="btn btn-sm" id="kwAll">เลือกทั้งหมด</button></div>';
+    var body = ks.map(function (k, i) {
+      return '<span class="kw-chip" data-kw="' + esc(k.kw) + '" data-on="' + (i < 5 ? '1' : '0') + '"' + (k.why ? ' title="' + esc(k.why) + '"' : '') + '></span>';
+    }).join('');
+    container.innerHTML = head + '<div>' + body + '</div>' +
+      '<div class="soft" style="font-size:11px;margin-top:6px">เลือกไว้ก่อน 5 หัวข้อแรก — ปรับได้ตามใจ · ระบบจะเขียนบทความจากหัวข้อที่เลือกจริง</div>';
+    Array.prototype.forEach.call(container.querySelectorAll('.kw-chip'), function (el) {
+      styleChip(el);
+      el.onclick = function () { el.setAttribute('data-on', el.getAttribute('data-on') === '1' ? '0' : '1'); styleChip(el); };
+    });
+    var all = container.querySelector('#kwAll');
+    if (all) all.onclick = function () { Array.prototype.forEach.call(container.querySelectorAll('.kw-chip'), function (el) { el.setAttribute('data-on', '1'); styleChip(el); }); };
+  }
+  function collectSelected() {
+    var c = document.getElementById('np_kwchips'); if (!c) return [];
+    var out = [];
+    Array.prototype.forEach.call(c.querySelectorAll('.kw-chip'), function (el) { if (el.getAttribute('data-on') === '1') out.push(el.getAttribute('data-kw')); });
+    return out;
+  }
+
   function openWizard() {
     var body =
-      '<div class="hint mb">การสร้างโปรเจ็คคือการบอกระบบว่า "จะดันเว็บไหน ด้วยคีย์เวิร์ด/คู่แข่งอะไร และเผยแพร่ที่ไหน" — ตั้งค่าเสร็จระบบเริ่มวงจรอัตโนมัติให้เอง</div>' +
-      wizSection('1 · ข้อมูลโปรเจ็ค',
-        field('ชื่อโปรเจ็ค', '<input class="input" id="np_name" placeholder="เช่น คลินิกความงาม XYZ" style="width:100%">') +
-        field('โดเมนเว็บไซต์', '<input class="input" id="np_domain" placeholder="example.com" style="width:100%">') +
-        field('ประเทศ / ภาษาเป้าหมาย', '<select class="select" id="np_country" style="width:100%"><option>ไทย / ภาษาไทย</option><option>ไทย / อังกฤษ</option></select>')) +
-      wizSection('2 · การเชื่อมต่อที่ต้องมี (จำเป็นก่อนวัดผล)',
-        checkline('SERP API — วัดอันดับ Google', true) +
-        checkline('Google Search Console — ยืนยันโดเมน', false) +
-        checkline('API วัด AI Citation (ChatGPT/Gemini/Perplexity)', false) +
-        checkline('ปลายทางเผยแพร่ (WordPress / Webflow)', false)) +
-      wizSection('3 · เป้าหมาย',
-        field('คีย์เวิร์ด/หัวข้อเริ่มต้น (คั่นด้วย ,)', '<input class="input" id="np_kw" placeholder="เลเซอร์หน้าใส, ฟิลเลอร์, ครีมกันแดด" style="width:100%">') +
-        field('โดเมนคู่แข่ง (คั่นด้วย ,)', '<input class="input" id="np_comp" placeholder="competitor-a.com, competitor-b.com" style="width:100%">') +
-        field('ชื่อแบรนด์ที่ใช้ตรวจ AI Citation', '<input class="input" id="np_brand" placeholder="ชื่อแบรนด์ / ชื่อเว็บ" style="width:100%">')) +
-      wizSection('4 · โหมดเผยแพร่',
-        '<label class="row gap-s" style="cursor:pointer;margin-bottom:6px"><input type="radio" name="np_mode" value="approve" checked> <span>Auto + Human Approve (แนะนำ — กดอนุมัติก่อนเผยแพร่)</span></label>' +
-        '<label class="row gap-s" style="cursor:pointer"><input type="radio" name="np_mode" value="auto"> <span>Full-Auto 100% (เผยแพร่เองเมื่อผ่านเกณฑ์คุณภาพ)</span></label>') +
-      '<div class="row between" style="margin-top:18px"><span class="soft small">ตั้งค่าเพิ่มเติมได้ภายหลังที่ การตั้งค่า</span>' +
-      '<button class="btn btn-primary" id="np_create">สร้างโปรเจ็ค & เริ่มวงจร</button></div>';
-    ui.modal({ title: 'สร้างโปรเจ็คใหม่', sub: 'ตั้งค่าพื้นฐานให้ระบบเริ่มทำงานอัตโนมัติ', width: 720, body: body });
+      '<div class="hint mb">ใส่แค่ลิงก์เว็บลูกค้า แล้วกดให้ AI ช่วยคิดคีย์เวิร์ด — ที่เหลือระบบเขียน/เผยแพร่/วัดผลให้เองอัตโนมัติ</div>' +
+      field('ลิงก์เว็บไซต์ลูกค้า', '<input class="input" id="np_url" placeholder="เช่น abccoffee.com หรือ https://abccoffee.com" style="width:100%">') +
+      '<div class="row wrap" style="gap:8px;margin:2px 0 14px"><button type="button" class="btn btn-primary btn-sm" id="np_suggest">🤖 ให้ AI ช่วยคิดคีย์เวิร์ด</button>' +
+      '<span class="soft small" style="align-self:center">ไม่ต้องคิดเอง — AI ดูจากเว็บให้</span></div>' +
+      '<div id="np_kwchips" class="mb"></div>' +
+      field('หรือพิมพ์คีย์เวิร์ดเองเพิ่ม (คั่นด้วย , — ไม่ใส่ก็ได้)', '<input class="input" id="np_kw" placeholder="เลเซอร์หน้าใส, ฟิลเลอร์" style="width:100%">') +
+      '<details style="margin:8px 0"><summary class="soft small" style="cursor:pointer">ตัวเลือกเพิ่มเติม (ชื่อโปรเจ็ค · ภาษา · โหมดเผยแพร่)</summary><div style="padding-top:12px">' +
+        field('ชื่อโปรเจ็ค (เว้นว่าง = ใช้ชื่อโดเมน)', '<input class="input" id="np_name" placeholder="เช่น คลินิกความงาม XYZ" style="width:100%">') +
+        field('ภาษาเนื้อหา', '<select class="select" id="np_country" style="width:100%"><option value="th">ไทย</option><option value="en">อังกฤษ</option></select>') +
+        '<div class="soft small" style="margin:4px 0 6px">โหมดเผยแพร่</div>' +
+        '<label class="row gap-s" style="cursor:pointer;margin-bottom:6px"><input type="radio" name="np_mode" value="approve" checked> <span>Auto + กดอนุมัติก่อนเผยแพร่ (แนะนำ)</span></label>' +
+        '<label class="row gap-s" style="cursor:pointer"><input type="radio" name="np_mode" value="auto"> <span>Full-Auto 100% (เผยแพร่เองเมื่อผ่านเกณฑ์)</span></label>' +
+      '</div></details>' +
+      '<div class="row between" style="margin-top:16px"><span class="soft small">ปรับแต่งเพิ่มได้ภายหลังที่ การตั้งค่า</span>' +
+      '<button class="btn btn-primary" id="np_create">สร้างโปรเจ็ค &amp; เริ่มให้เลย</button></div>';
+    ui.modal({ title: 'สร้างโปรเจ็คใหม่', sub: 'วางลิงก์ → AI คิดคีย์เวิร์ดให้ → ติ๊กเลือก → สร้าง', width: 640, body: body });
+
+    var sg = document.getElementById('np_suggest');
+    if (sg) sg.onclick = function () {
+      var url = (document.getElementById('np_url').value || '').trim();
+      if (!url) { ui.toast('วางลิงก์เว็บไซต์ก่อน'); return; }
+      if (!(RP.api && RP.api.reachable())) { ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — เปิดโหมด Live ในหน้าตั้งค่าก่อน'); return; }
+      var nm = (document.getElementById('np_name') && document.getElementById('np_name').value || '').trim();
+      var chips = document.getElementById('np_kwchips');
+      sg.disabled = true; sg.textContent = '🤖 กำลังคิด…';
+      chips.innerHTML = '<div class="soft small">AI กำลังวิเคราะห์เว็บและคิดคีย์เวิร์ด… (สักครู่)</div>';
+      RP.api.suggestKeywords({ url: url, name: nm, language: curLang() }).then(function (d) {
+        var ks = (d && d.keywords) || [];
+        if (!ks.length) { chips.innerHTML = '<div class="soft small">ยังคิดไม่ได้ ลองใหม่ หรือพิมพ์คีย์เวิร์ดเองด้านล่าง</div>'; }
+        else renderChips(chips, ks, d.source);
+      }).catch(function (e) {
+        chips.innerHTML = '<div class="soft small">คิดคีย์เวิร์ดไม่ได้: ' + esc(e.message || '') + ' — พิมพ์เองด้านล่างได้</div>';
+      }).then(function () { sg.disabled = false; sg.textContent = '🤖 ให้ AI ช่วยคิดคีย์เวิร์ดอีกครั้ง'; });
+    };
+
     var btn = document.getElementById('np_create');
     if (btn) btn.onclick = function () {
-        var name = (document.getElementById('np_name').value || '').trim();
-        var domain = (document.getElementById('np_domain').value || '').trim();
-        if (!name || !domain) { ui.toast('กรุณากรอกชื่อโปรเจ็คและโดเมน'); return; }
-        var modeEl = document.querySelector('input[name="np_mode"]:checked');
-        var id = 'p' + (RP.data.project.list.length + 1);
-        var real = RP.isReal();
-        // บัญชีจริง + ต่อ backend ไม่ได้ → ห้ามบอกว่า "สร้างแล้ว" ทั้งที่ยังไม่ได้สร้างจริง
-        if (real && !(RP.api && RP.api.reachable())) {
-          ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — <b>ยังไม่ได้สร้างโปรเจ็ค</b> กรุณาลองใหม่อีกครั้ง');
-          return;
-        }
-        if (!real) {   // โหมดตัวอย่างเท่านั้น: เพิ่มการ์ดสมมติในหน่วยความจำ
-          RP.data.project.list.push({
-            id: id, name: name, domain: domain, mode: modeEl ? modeEl.value : 'approve',
-            country: 'ไทย', lang: 'ภาษาไทย', plan: 'Pro', status: 'setup', created: 'เมื่อสักครู่',
-            keywords: 0, clusters: 0,
-            competitors: splitc(document.getElementById('np_comp').value),
-            brandTerms: splitc(document.getElementById('np_brand').value),
-            promptSet: 0, freshnessDays: 120, authors: 0,
-            health: { gsc: false, serp: true, ai: false, publish: false }
-          });
-        }
-        if (RP.api && RP.api.reachable()) {   // สร้างในระบบจริง (DB) ด้วย → auto-loop เริ่มผลิต + โฮสต์บล็อกให้
-          var langSel = document.getElementById('np_country');
-          var language = (langSel && /อังกฤษ/.test(langSel.value)) ? 'en' : 'th';
-          RP.api.createProject({ name: name, domain: domain, mode: modeEl ? modeEl.value : 'approve',
-                                 country: 'ไทย', language: language, publish_mode: 'managed' })
-            .then(function (p) {
-              var home = p.public_home || '';
-              if (RP.loadRealData) RP.loadRealData(function () { mountNow(); });   // ดึงรายการโปรเจ็คจริงกลับมาแสดง
-              RP.ui.toast('สร้างในระบบจริงแล้ว ✓ ระบบจะเริ่มผลิต + โฮสต์บล็อกให้อัตโนมัติ');
-              if (home) RP.ui.modal({ title: 'บล็อกของคุณพร้อมแล้ว 🎉', sub: 'ลูกค้าใส่แค่ลิงก์ — ที่เหลือเราจัดการให้', width: 560,
-                body: '<div class="note-box mb">ระบบจะเขียนบทความตามสูตร AEO แล้วเผยแพร่ที่นี่ให้อัตโนมัติ (ไม่ต้องแตะอะไรเลย)</div>' +
-                  '<div class="soft small" style="margin-bottom:6px">บล็อกที่เราโฮสต์ให้:</div>' +
-                  '<a href="' + RP.esc(home) + '" target="_blank" class="bb" style="word-break:break-all">' + RP.esc(home) + '</a>' +
-                  '<div class="hint" style="margin-top:12px">อยากให้อยู่บนโดเมนคุณเอง (เช่น <b>blog.' + RP.esc(domain) + '</b>)? ตั้งค่า CNAME มาที่เรา 1 บรรทัด แล้วแจ้งทีม — ระบบออก HTTPS ให้อัตโนมัติ</div>' });
-            })
-            .catch(function (e) { RP.ui.toast('บันทึก DB ไม่ได้ (ต้องล็อกอินจริง): ' + RP.esc(e.message || String(e))); });
-        }
-        ui.closeModal();
-        ui.toast(real ? 'กำลังสร้างโปรเจ็ค <b>' + esc(name) + '</b> ในระบบ…'
-                      : 'สร้างโปรเจ็ค <b>' + esc(name) + '</b> แล้ว — เชื่อมต่อที่เหลือในหน้าตั้งค่าเพื่อเริ่มวัดผล ✓');
-        RP.go('projects'); mountNow();
-      };
+      var url = (document.getElementById('np_url').value || '').trim();
+      if (!url) { ui.toast('วางลิงก์เว็บไซต์ก่อน'); return; }
+      var name = (document.getElementById('np_name') && document.getElementById('np_name').value || '').trim();
+      var modeEl = document.querySelector('input[name="np_mode"]:checked');
+      var mode = modeEl ? modeEl.value : 'approve';
+      var keywords = uniq(collectSelected().concat(splitc(document.getElementById('np_kw') ? document.getElementById('np_kw').value : '')));
+      if (!(RP.api && RP.api.reachable())) { ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — <b>ยังไม่ได้สร้างโปรเจ็ค</b>'); return; }
+      btn.disabled = true; btn.textContent = 'กำลังสร้าง…';
+      RP.api.createProject({ url: url, name: name, mode: mode, country: 'ไทย', language: curLang(), publish_mode: 'managed', keywords: keywords })
+        .then(function (p) {
+          var home = p.public_home || '', dom = p.domain || url;
+          ui.closeModal();
+          RP.ui.toast('สร้างแล้ว ✓ ระบบเริ่มเขียน' + (keywords.length ? (' ' + keywords.length + ' หัวข้อที่เลือก') : 'บทความแรก') + 'ให้อัตโนมัติ');
+          if (RP.loadRealData) RP.loadRealData(function () { mountNow(); }); else mountNow();
+          if (home) RP.ui.modal({ title: 'บล็อกของคุณพร้อมแล้ว 🎉', sub: 'ลูกค้าใส่แค่ลิงก์ — ที่เหลือเราจัดการให้', width: 560,
+            body: '<div class="note-box mb">ระบบจะเขียนบทความตามสูตร AEO แล้วเผยแพร่ที่นี่ให้อัตโนมัติ (ไม่ต้องแตะอะไรเลย)</div>' +
+              '<div class="soft small" style="margin-bottom:6px">บล็อกที่เราโฮสต์ให้:</div>' +
+              '<a href="' + RP.esc(home) + '" target="_blank" class="bb" style="word-break:break-all">' + RP.esc(home) + '</a>' +
+              '<div class="hint" style="margin-top:12px">อยากให้อยู่บนโดเมนคุณเอง (เช่น <b>blog.' + RP.esc(dom) + '</b>)? ตั้งค่า CNAME มาที่เรา 1 บรรทัด แล้วแจ้งทีม — ระบบออก HTTPS ให้อัตโนมัติ</div>' });
+        })
+        .catch(function (e) {
+          btn.disabled = false; btn.textContent = 'สร้างโปรเจ็ค & เริ่มให้เลย';
+          RP.ui.toast('สร้างไม่ได้ (ต้องล็อกอินจริง): ' + RP.esc(e.message || String(e)));
+        });
+    };
   }
   function splitc(s) { return (s || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean); }
   function wizSection(t, inner) { return '<div class="panel mb"><div class="panel-head">' + esc(t) + '</div><div class="panel-body">' + inner + '</div></div>'; }
