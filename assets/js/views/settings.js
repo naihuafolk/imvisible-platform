@@ -195,6 +195,29 @@
       '<div class="hint" style="margin-top:14px">🔒 คีย์และโทเคนทั้งหมดถูกเก็บเข้ารหัสฝั่งเซิร์ฟเวอร์ · ต้นทุน API จริงดูได้ที่การ์ด "ต้นทุน & เครดิต" ด้านบน (เฉพาะแอดมิน)</div>';
   }
 
+  /* ---------- ศูนย์เติมเงินผู้ให้บริการ (รายเจ้า + ลิงก์เติมตรง + ยอด/สถานะจริง) ---------- */
+  function providersHtml(d) {
+    var provs = d.providers || [];
+    if (!provs.length) return '';
+    var alertTop = d.topup_alert ? '<div class="card-pad" style="padding-top:0"><div class="note-box" style="border:1px solid var(--red-300,#fecaca);background:var(--red-50,#fef2f2);color:var(--red-700,#b91c1c);font-weight:700">🔴 มี ' + d.topup_alert + ' บริการเครดิตต่ำ — เติมด่วน</div></div>' : '';
+    var rows = provs.map(function (p) {
+      var dot = '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;background:' + (p.active ? (p.low ? 'var(--red-500,#ef4444)' : 'var(--green-500)') : 'var(--border)') + '"></span>';
+      var bal;
+      if (!p.active) bal = '<span style="color:var(--amber-600)">ยังไม่ได้ตั้งคีย์</span>';
+      else if (p.balance_source === 'api' && p.balance_usd != null) bal = '<b style="color:' + (p.low ? 'var(--red-600,#dc2626)' : 'var(--green-600)') + '">คงเหลือ $' + p.balance_usd.toFixed(2) + (p.low ? ' ⚠️ เติมด่วน' : '') + '</b>';
+      else bal = '<span class="soft">ยอด: ดูที่ console</span>' + (p.auto_recharge ? ' <span class="chip" style="font-size:10px;padding:1px 6px">🔁 ตั้ง auto-reload ได้</span>' : '');
+      var btn = '<a class="btn btn-sm ' + (p.low ? 'btn-primary' : '') + '" href="' + esc(p.topup_url) + '" target="_blank" rel="noopener" style="white-space:nowrap">' + (p.active ? 'เติมเงิน' : 'ตั้งค่า/เติม') + ' →</a>';
+      return '<div class="list-row" style="align-items:center;gap:10px">' +
+        '<div class="grow"><div class="t">' + dot + ' ' + esc(p.name) + '</div>' +
+        '<div class="soft small">' + esc(p.role) + ' · ' + bal + (p.note ? ' <span class="soft" style="font-size:11px">· ' + esc(p.note) + '</span>' : '') + '</div></div>' +
+        btn + '</div>';
+    }).join('');
+    return '<div class="card-pad" style="padding-bottom:4px"><div class="t" style="font-weight:700">🏦 ศูนย์เติมเงินผู้ให้บริการ</div>' +
+      '<div class="soft small">กดปุ่มเพื่อไปเติมตรงหน้า billing ของแต่ละเจ้า · ✅ DataForSEO โชว์ยอดจริง · เจ้าอื่นดูยอด/ตั้ง auto-reload ที่ console</div></div>' +
+      alertTop + rows +
+      '<div style="border-top:1px solid var(--border);margin:10px 0"></div>';
+  }
+
   /* ---------- การ์ดต้นทุน & เครดิต (แอดมินเท่านั้น — เติมจาก /api/admin/costs) ---------- */
   function costCardHtml(d) {
     var rows = (d.lines || []).map(function (l) {
@@ -211,7 +234,7 @@
     else if (d.alert_level === 'warn') alertHtml = '<div class="card-pad"><div class="note-box" style="border:1px solid var(--amber-300,#fcd34d);background:var(--amber-50,#fffbeb);color:var(--amber-700,#b45309);font-weight:700">⚠️ ต้นทุนเดือนนี้ ฿' + fmt.n(d.total_est) + ' = ' + d.alert_pct + '% ของงบ ฿' + fmt.n(d.budget) + ' — เตรียมเติมเครดิต</div></div>';
     else if (d.alert_level === 'off') alertHtml = '<div class="card-pad soft small">💡 ตั้งงบ <code>COST_BUDGET_THB</code> ใน .env เพื่อรับแจ้งเตือนเมื่อต้นทุนใกล้/เกินงบ</div>';
     return ui.card({ title: '💰 ต้นทุน & เครดิต (แอดมิน)', sub: 'ประมาณการค่า API เดือน ' + esc(d.month) + ' · ' + d.projects + ' โปรเจ็ค', flush: true, cls: 'mb',
-      body: alertHtml + '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>บริการ</th><th class="right">ใช้เดือนนี้</th><th class="right">/หน่วย</th><th class="right">ประมาณการ</th><th>เติมเงินที่</th></tr></thead><tbody>' +
+      body: providersHtml(d) + alertHtml + '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>บริการ</th><th class="right">ใช้เดือนนี้</th><th class="right">/หน่วย</th><th class="right">ประมาณการ</th><th>เติมเงินที่</th></tr></thead><tbody>' +
         rows +
         '<tr><td class="bb">รวมประมาณการเดือนนี้</td><td></td><td></td><td class="num bb" style="color:var(--brand-700);font-size:16px">฿' + fmt.n(d.total_est) + '</td><td></td></tr>' +
         '</tbody></table></div>' +

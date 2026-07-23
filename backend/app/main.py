@@ -294,6 +294,34 @@ async def admin_costs(user=Depends(get_current_user)):
          "usage": cites, "unit": "ครั้ง", "unit_cost": U["citation"], "est": round(cites * U["citation"]),
          "topup": "เดียวกับ LLM", "active": bool(settings.anthropic_api_key or settings.gemini_api_key or settings.openai_api_key or settings.perplexity_api_key)},
     ]
+    # ── ศูนย์เติมเงิน: รายผู้ให้บริการที่ 'เราต้องจ่าย' + ลิงก์เติมตรง + ยอด/สถานะจริง ──
+    LOW = 5.0                                            # เกณฑ์เตือน DataForSEO (USD)
+    def _prov(active, name, role, url, *, balance=None, source="console",
+              auto=False, note=""):
+        low = bool(source == "api" and balance is not None and balance < LOW)
+        return {"name": name, "role": role, "active": bool(active), "topup_url": url,
+                "balance_usd": balance, "balance_source": source,      # api = ดึงสด · console = ดูที่หน้าเจ้านั้น
+                "auto_recharge": bool(auto), "low": low, "note": note}
+    providers = [
+        _prov(settings.dataforseo_login and settings.dataforseo_password,
+              "DataForSEO", "วัดอันดับ + ขุดคีย์เวิร์ด", "https://app.dataforseo.com/",
+              balance=dfs_balance, source="api", note="ยอดคงเหลือดึงสดจาก API"),
+        _prov(settings.anthropic_api_key, "Anthropic (Claude)",
+              "เขียนบทความ + วัด AI Citation (หลัก)", "https://console.anthropic.com/settings/billing",
+              auto=True, note="ตั้ง Auto-reload ที่ Billing = ไม่มีวันเครดิตหมด"),
+        _prov(settings.fal_key, "fal.ai", "สร้างรูปภาพ (Seedream/FLUX)",
+              "https://fal.ai/dashboard/billing", auto=True, note="ตั้ง Auto top-up ได้ที่ Billing"),
+        _prov(settings.gemini_api_key, "Google Gemini", "LLM สำรอง + วัด AI Citation",
+              "https://aistudio.google.com/app/apikey", note="เติมผ่าน Google Cloud Billing"),
+        _prov(settings.openai_api_key, "OpenAI", "LLM สำรอง + วัด AI Citation",
+              "https://platform.openai.com/settings/organization/billing/overview",
+              auto=True, note="ตั้ง Auto-recharge ได้ที่ Billing"),
+        _prov(settings.perplexity_api_key, "Perplexity", "วัด AI Citation",
+              "https://www.perplexity.ai/settings/api"),
+        _prov(settings.ark_api_key, "ModelArk (BytePlus)", "รูป/วิดีโอ สำรอง",
+              "https://console.byteplus.com/"),
+    ]
+    topup_alert = sum(1 for p in providers if p["low"])   # จำนวนเจ้าที่ยอดต่ำ (มี API) → ต้องเติมด่วน
     total = sum(x["est"] for x in lines)
     budget = int(settings.cost_budget_thb or 0)
     alert_level, alert_pct = "off", None
@@ -301,7 +329,7 @@ async def admin_costs(user=Depends(get_current_user)):
         alert_pct = round(total / budget * 100)
         alert_level = "over" if total >= budget else ("warn" if alert_pct >= 80 else "ok")
     return {"month": mstart.strftime("%Y-%m"), "projects": projects,
-            "lines": lines, "total_est": total,
+            "lines": lines, "total_est": total, "providers": providers, "topup_alert": topup_alert,
             "budget": budget, "alert_level": alert_level, "alert_pct": alert_pct,
             "video_enabled": bool(settings.ark_video_model),
             "fixed_note": "เซิร์ฟเวอร์ BytePlus ECS + Postgres + Redis = ค่าคงที่รายเดือน (ดูที่บิล BytePlus)",
