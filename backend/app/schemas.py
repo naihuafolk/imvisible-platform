@@ -110,6 +110,10 @@ class AeoQuestionsUpdate(BaseModel):
     questions: list[str] = []        # คำถาม AEO ที่ลูกค้าตั้งเอง (คำที่คนถาม AI จริง) → บันทึกแทนที่ · สูงสุด 30
 
 
+class AdCreativeRequest(BaseModel):
+    keyword: str = ""                # คีย์เวิร์ดที่จะร่างชุดโฆษณา Google Ads (RSA) ให้
+
+
 class PublishTargetUpdate(BaseModel):
     publish_mode: str = "managed"    # managed | wordpress | none
     custom_domain: str = ""

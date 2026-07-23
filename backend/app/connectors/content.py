@@ -283,6 +283,56 @@ def _lint(html: str) -> str:
     return h.strip()
 
 
+# ============ Google Ads — ร่างชุดโฆษณา RSA (Responsive Search Ad) ============
+
+_ADS_SYSTEM = ("คุณคือผู้เชี่ยวชาญ Google Ads (Search RSA) ภาษาไทยที่เขียนโฆษณาให้คนคลิกและ 'ถูกนโยบาย Google' "
+               "ห้ามพูดเกินจริง/การันตีผลลัพธ์/พาดพิงคู่แข่ง/ใช้ตัวพิมพ์ใหญ่ทั้งคำ/ใช้อีโมจิ "
+               "ตอบเป็น JSON valid เท่านั้น ห้ามข้อความอื่น ห้าม markdown fence")
+
+_ADS_USER = """เขียนชุดโฆษณา Google Ads (Responsive Search Ad) ภาษา {language} สำหรับคีย์เวิร์ด: {keyword}
+ธุรกิจ: {business}
+หน้าปลายทาง (Landing): {url} — หัวข้อ: {title}
+
+ข้อกำหนดเป๊ะตามสเปก Google RSA (นับตัวอักษรรวมเว้นวรรค):
+- headlines: 12 อัน · แต่ละอัน "ไม่เกิน 30 ตัวอักษร" · ใส่คีย์เวิร์ดในบางอัน · มี CTA บ้าง (เช่น ดูราคา/ปรึกษาฟรี) · มีจุดขาย/ตัวเลขบ้าง · ห้ามซ้ำ
+- descriptions: 4 อัน · แต่ละอัน "ไม่เกิน 90 ตัวอักษร" · ชูประโยชน์+ความน่าเชื่อถือ+CTA
+- paths: 2 คำ (path1, path2) · แต่ละคำ "ไม่เกิน 15 ตัวอักษร" · คำไทยสั้น ๆ สื่อบริการ (โชว์ต่อท้าย URL)
+
+ส่ง JSON: {"headlines":["...","..."],"descriptions":["...","..."],"paths":["...","..."]}"""
+
+
+async def ad_copy(keyword: str, *, business_context: str = "", url: str = "",
+                  title: str = "", language: str = "th") -> dict:
+    """ร่างชุดโฆษณา Google Ads (RSA) จริงตามสเปก — headlines(≤30) · descriptions(≤90) · paths(≤15)
+    ใช้ LLM เดียวกับเครื่องยนต์คอนเทนต์ · ตัดความยาวให้อยู่ในลิมิต Google เสมอ"""
+    lang = "English" if str(language).lower().startswith("en") else "ภาษาไทย"
+    user = _fill(_ADS_USER, language=lang, keyword=keyword, business=business_context or "-",
+                 url=url or "-", title=title or keyword)
+    prov, text = await _llm(_ADS_SYSTEM, user, tier="fast")
+    t = (text or "").strip()
+    if "{" in t and "}" in t:
+        t = t[t.find("{"): t.rfind("}") + 1]
+    try:
+        data = json.loads(t)
+    except Exception:  # noqa: BLE001
+        data = {}
+
+    def clean(items, n, cap):
+        out, seen = [], set()
+        for x in (items or []):
+            s = " ".join(str(x).split())
+            if s and s.lower() not in seen and len(s) <= cap + 6:   # เผื่อเล็กน้อยแล้วตัด
+                seen.add(s.lower()); out.append(s[:cap])
+            if len(out) >= n:
+                break
+        return out
+
+    return {"provider": prov,
+            "headlines": clean(data.get("headlines"), 12, 30),
+            "descriptions": clean(data.get("descriptions"), 4, 90),
+            "paths": clean(data.get("paths"), 2, 15)}
+
+
 # ============ main API (คงลายเซ็นเดิม + รับ context เพิ่มได้) ============
 
 async def generate(topic: str, fmt: str = "บทความยาว", words: int = 1500, *,

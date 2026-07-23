@@ -27,7 +27,7 @@ from app.schemas import (
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
-    KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate,
+    KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social, billing, pagespeed
 from app.auth import security
@@ -717,6 +717,75 @@ async def set_aeo_questions(project_id: int, req: AeoQuestionsUpdate, user=Depen
         p.aeo_questions = _json.dumps(qs, ensure_ascii=False)
         await s.commit()
     return {"total": len(qs), "cap": 30}
+
+
+@app.get("/api/projects/{project_id}/ads/recommend")
+async def ads_recommend(project_id: int, user=Depends(get_current_user)):
+    """📣 Ads Advisor — แนะนำว่าควรยิง Google Ads คีย์ไหน (จากช่องว่าง organic จริง)
+    'ยิง' = คีย์มูลค่าที่ยังไม่ติดหน้า 1 · 'ปิด' = คีย์ที่ติดหน้า 1 แล้ว (จ่ายซ้ำไม่คุ้ม) — ข้อมูลจริงล้วน"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import RankSnapshot, Article
+    async with db.session() as s:
+        proj = await _read_project(s, project_id, user)
+        rows = (await s.execute(
+            select(RankSnapshot).where(RankSnapshot.project_id == project_id)
+            .order_by(RankSnapshot.checked_at))).scalars().all()
+        arts = (await s.execute(
+            select(Article.id, Article.title, Article.url).where(
+                Article.project_id == project_id, Article.status == "published"))).all()
+    latest = {r.keyword: (r.rank, bool(r.on_page1)) for r in rows}
+    land = {(t or "").strip().lower(): {"article_id": aid, "url": u or ""} for aid, t, u in arts}
+    # ผู้สมัคร: คีย์ที่วัดอันดับแล้ว + หัวข้อบทความที่เผยแพร่ (ยังไม่วัด = ถือว่ายังไม่ติด → ยิงได้)
+    candidates = set(latest.keys()) | {a[1] for a in arts if a[1]}
+    advertise, pause = [], []
+    for kw in candidates:
+        rank, op = latest.get(kw, (None, False))
+        lk = land.get(kw.strip().lower(), {})
+        item = {"keyword": kw, "rank": rank, "article_id": lk.get("article_id"), "url": lk.get("url") or ""}
+        if op or (rank is not None and rank <= 10):
+            item["reason"] = "ติดหน้า 1 แล้ว (#%d) — พิจารณาปิด Ads ประหยัดงบ" % rank
+            pause.append(item)
+        else:
+            item["reason"] = ("ยังไม่ติด (>100) — ยิงเก็บทราฟฟิกเลย" if rank is None
+                              else "จ่อหน้า 1 (#%d) — ยิงเสริมระหว่างดันขึ้น" % rank)
+            advertise.append(item)
+    advertise.sort(key=lambda x: (x["rank"] is None, x["rank"] if x["rank"] is not None else 999))
+    pause.sort(key=lambda x: x["rank"] if x["rank"] is not None else 999)
+    return {"advertise": advertise[:30], "pause": pause[:20],
+            "tracked": len(latest), "domain": proj.domain,
+            "note": "แนะนำจากช่องว่าง organic จริง — ยิงเฉพาะที่ยังไม่ติด แล้วปิดเมื่อติดหน้า 1 = ประหยัดสุด"}
+
+
+@app.post("/api/projects/{project_id}/ads/creative")
+async def ads_creative(project_id: int, req: AdCreativeRequest, user=Depends(get_current_user)):
+    """📣 ร่างชุดโฆษณา Google Ads (RSA) จริงตามสเปกให้คีย์เวิร์ดที่เลือก — headlines/descriptions/paths + ลิงก์ปลายทาง"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    kw = (req.keyword or "").strip()
+    if not kw:
+        raise HTTPException(400, "ต้องระบุคีย์เวิร์ด")
+    from sqlalchemy import func as _func
+    from app.db.models import Article
+    from app.connectors import content
+    async with db.session() as s:
+        proj = await _read_project(s, project_id, user)
+        biz = getattr(proj, "business_context", "") or proj.name
+        domain, lang = proj.domain, proj.language
+        art = (await s.execute(
+            select(Article.title, Article.url).where(
+                Article.project_id == project_id, Article.status == "published",
+                _func.lower(Article.title) == kw.lower()).limit(1))).first()
+    final_url = (art[1] if (art and art[1]) else ("https://" + (domain or "")))
+    title = (art[0] if art else kw)
+    try:
+        data = await content.ad_copy(kw, business_context=biz, url=final_url, title=title, language=lang)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ร่างโฆษณาไม่สำเร็จ: " + str(e)[:150])
+    data["final_url"] = final_url
+    data["keyword"] = kw
+    data["has_landing"] = bool(art and art[1])
+    return data
 
 
 @app.post("/api/keywords/suggest")

@@ -25,6 +25,9 @@
       { id: 'report', code: '', ico: '📑', lbl: 'รายงานผลงาน' },
       { id: 'blog', code: '', ico: '🌐', lbl: 'บล็อก & การเข้าถึง' }
     ]},
+    { section: 'Google Ads', items: [
+      { id: 'ads', code: '', ico: '📣', lbl: 'Google Ads' }
+    ]},
     { section: 'ระบบ', items: [
       { id: 'projects', code: '', ico: '🗂️', lbl: 'จัดการโปรเจ็ค' },
       { id: 'settings', code: '', ico: '⚙️', lbl: 'การตั้งค่า' }
@@ -42,6 +45,7 @@
     m6: 'M6 · Learning Loop',
     report: 'รายงานผลงาน',
     blog: 'บล็อก & การเข้าถึง',
+    ads: 'Google Ads',
     projects: 'จัดการโปรเจ็ค',
     settings: 'การตั้งค่า'
   };
@@ -58,6 +62,7 @@
     NAV.forEach(function (g) { g.items.forEach(function (it) { by[it.id] = it; }); });
     return [
       { section: 'ภาพรวม', items: [by.dashboard, by.report, by.blog, by.activity] },
+      { section: 'Google Ads', items: [by.ads] },
       { section: 'โปรเจ็ค', items: [by.projects] },
       { section: 'ระบบ', items: [by.settings] },
       { section: 'เครื่องมือ (ขั้นสูง)', collapsed: true, items: [by.m1, by.m2, by.m3, by.m4, by.m5, by.m6] }
