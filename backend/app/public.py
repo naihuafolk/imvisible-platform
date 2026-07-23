@@ -240,6 +240,7 @@ def _head(title, desc, canonical, lang, jsonld_list, og_type="article", publishe
     return (
         '<!doctype html><html lang="%s"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<link rel="icon" type="image/svg+xml" href="/favicon.svg"><meta name="theme-color" content="#3d6bff">'
         '<title>%s</title><meta name="description" content="%s">'
         '<link rel="canonical" href="%s"><meta property="og:site_name" content="ImVisible">'
         '<meta property="og:type" content="%s"><meta property="og:title" content="%s">'

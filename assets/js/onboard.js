@@ -105,7 +105,7 @@
       var live = RP.api && RP.api.reachable();
       el.innerHTML =
         '<div class="auth-card">' +
-        '<div class="auth-brand"><div class="logo">I</div><div class="name">Im<span>Visible</span></div></div>' +
+        '<div class="auth-brand"><div class="logo"><img src="assets/brand-logo.svg" alt="ImVisible" width="44" height="44"></div><div class="name">Im<span>Visible</span></div></div>' +
         (regOpen
           ? '<div class="auth-tabs"><button data-m="signup" class="' + (mode === 'signup' ? 'on' : '') + '">สมัครใช้งาน</button>' +
             '<button data-m="login" class="' + (mode === 'login' ? 'on' : '') + '">เข้าสู่ระบบ</button></div>'

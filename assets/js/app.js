@@ -92,7 +92,7 @@
     }).join('');
 
     return '<div class="brand">' +
-        '<div class="logo">I</div>' +
+        '<div class="logo"><img src="assets/brand-logo.svg" alt="ImVisible" width="38" height="38"></div>' +
         '<div><div class="name">Im<span>Visible</span></div>' +
         '<div class="tag">AEO + SEO · อัตโนมัติด้วย AI</div></div>' +
       '</div>' +

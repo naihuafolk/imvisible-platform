@@ -132,6 +132,30 @@ async def health():
             "registration_open": settings.registration_open}
 
 
+# โลโก้แบรนด์ (globe) — เสิร์ฟให้หน้าบล็อกลูกค้าใช้เป็น favicon แทน default/WordPress
+_BRAND_SVG = (
+    '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ImVisible">'
+    '<defs><linearGradient id="ivg" x1="6" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">'
+    '<stop offset="0" stop-color="#3d6bff"/><stop offset="1" stop-color="#5b4ff0"/></linearGradient></defs>'
+    '<rect width="64" height="64" rx="15" fill="url(#ivg)"/>'
+    '<g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="31" cy="34" r="15"/><ellipse cx="31" cy="34" rx="6.4" ry="15"/>'
+    '<line x1="16" y1="34" x2="46" y2="34"/>'
+    '<path d="M19.6 24.6 q11.4 5 22.8 0" stroke-width="2.2"/>'
+    '<path d="M19.6 43.4 q11.4 -5 22.8 0" stroke-width="2.2"/></g>'
+    '<circle cx="49" cy="16" r="6.2" fill="url(#ivg)"/><circle cx="49" cy="16" r="6.2" fill="#fff" opacity=".18"/>'
+    '<circle cx="49" cy="16" r="5.4" fill="none" stroke="#fff" stroke-width="2.4"/>'
+    '<circle cx="49" cy="16" r="2.5" fill="#3ce0ff"/></svg>'
+)
+
+
+@app.get("/favicon.svg")
+async def favicon_svg():
+    from fastapi import Response
+    return Response(content=_BRAND_SVG, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
 # ---------- Auth (JWT + hash รหัสผ่าน) ----------
 def _user_dict(u):
     return {"id": u.id, "email": u.email, "name": u.name, "plan": u.plan}
