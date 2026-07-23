@@ -45,6 +45,7 @@
       (real ? '<div class="soft small" style="margin:0 0 12px">🔌 สถานะการเชื่อมต่อดูที่ ⚙️ ตั้งค่า › การเชื่อมต่อ · ผลงาน/การทำงานสดดูที่ 📊 แดชบอร์ด</div>' : '') +
       '<div class="row gap-s wrap" style="align-items:center">' +
       '<button class="btn btn-primary btn-sm open-dash" data-id="' + esc(p.id) + '">📊 เปิดรายงาน</button>' +
+      '<button class="btn btn-sm add-kw" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">＋ คีย์เวิร์ด</button>' +
       '<button class="btn btn-sm cfg-proj" data-id="' + esc(p.id) + '">⚙️ ตั้งค่า</button>' +
       '<button class="btn btn-sm del-proj" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '" style="margin-left:auto;color:var(--red-600,#dc2626)">🗑 ลบ</button>' +
       '</div></div>';
@@ -68,6 +69,32 @@
         if (RP.data.project.current === id) RP.data.project.current = '';
         if (RP.loadRealData) RP.loadRealData(function () { mountNow(); }); else mountNow();
       }).catch(function (e) { go.disabled = false; go.textContent = 'ลบถาวร'; ui.toast('ลบไม่ได้: ' + esc(e.message || String(e))); });
+    };
+  }
+
+  /* เพิ่มคีย์เวิร์ดให้โปรเจ็คที่กำลังทำงาน (ต่อท้าย ไม่กระทบงานที่ผลิตอยู่ · รวมสูงสุด 50) */
+  function splitLines(s) {
+    return (s || '').split(/[,\n]+/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 50);
+  }
+  function addKeywordsModal(id, name) {
+    var pid = String(id).replace(/^db/, '');
+    ui.modal({ title: '＋ เพิ่มคีย์เวิร์ด', sub: esc(name) + ' · เพิ่มได้ระหว่างระบบทำงาน ไม่กระทบงานที่ผลิตอยู่', width: 520, body:
+      '<div class="hint mb">พิมพ์คีย์เวิร์ด/หัวข้อ — คั่นด้วย <b>,</b> หรือ <b>ขึ้นบรรทัดใหม่</b> · ระบบจะทยอยเขียนบทความให้ในรอบถัดไป (รวมสูงสุด 50 หัวข้อ)</div>' +
+      '<textarea class="input" id="ak_txt" rows="6" placeholder="รับทำ seo สายเทา ราคา&#10;จ้างทำ seo คลินิก กี่บาท&#10;seo กับ google ads ต่างกันยังไง" style="width:100%;resize:vertical"></textarea>' +
+      '<div class="row between" style="margin-top:8px;align-items:center"><span class="soft small" id="ak_count">0 คีย์เวิร์ด</span>' +
+      '<button class="btn btn-primary" id="ak_save">เพิ่มคีย์เวิร์ด</button></div>' });
+    var txt = document.getElementById('ak_txt'), cnt = document.getElementById('ak_count'), go = document.getElementById('ak_save');
+    function upd() { if (cnt) { var n = splitLines(txt.value).length; cnt.textContent = n + ' คีย์เวิร์ด' + (n >= 50 ? ' (สูงสุด)' : ''); } }
+    if (txt) { txt.oninput = upd; setTimeout(function () { txt.focus(); }, 50); }
+    if (go) go.onclick = function () {
+      var kws = splitLines(txt ? txt.value : '');
+      if (!kws.length) { ui.toast('พิมพ์คีย์เวิร์ดก่อน'); return; }
+      if (!RP.api.reachable()) { ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'); return; }
+      go.disabled = true; go.textContent = 'กำลังเพิ่ม…';
+      RP.api.addKeywords(pid, kws).then(function (d) {
+        ui.closeModal();
+        ui.toast('เพิ่ม <b>' + (d.added || 0) + '</b> คีย์เวิร์ดแล้ว ✓ (รวม ' + (d.total || 0) + '/' + (d.cap || 50) + ') — ระบบจะทยอยเขียนให้');
+      }).catch(function (e) { go.disabled = false; go.textContent = 'เพิ่มคีย์เวิร์ด'; ui.toast('เพิ่มไม่ได้: ' + esc(e.message || String(e))); });
     };
   }
   function stat(l, v) { return '<div><div class="soft" style="font-size:11px">' + esc(l) + '</div><div class="bb">' + v + '</div></div>'; }
@@ -245,6 +272,9 @@
             if (RP.openProjectReport) RP.openProjectReport(b.getAttribute('data-id'));
             else { RP.data.project.current = b.getAttribute('data-id'); RP.go('dashboard'); }
           };
+        });
+        Array.prototype.forEach.call(root.querySelectorAll('.add-kw'), function (b) {
+          b.onclick = function () { addKeywordsModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
         });
         Array.prototype.forEach.call(root.querySelectorAll('.del-proj'), function (b) {
           b.onclick = function () { confirmDelete(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };

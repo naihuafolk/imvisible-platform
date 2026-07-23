@@ -199,7 +199,8 @@
   function costCardHtml(d) {
     var rows = (d.lines || []).map(function (l) {
       return '<tr><td><div class="t">' + esc(l.name) + '</div>' +
-        '<div class="soft small">' + esc(l.provider) + (l.active ? '' : ' · <span style="color:var(--amber-600)">ยังไม่ได้ตั้งคีย์</span>') + '</div></td>' +
+        '<div class="soft small">' + esc(l.provider) + (l.active ? '' : ' · <span style="color:var(--amber-600)">ยังไม่ได้ตั้งคีย์</span>') +
+          (l.balance_usd != null ? ' · <b style="color:' + (l.balance_usd < 5 ? 'var(--red-600,#dc2626)' : 'var(--green-600)') + '">เครดิตคงเหลือ $' + l.balance_usd.toFixed(2) + (l.balance_usd < 5 ? ' ⚠️ เติมด่วน' : '') + '</b>' : '') + '</div></td>' +
         '<td class="num">' + fmt.n(l.usage) + ' <span class="soft small">' + esc(l.unit) + '</span></td>' +
         '<td class="num soft">฿' + l.unit_cost + '</td>' +
         '<td class="num bb">฿' + fmt.n(l.est) + '</td>' +

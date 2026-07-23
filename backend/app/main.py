@@ -27,7 +27,7 @@ from app.schemas import (
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
-    KeywordSuggestRequest,
+    KeywordSuggestRequest, KeywordsAddRequest,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social, billing, pagespeed
 from app.auth import security
@@ -269,6 +269,11 @@ async def admin_costs(user=Depends(get_current_user)):
         ranks = int((await s.execute(select(func.count(RankSnapshot.id)).where(RankSnapshot.checked_at >= mstart))).scalar() or 0)
         cites = int((await s.execute(select(func.count(CitationSnapshot.id)).where(CitationSnapshot.sampled_at >= mstart))).scalar() or 0)
         projects = int((await s.execute(select(func.count(Project.id)))).scalar() or 0)
+    # ยอดเครดิต DataForSEO 'จริง' (USD) — เตือนเติมก่อนหมด · crash-safe
+    dfs_balance = None
+    if settings.dataforseo_login and settings.dataforseo_password:
+        from app.connectors import serp
+        dfs_balance = await serp.account_balance()
     # ราคาต่อหน่วยโดยประมาณ (บาท) — อ้างอิงราคาสาธารณะทั่วไป ปรับได้ภายหลัง
     U = {"article": 12.0, "image": 5.0, "rank": 0.3, "citation": 2.0}
     lines = [
@@ -283,7 +288,8 @@ async def admin_costs(user=Depends(get_current_user)):
          "active": bool(settings.fal_key or settings.ark_api_key)},
         {"key": "rank", "name": "วัดอันดับ + ขุดคีย์เวิร์ด", "provider": "DataForSEO",
          "usage": ranks, "unit": "ครั้ง", "unit_cost": U["rank"], "est": round(ranks * U["rank"]),
-         "topup": "app.dataforseo.com › Billing", "active": bool(settings.dataforseo_login and settings.dataforseo_password)},
+         "topup": "app.dataforseo.com › Billing", "active": bool(settings.dataforseo_login and settings.dataforseo_password),
+         "balance_usd": dfs_balance},
         {"key": "citation", "name": "วัด AI Citation (ถาม AI จริง)", "provider": "LLM หลายเจ้า",
          "usage": cites, "unit": "ครั้ง", "unit_cost": U["citation"], "est": round(cites * U["citation"]),
          "topup": "เดียวกับ LLM", "active": bool(settings.anthropic_api_key or settings.gemini_api_key or settings.openai_api_key or settings.perplexity_api_key)},
@@ -585,6 +591,40 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
     except Exception:  # noqa: BLE001
         result["analyzing"] = False
     return result
+
+
+@app.post("/api/projects/{project_id}/keywords")
+async def add_keywords(project_id: int, req: KeywordsAddRequest, user=Depends(get_current_user)):
+    """➕ เพิ่มคีย์เวิร์ด/หัวข้อให้โปรเจ็คที่ 'กำลังทำงาน' — ต่อท้ายแผนหัวข้อ (topic_plan)
+    ไม่กระทบบทความที่ผลิตอยู่ (produce หยิบหัวข้อที่ยังไม่ผลิตในรอบถัดไป) · รวมสูงสุด 50"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    import json as _json
+    from app.db.models import Project
+    kws = [str(k).strip() for k in (req.keywords or []) if str(k).strip()]
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        try:
+            plan = _json.loads(p.topic_plan) if (p.topic_plan or "").strip() else []
+        except Exception:  # noqa: BLE001
+            plan = []
+        have = set()
+        for it in plan:
+            t = (it.get("topic") if isinstance(it, dict) else str(it)) or ""
+            have.add(t.strip().lower())
+        added = 0
+        for k in kws:
+            if len(plan) >= 50:                      # เพดานรวม 50 หัวข้อ
+                break
+            if k.lower() not in have:
+                plan.append({"topic": k, "cluster": "เพิ่มเอง"})
+                have.add(k.lower()); added += 1
+        p.topic_plan = _json.dumps(plan, ensure_ascii=False)
+        await s.commit()
+        total = len(plan)
+    return {"added": added, "total": total, "cap": 50}
 
 
 @app.post("/api/keywords/suggest")

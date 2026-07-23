@@ -21,6 +21,20 @@ def _auth_header(creds: dict | None = None) -> dict:
     return {"Authorization": f"Basic {token}", "Content-Type": "application/json"}
 
 
+async def account_balance(creds: dict | None = None) -> float | None:
+    """ยอดเงินคงเหลือจริงใน DataForSEO (USD) — ไว้เตือนแอดมินให้เติมเครดิต · crash-safe (None ถ้าดึงไม่ได้)"""
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get("https://api.dataforseo.com/v3/appendix/user_data", headers=_auth_header(creds))
+            r.raise_for_status()
+            data = r.json()
+        money = (data["tasks"][0]["result"][0].get("money") or {})
+        bal = money.get("balance")
+        return float(bal) if bal is not None else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 async def rank_check(keyword: str, domain: str,
                      location_code: int | None = None,
                      language_code: str | None = None,
