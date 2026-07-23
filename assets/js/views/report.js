@@ -18,6 +18,13 @@
   function rDbId(p) { var m = /^db(\d+)$/.exec(String(p && p.id || '')); return m ? parseInt(m[1], 10) : null; }
   function gradeTone(g) { return g === 'A' ? 'green' : g === 'B' ? 'blue' : g === 'C' ? 'amber' : 'red'; }
   function rankLabel(r) { return r == null ? '<span class="soft">ไม่ติด (>100)</span>' : '#' + r; }
+  function diffChip(k) {   /* ป้ายความยากในการติดอันดับ (Easy-Win Radar · ประเมินจาก SERP) */
+    var lb = k && k.difficulty_label;
+    if (!lb) return '';
+    var c = lb === 'ง่าย' ? 'var(--green-700,#15803d)' : (lb === 'ยาก' ? 'var(--red-600,#dc2626)' : 'var(--amber-700,#b45309)');
+    var bg = lb === 'ง่าย' ? 'var(--green-50,#f0fdf4)' : (lb === 'ยาก' ? 'var(--red-50,#fef2f2)' : 'var(--amber-50,#fffbeb)');
+    return ' <span title="ความยากในการติดอันดับ (ประเมินจากหน้า SERP จริง)" style="font-size:10px;padding:1px 7px;border-radius:999px;white-space:nowrap;color:' + c + ';background:' + bg + '">' + esc(lb) + '</span>';
+  }
   function moveCell(k) {
     var cur = k.rank, prev = k.prev_rank;
     if (cur == null && prev != null) return '<span style="color:var(--red-600)">▼ หลุด</span>';
@@ -150,12 +157,12 @@
           var striking = (k.rank != null && k.rank >= 11 && k.rank <= 40 && !k.on_page1);
           var badge = k.on_page1 ? ui.badge('หน้า 1', 'green') : (striking ? ui.badge('จ่อหน้า 1 · กำลังดัน', 'amber') : '');
           return '<tr' + (striking ? ' style="background:var(--amber-50,#fffbeb)"' : '') + '>' +
-            '<td><span class="t">' + esc(k.keyword) + '</span> ' + badge + '</td>' +
+            '<td><span class="t">' + esc(k.keyword) + '</span> ' + badge + diffChip(k) + '</td>' +
             '<td class="num bb">' + rankLabel(k.rank) + '</td>' +
             '<td class="num soft">' + (k.best_rank != null ? ('#' + k.best_rank) : '—') + '</td>' +
             '<td class="num">' + moveCell(k) + '</td></tr>';
         }).join('');
-        rk.innerHTML = ui.card({ title: 'อันดับ Google (ต่อคีย์เวิร์ด)', sub: 'อันดับจริงจาก SERP · แถวเหลือง = จ่อหน้า 1 (ระบบกำลังดันให้)', flush: true,
+        rk.innerHTML = ui.card({ title: 'อันดับ Google (ต่อคีย์เวิร์ด)', sub: 'อันดับจริงจาก SERP · แถวเหลือง = จ่อหน้า 1 (กำลังดัน) · ป้าย ง่าย/ปานกลาง/ยาก = ความยากในการติด (ระบบตีตัวง่ายก่อน)', flush: true,
           body: '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>คีย์เวิร์ด</th><th class="right">อันดับ</th><th class="right">ดีสุด</th><th class="right">เปลี่ยนแปลง</th></tr></thead><tbody>' + rows + '</tbody></table></div>' });
       }
     }

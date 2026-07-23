@@ -1050,7 +1050,8 @@ async def project_rank_history(project_id: int, user=Depends(get_current_user)):
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import RankSnapshot
     async with db.session() as s:
-        await _read_project(s, project_id, user)
+        proj = await _read_project(s, project_id, user)
+        plan_raw = getattr(proj, "topic_plan", "") or ""
         rows = (await s.execute(
             select(RankSnapshot).where(RankSnapshot.project_id == project_id)
             .order_by(RankSnapshot.checked_at))).scalars().all()
@@ -1074,6 +1075,21 @@ async def project_rank_history(project_id: int, user=Depends(get_current_user)):
 
     kws = sorted(latest.values(),
                  key=lambda k: (k["rank"] is None, k["rank"] if k["rank"] is not None else 999))
+    # แนบระดับความยาก (Easy-Win Radar) จาก topic_plan → ให้รายงานโชว์ป้าย ง่าย/ปานกลาง/ยาก
+    import json as _json
+    diff_map: dict[str, dict] = {}
+    try:
+        for it in (_json.loads(plan_raw) if plan_raw.strip() else []):
+            if isinstance(it, dict) and it.get("topic") and it.get("difficulty") is not None:
+                diff_map[str(it["topic"]).strip().lower()] = {
+                    "difficulty": it.get("difficulty"), "difficulty_label": it.get("difficulty_label") or ""}
+    except Exception:  # noqa: BLE001
+        diff_map = {}
+    for k in kws:
+        d = diff_map.get(str(k.get("keyword") or "").strip().lower())
+        if d:
+            k["difficulty"] = d["difficulty"]
+            k["difficulty_label"] = d["difficulty_label"]
     ranked = [k["rank"] for k in kws if k["rank"] is not None]
     page1 = sum(1 for k in kws if k["on_page1"])
     top3 = sum(1 for k in kws if k["rank"] is not None and k["rank"] <= 3)
