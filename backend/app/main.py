@@ -1308,9 +1308,11 @@ async def project_backlinks(project_id: int, user=Depends(get_current_user)):
     if not (settings.dataforseo_login and settings.dataforseo_password):
         return {"available": False, "note": "ยังไม่ได้ตั้งคีย์ DataForSEO — ตั้งที่ ⚙️ การตั้งค่า"}
     data = await serp.backlinks_summary(domain)
-    if not data:
+    if not data or data.get("error"):
+        reason = (data or {}).get("error") or "ไม่ทราบสาเหตุ"
         return {"available": False,
-                "note": "ดึง Backlink ไม่ได้ — บัญชี DataForSEO อาจยังไม่เปิดสิทธิ์ 'Backlinks API' หรือโดเมนยังไม่มีข้อมูล"}
+                "note": "ดึง Backlink ไม่ได้: " + reason +
+                        " · หมายเหตุ: Backlinks API ต้องสมัคร/เปิดสิทธิ์แยกในบัญชี DataForSEO"}
     return {"available": True, "domain": domain, "data": data}
 
 

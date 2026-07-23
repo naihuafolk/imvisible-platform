@@ -38,13 +38,14 @@ async def account_balance(creds: dict | None = None) -> float | None:
 async def backlinks_summary(domain: str, creds: dict | None = None) -> dict | None:
     """สรุป Backlink 'จริง' ของโดเมน (DataForSEO Backlinks API) — จำนวนลิงก์ · โดเมนอ้างอิง ·
     dofollow · rank · spam score (= ตัวชี้คุณภาพ) · new/lost
-    ⚠️ Backlinks เป็นผลิตภัณฑ์แยกของ DataForSEO คิดเครดิตต่างหาก · crash-safe (None ถ้าไม่มีสิทธิ์/พลาด)"""
+    ⚠️ Backlinks เป็นผลิตภัณฑ์แยกของ DataForSEO คิดเครดิตต่างหาก · crash-safe
+    คืน dict ผลลัพธ์ หรือ {"error": <เหตุจริงจาก DataForSEO>} เมื่อพลาด (เพื่อโชว์ให้ลูกค้ารู้เหตุ)"""
     target = (domain or "").strip().replace("https://", "").replace("http://", "").strip("/")
     if target.startswith("www."):
         target = target[4:]
     target = target.split("/")[0]
     if not target:
-        return None
+        return {"error": "โดเมนว่าง"}
     try:
         async with httpx.AsyncClient(timeout=30) as c:
             r = await c.post(
@@ -52,11 +53,17 @@ async def backlinks_summary(domain: str, creds: dict | None = None) -> dict | No
                 headers=_auth_header(creds),
                 json=[{"target": target, "internal_list_limit": 10,
                        "backlinks_status_type": "live", "include_subdomains": True}])
-            r.raise_for_status()
             data = r.json()
-        res = ((data.get("tasks") or [{}])[0].get("result") or [])
+        # DataForSEO ใส่สถานะ 2 ระดับ (top + task) — ดึง 'เหตุจริง' มาบอกลูกค้า
+        top_ok = data.get("status_code") in (20000, None)
+        task = ((data.get("tasks") or [{}])[0]) or {}
+        res = task.get("result") or []
+        if r.status_code >= 400 or not top_ok:
+            return {"error": data.get("status_message") or ("HTTP %s" % r.status_code)}
+        if task.get("status_code") not in (20000, None) and not res:
+            return {"error": task.get("status_message") or "งานไม่สำเร็จ"}
         if not res:
-            return None
+            return {"error": "โดเมนนี้ยังไม่มีข้อมูล backlink ในฐานข้อมูล DataForSEO"}
         d = res[0] or {}
         attr = d.get("referring_links_attributes") or {}
         return {
@@ -72,8 +79,8 @@ async def backlinks_summary(domain: str, creds: dict | None = None) -> dict | No
             "new_referring_domains": d.get("new_referring_domains"),
             "lost_referring_domains": d.get("lost_referring_domains"),
         }
-    except Exception:  # noqa: BLE001
-        return None
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)[:200]}
 
 
 async def rank_check(keyword: str, domain: str,
