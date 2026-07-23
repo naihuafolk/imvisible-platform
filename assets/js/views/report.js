@@ -131,7 +131,7 @@
     renderHighlights(root, rank);
     renderFactors(root, audit);
     renderEvidence(root, examples);
-    renderBacklinks(root, rDbId(p), p);
+    /* renderBacklinks ปิดไว้ก่อน — ต้องสมัคร DataForSEO Backlinks API แยก */
     var kpi = root.querySelector('#rp_kpi');
     if (kpi) kpi.innerHTML = '<div class="grid grid-4">' +
       ui.kpi({ label: 'ติดหน้า 1 (Top 10)', value: rank.page1 != null ? rank.page1 : '—', tone: 'pos', foot: rank.keywords_tracked ? ('จาก ' + rank.keywords_tracked + ' คีย์เวิร์ด') : 'ยังไม่ได้วัด' }) +
@@ -205,7 +205,7 @@
       '<div id="rp_rank" class="mb"></div>' +
       '<div class="grid mb" style="grid-template-columns:1fr 1fr;gap:16px"><div id="rp_aeo"></div><div id="rp_cite"></div></div>' +
       '<div id="rp_evidence" class="mb"></div>' +
-      '<div class="grid mb" style="grid-template-columns:1fr 1fr;gap:16px"><div id="rp_factors"></div><div id="rp_backlinks"></div></div>';
+      '<div id="rp_factors" class="mb"></div>';   /* การ์ด Backlink ปิดไว้ก่อน (ต้องสมัคร Backlinks API แยก) — เปิดคืนได้ที่ renderBacklinks */
     return { html: html, mount: function (root) {
       var mb = root.querySelector('#rpMeasure');
       if (mb) mb.onclick = function () {
