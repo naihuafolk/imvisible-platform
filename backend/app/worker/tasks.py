@@ -981,9 +981,10 @@ async def _grow_all_projects() -> str:
         return "DB not configured"
     async with db.session() as s:
         ids = (await s.execute(select(Project.id))).scalars().all()
-    for pid in ids:
-        produce_for_project.delay(pid, 1)
-    return "queued content production for %d projects" % len(ids)
+    # ทยอยผลิตห่างกัน 7 นาที/โปรเจ็ค — กันเครื่องตันจากงานหนัก (Fable 5 + รูป) พร้อมกันหลายตัว → บทความออกครบ
+    for i, pid in enumerate(ids):
+        produce_for_project.apply_async((pid, 1), countdown=i * 420)
+    return "queued content production for %d projects (staggered)" % len(ids)
 
 
 # =========================================================

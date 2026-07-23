@@ -17,7 +17,9 @@ celery_app = Celery(
 
 celery_app.conf.update(
     task_track_started=True,
-    task_time_limit=600,
+    # โหมดคุณภาพสูง (Fable 5 คิดลึก + 3 สเตจ + รูป) ใช้เวลานาน → ขยายเพดานไม่ให้ถูกฆ่ากลางคัน
+    task_time_limit=2400,          # ฆ่าแข็งที่ 40 นาที (กัน task ค้างจริง)
+    task_soft_time_limit=2280,     # เตือน/ให้จบสวย ๆ ก่อน 38 นาที
     timezone="Asia/Bangkok",
     enable_utc=False,
     # ถ้า Redis ล่ม: ให้ .delay() จาก API "ล้มเร็ว" (ไม่ค้างคำขอนานหลายนาที) —

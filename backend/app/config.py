@@ -22,7 +22,8 @@ class Settings(BaseSettings):
 
     # 3) LLM
     anthropic_api_key: str = ""
-    anthropic_model: str = "claude-opus-4-8"
+    anthropic_model: str = "claude-opus-4-8"          # โมเดลหลัก/สำรอง (เร็วกว่า) — ใช้เป็น fallback ของ Fable ด้วย
+    anthropic_write_model: str = "claude-fable-5"      # ✍️ โมเดล 'เขียนดีสุด' (พรีเมียม) สำหรับสเตจงานเขียน — ปฏิเสธ/ใช้ไม่ได้ = ตกไป Opus 4.8 อัตโนมัติ
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
     gemini_api_key: str = ""
