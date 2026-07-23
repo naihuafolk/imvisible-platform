@@ -74,6 +74,8 @@
     citationForProject: function (pid, questions) { return api._post('/api/projects/' + pid + '/citation/sample', { questions: questions || [] }); },
     citationHistory: function (pid) { return api._get('/api/projects/' + pid + '/citation/history'); },
     rankHistory: function (pid) { return api._get('/api/projects/' + pid + '/rank/history'); },
+    citationExamples: function (pid) { return api._get('/api/projects/' + pid + '/citation/examples'); },
+    projectBacklinks: function (pid) { return api._post('/api/projects/' + pid + '/backlinks', {}); },
     measureAllRanks: function (pid) { return api._post('/api/projects/' + pid + '/rank/measure-all', {}); },
     insights: function (pid) { return api._get('/api/projects/' + pid + '/insights'); },
     // ---- AEO/SEO Score Engine (M3) — ตัวแปรจัดอันดับที่วัดจริง ----

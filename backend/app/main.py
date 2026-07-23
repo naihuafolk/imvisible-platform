@@ -1277,6 +1277,43 @@ async def project_seo_audit(project_id: int, user=Depends(get_current_user)):
     }
 
 
+@app.get("/api/projects/{project_id}/citation/examples")
+async def project_citation_examples(project_id: int, user=Depends(get_current_user)):
+    """หลักฐาน AEO — ตัวอย่างจริงที่ 'ถาม AI แล้ว AI ตอบโดยอ้างอิงแบรนด์/เว็บเรา' (คำถาม + เอนจิน + snippet)
+    เก็บสะสมจากรอบสุ่มถามจริง → ลูกค้าเห็นว่าติด AEO จริง ตรวจสอบย้อนได้"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import CitationExample
+    async with db.session() as s:
+        await _read_project(s, project_id, user)
+        rows = (await s.execute(
+            select(CitationExample).where(CitationExample.project_id == project_id)
+            .order_by(CitationExample.id.desc()).limit(12))).scalars().all()
+    return {"examples": [{"engine": r.engine, "question": r.question, "snippet": r.snippet,
+                          "at": r.sampled_at.isoformat() if r.sampled_at else ""} for r in rows],
+            "count": len(rows)}
+
+
+@app.post("/api/projects/{project_id}/backlinks")
+async def project_backlinks(project_id: int, user=Depends(get_current_user)):
+    """Backlink 'จริง' ของเว็บ (DataForSEO Backlinks API) — ตามคำขอ (กดปุ่ม) เพื่อคุมค่าใช้จ่าย
+    ⚠️ Backlinks เป็นผลิตภัณฑ์แยกของ DataForSEO คิดเครดิตต่างหาก · crash-safe"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.config import settings
+    from app.connectors import serp
+    async with db.session() as s:
+        p = await _read_project(s, project_id, user)
+        domain = p.domain
+    if not (settings.dataforseo_login and settings.dataforseo_password):
+        return {"available": False, "note": "ยังไม่ได้ตั้งคีย์ DataForSEO — ตั้งที่ ⚙️ การตั้งค่า"}
+    data = await serp.backlinks_summary(domain)
+    if not data:
+        return {"available": False,
+                "note": "ดึง Backlink ไม่ได้ — บัญชี DataForSEO อาจยังไม่เปิดสิทธิ์ 'Backlinks API' หรือโดเมนยังไม่มีข้อมูล"}
+    return {"available": True, "domain": domain, "data": data}
+
+
 # ---------- GSC in-app OAuth (ลูกค้ากดเชื่อม Google เอง แทนแปะ refresh_token) ----------
 @app.get("/api/projects/{project_id}/gsc/connect")
 async def gsc_connect_start(project_id: int, user=Depends(get_current_user)):

@@ -103,7 +103,11 @@ async def sample(questions: list[str], brand_terms: list[str], domain: str,
             hit = _is_cited(ans, brand_terms, domain)
             if hit:
                 cited += 1
-            details.append({"engine": eng, "question": q, "cited": hit})
+                # เก็บ snippet คำตอบ = 'หลักฐาน' ว่า AI อ้างอิงเราจริง (ไว้โชว์ลูกค้า)
+                details.append({"engine": eng, "question": q, "cited": True,
+                                "snippet": " ".join((ans or "").split())[:280]})
+            else:
+                details.append({"engine": eng, "question": q, "cited": False})
         sov = round(cited / answered * 100, 1) if answered else None
         per_engine[eng] = {"answered": answered, "cited": cited, "sov_percent": sov}
 

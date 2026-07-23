@@ -35,6 +35,47 @@ async def account_balance(creds: dict | None = None) -> float | None:
         return None
 
 
+async def backlinks_summary(domain: str, creds: dict | None = None) -> dict | None:
+    """สรุป Backlink 'จริง' ของโดเมน (DataForSEO Backlinks API) — จำนวนลิงก์ · โดเมนอ้างอิง ·
+    dofollow · rank · spam score (= ตัวชี้คุณภาพ) · new/lost
+    ⚠️ Backlinks เป็นผลิตภัณฑ์แยกของ DataForSEO คิดเครดิตต่างหาก · crash-safe (None ถ้าไม่มีสิทธิ์/พลาด)"""
+    target = (domain or "").strip().replace("https://", "").replace("http://", "").strip("/")
+    if target.startswith("www."):
+        target = target[4:]
+    target = target.split("/")[0]
+    if not target:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.post(
+                "https://api.dataforseo.com/v3/backlinks/summary/live",
+                headers=_auth_header(creds),
+                json=[{"target": target, "internal_list_limit": 10,
+                       "backlinks_status_type": "live", "include_subdomains": True}])
+            r.raise_for_status()
+            data = r.json()
+        res = ((data.get("tasks") or [{}])[0].get("result") or [])
+        if not res:
+            return None
+        d = res[0] or {}
+        attr = d.get("referring_links_attributes") or {}
+        return {
+            "target": target,
+            "backlinks": d.get("backlinks"),
+            "referring_domains": d.get("referring_domains"),
+            "referring_main_domains": d.get("referring_main_domains"),
+            "referring_domains_nofollow": d.get("referring_domains_nofollow"),
+            "dofollow": attr.get("dofollow"),
+            "nofollow": attr.get("nofollow"),
+            "rank": d.get("rank"),
+            "spam_score": d.get("backlinks_spam_score"),
+            "new_referring_domains": d.get("new_referring_domains"),
+            "lost_referring_domains": d.get("lost_referring_domains"),
+        }
+    except Exception:  # noqa: BLE001
+        return None
+
+
 async def rank_check(keyword: str, domain: str,
                      location_code: int | None = None,
                      language_code: str | None = None,

@@ -36,8 +36,102 @@
     return '<span class="soft">คงที่</span>';
   }
 
-  function fillReport(root, p, rank, cit, aeo) {
+  /* 🔔 ไฮไลต์ & แจ้งเตือน — คำนวณจากอันดับจริง (เข้า 1–100 / ขึ้นหน้า 1 / Top 3 / ขยับขึ้น) */
+  function renderHighlights(root, rank) {
+    var el = root.querySelector('#rp_hl'); if (!el) return;
+    var kws = (rank && rank.keywords) || [], wins = [];
+    kws.forEach(function (k) {
+      if (k.rank == null) return;
+      if (k.rank <= 3) wins.push({ p: 4, ic: '🥇', tone: 'green', t: 'ติด Top 3', kw: k.keyword, sub: 'อันดับ #' + k.rank });
+      else if (k.on_page1) wins.push({ p: 3, ic: '🎉', tone: 'green', t: 'ขึ้นหน้า 1 แล้ว', kw: k.keyword, sub: 'อันดับ #' + k.rank });
+      else if (k.prev_rank == null) wins.push({ p: 1, ic: '✨', tone: 'brand', t: 'เข้าอันดับแล้ว', kw: k.keyword, sub: '#' + k.rank + ' (จาก 1–100)' });
+      if (k.prev_rank != null && k.rank != null && (k.prev_rank - k.rank) >= 5)
+        wins.push({ p: 2, ic: '📈', tone: 'brand', t: 'ขยับขึ้น ' + (k.prev_rank - k.rank) + ' อันดับ', kw: k.keyword, sub: '#' + k.prev_rank + ' → #' + k.rank });
+    });
+    wins.sort(function (a, b) { return b.p - a.p; });
+    if (!wins.length) {
+      el.innerHTML = ui.card({ title: '🔔 ไฮไลต์ & แจ้งเตือน', body: '<div class="hint">ยังไม่มีไฮไลต์ — เมื่อคีย์เวิร์ดเริ่ม<b>ติดอันดับ 1–100 / ขึ้นหน้า 1 / ถูก AI อ้างอิง</b> ระบบจะแจ้งตรงนี้ให้เห็นทันที</div>' });
+      return;
+    }
+    var rows = wins.slice(0, 8).map(function (w) {
+      var c = w.tone === 'green' ? 'var(--green-600)' : 'var(--brand-700)';
+      return '<div class="list-row" style="align-items:center;gap:10px">' +
+        '<div style="font-size:20px">' + w.ic + '</div>' +
+        '<div class="grow"><div class="t" style="color:' + c + '">' + esc(w.t) + ' · <span>' + esc(w.kw) + '</span></div>' +
+        '<div class="soft small">' + esc(w.sub) + '</div></div></div>';
+    }).join('');
+    el.innerHTML = ui.card({ title: '🔔 ไฮไลต์ & แจ้งเตือน', sub: 'ความเคลื่อนไหวอันดับล่าสุด (ข้อมูลจริง)', flush: true, body: rows });
+  }
+
+  /* 📊 ปัจจัยที่มีผลต่ออันดับ — จาก seo-audit จริง (schema · ลิงก์ภายใน · หน้ากำพร้า · ความสด) */
+  function renderFactors(root, audit) {
+    var el = root.querySelector('#rp_factors'); if (!el) return;
+    if (!audit || !audit.articles) {
+      el.innerHTML = ui.card({ title: '📊 ปัจจัยที่มีผลต่ออันดับ', body: RP.noData('ยังไม่มีข้อมูล', 'มีบทความเผยแพร่แล้วระบบจะวิเคราะห์ปัจจัยให้อัตโนมัติ') });
+      return;
+    }
+    function frow(label, val, ok, hint) {
+      return '<div class="list-row"><div class="grow"><div class="t"><span style="color:' + (ok ? 'var(--green-600)' : 'var(--amber-600)') + '">' + (ok ? '✔' : '⚠') + '</span> ' +
+        esc(label) + ': <b>' + val + '</b></div><div class="soft small">' + esc(hint) + '</div></div></div>';
+    }
+    var b = frow('Schema (โครงสร้างข้อมูล AEO)', audit.schema_coverage + '%', audit.schema_coverage >= 80, 'ช่วยให้ Google/AI เข้าใจเนื้อหา → ติด rich result + ถูกอ้างอิงง่ายขึ้น') +
+      frow('ลิงก์ภายในเฉลี่ย/หน้า', audit.internal_links_avg, audit.internal_links_avg >= 2, 'กระจายพลังอันดับระหว่างหน้า → ดันคีย์เวิร์ดขึ้นเร็ว') +
+      frow('หน้ากำพร้า (ไม่มีลิงก์เข้า)', audit.orphan_pages, audit.orphan_pages === 0, audit.orphan_pages ? 'ควรลิงก์ถึงหน้าเหล่านี้ให้ Google เก็บ index ครบ' : 'ทุกหน้ามีลิงก์เข้า—ดีมาก') +
+      frow('เนื้อหาที่ควรรีเฟรช', audit.stale_count, audit.stale_count === 0, 'ความสดของเนื้อหาเป็นสัญญาณอันดับ—ระบบรีเฟรชให้อัตโนมัติ');
+    el.innerHTML = ui.card({ title: '📊 ปัจจัยที่มีผลต่ออันดับ', sub: 'วิเคราะห์จากบทความจริง ' + audit.articles + ' หน้า', flush: true, body: b });
+  }
+
+  /* 🎯 หลักฐาน AEO — ตัวอย่างจริงที่ถาม AI แล้ว AI ตอบโดยอ้างอิงเรา */
+  function renderEvidence(root, ex) {
+    var el = root.querySelector('#rp_evidence'); if (!el) return;
+    var items = (ex && ex.examples) || [];
+    if (!items.length) {
+      el.innerHTML = ui.card({ title: '🎯 หลักฐาน AEO — AI อ้างอิงเราจริง', body: '<div class="hint">ยังไม่มีหลักฐาน — เมื่อ AI (ChatGPT/Gemini/Perplexity) เริ่มตอบโดย<b>อ้างอิงแบรนด์/เว็บคุณ</b> ระบบจะเก็บคำถาม+คำตอบมาโชว์เป็นหลักฐานตรงนี้ (ตั้งคำถาม AEO ให้ตรงได้ในการ์ด AI Citation)</div>' });
+      return;
+    }
+    var badge = { openai: 'ChatGPT', gemini: 'Gemini', perplexity: 'Perplexity', anthropic: 'Claude' };
+    var rows = items.map(function (e) {
+      return '<div class="list-row" style="display:block">' +
+        '<div class="row between" style="align-items:center"><span class="chip" style="font-weight:700;color:var(--green-700,#15803d)">' + esc(badge[e.engine] || e.engine) + ' ✓ อ้างอิงเรา</span>' +
+        '<span class="soft small">' + esc((e.at || '').slice(0, 10)) + '</span></div>' +
+        '<div class="t" style="margin:4px 0">ถาม: “' + esc(e.question) + '”</div>' +
+        '<div class="soft small" style="border-left:3px solid var(--green-400,#4ade80);padding-left:8px">“' + esc(e.snippet) + '…”</div></div>';
+    }).join('');
+    el.innerHTML = ui.card({ title: '🎯 หลักฐาน AEO — AI อ้างอิงเราจริง', sub: 'ถาม AI แล้ว AI ตอบโดยอ้างถึงแบรนด์/เว็บคุณ (ตรวจสอบย้อนได้)', flush: true, body: rows });
+  }
+
+  /* 🔗 Backlink คุณภาพจริง — ดึงตามคำขอ (กดปุ่ม) เพื่อคุมค่าเครดิต DataForSEO Backlinks */
+  function renderBacklinks(root, pid, p) {
+    var el = root.querySelector('#rp_backlinks'); if (!el) return;
+    el.innerHTML = ui.card({ title: '🔗 Backlink คุณภาพ (จริง)', sub: 'ลิงก์จากเว็บอื่นที่ชี้มาหาคุณ — ดึงสดจาก DataForSEO', flush: true,
+      body: '<div class="card-pad"><div class="hint mb">กดเพื่อดึง Backlink จริงของ <b>' + esc(p && p.name || 'เว็บนี้') + '</b> <span style="color:var(--amber-600)">(ใช้เครดิต DataForSEO Backlinks)</span></div>' +
+        '<button class="btn btn-primary btn-sm" id="rpBl">🔗 ดึงข้อมูล Backlink</button><div id="rpBlOut" style="margin-top:10px"></div></div>' });
+    var btn = el.querySelector('#rpBl'), out = el.querySelector('#rpBlOut');
+    if (!btn) return;
+    btn.onclick = function () {
+      if (!(pid && RP.api.enabled())) { ui.toast('เปิดโหมด Live + เชื่อม backend ก่อน'); return; }
+      btn.disabled = true; btn.textContent = 'กำลังดึง…';
+      RP.api.projectBacklinks(pid).then(function (d) {
+        btn.disabled = false; btn.textContent = '🔄 ดึงอีกครั้ง';
+        if (!d.available) { out.innerHTML = '<div class="hint" style="color:var(--amber-700,#b45309)">' + esc(d.note || 'ดึงไม่ได้') + '</div>'; return; }
+        var x = d.data || {};
+        function cell(l, v) { return '<div><div class="soft small">' + l + '</div><div class="bb" style="font-size:18px">' + (v != null ? fmt.n(v) : '—') + '</div></div>'; }
+        out.innerHTML = '<div class="grid grid-4" style="gap:12px">' +
+          cell('Backlinks ทั้งหมด', x.backlinks) + cell('โดเมนอ้างอิง', x.referring_domains) +
+          cell('DoFollow', x.dofollow) + cell('Domain Rank', x.rank) + '</div>' +
+          '<div class="soft small" style="margin-top:8px">คุณภาพ: Spam score ' + (x.spam_score != null ? x.spam_score + '%' : '—') +
+          (x.new_referring_domains != null ? ' · โดเมนใหม่ +' + x.new_referring_domains : '') +
+          (x.lost_referring_domains != null ? ' · หลุด −' + x.lost_referring_domains : '') + '</div>';
+      }).catch(function (e) { btn.disabled = false; btn.textContent = '🔗 ดึงข้อมูล Backlink'; out.innerHTML = '<div class="hint" style="color:var(--red-600)">ดึงไม่ได้: ' + esc(e.message || String(e)) + '</div>'; });
+    };
+  }
+
+  function fillReport(root, p, rank, cit, aeo, audit, examples) {
     rank = rank || {}; cit = cit || {}; aeo = aeo || {};
+    renderHighlights(root, rank);
+    renderFactors(root, audit);
+    renderEvidence(root, examples);
+    renderBacklinks(root, rDbId(p), p);
     var kpi = root.querySelector('#rp_kpi');
     if (kpi) kpi.innerHTML = '<div class="grid grid-4">' +
       ui.kpi({ label: 'ติดหน้า 1 (Top 10)', value: rank.page1 != null ? rank.page1 : '—', tone: 'pos', foot: rank.keywords_tracked ? ('จาก ' + rank.keywords_tracked + ' คีย์เวิร์ด') : 'ยังไม่ได้วัด' }) +
@@ -107,8 +201,11 @@
       '<span class="soft small">อันดับวัดอัตโนมัติทุกวัน 06:00 · กดเพื่อวัดเดี๋ยวนี้ (ต้องต่อ DataForSEO)</span>' +
       '<button class="btn btn-sm btn-primary" id="rpMeasure">🔄 วัดอันดับเดี๋ยวนี้</button></div>' +
       '<div id="rp_kpi" class="mb"><div class="hint">กำลังโหลดรายงาน…</div></div>' +
+      '<div id="rp_hl" class="mb"></div>' +
       '<div id="rp_rank" class="mb"></div>' +
-      '<div class="grid mb" style="grid-template-columns:1fr 1fr;gap:16px"><div id="rp_aeo"></div><div id="rp_cite"></div></div>';
+      '<div class="grid mb" style="grid-template-columns:1fr 1fr;gap:16px"><div id="rp_aeo"></div><div id="rp_cite"></div></div>' +
+      '<div id="rp_evidence" class="mb"></div>' +
+      '<div class="grid mb" style="grid-template-columns:1fr 1fr;gap:16px"><div id="rp_factors"></div><div id="rp_backlinks"></div></div>';
     return { html: html, mount: function (root) {
       var mb = root.querySelector('#rpMeasure');
       if (mb) mb.onclick = function () {
@@ -122,8 +219,10 @@
       Promise.all([
         RP.api.rankHistory(pid).catch(function () { return null; }),
         RP.api.citationHistory(pid).catch(function () { return null; }),
-        RP.api.projectAeo(pid).catch(function () { return null; })
-      ]).then(function (r) { fillReport(root, p, r[0], r[1], r[2]); });
+        RP.api.projectAeo(pid).catch(function () { return null; }),
+        RP.api.seoAudit(pid).catch(function () { return null; }),
+        RP.api.citationExamples(pid).catch(function () { return null; })
+      ]).then(function (r) { fillReport(root, p, r[0], r[1], r[2], r[3], r[4]); });
     } };
   }
 

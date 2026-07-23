@@ -1026,7 +1026,7 @@ async def _project_questions(p, project_id: int, limit: int = 6) -> list[str]:
 async def _sample_and_save(project_id: int, questions: list[str] | None = None) -> dict:
     """รัน Prompt Sampling จริงต่อโปรเจ็ค แล้ว 'บันทึกผลลง DB' (CitationSnapshot)
     → นี่คือสิ่งที่ทำให้ 'แนวโน้ม Share of Voice' สะสมได้จริง (ไม่ใช่ยิงแล้วทิ้ง)"""
-    from app.db.models import Project, CitationSnapshot
+    from app.db.models import Project, CitationSnapshot, CitationExample
     if not db.enabled():
         return {"error": "DB not configured"}
     engines = _available_engines()
@@ -1047,12 +1047,18 @@ async def _sample_and_save(project_id: int, questions: list[str] | None = None) 
     res = await citation.sample(qs, brand_terms, domain, engines)
 
     per = res.get("per_engine") or {}
+    # หลักฐาน AEO: เก็บตัวอย่างคำถามที่ AI 'ตอบแล้วอ้างเราจริง' (มี snippet) สูงสุด 6 ต่อรอบ
+    examples = [d for d in (res.get("details") or []) if d.get("cited") and d.get("snippet")][:6]
     async with db.session() as s:                    # บันทึก snapshot ต่อเอนจิน (ตรวจสอบย้อนได้)
         for eng, v in per.items():
             s.add(CitationSnapshot(project_id=project_id, engine=eng,
                                    sov_percent=v.get("sov_percent"),
                                    answered=v.get("answered") or 0,
                                    cited=v.get("cited") or 0))
+        for d in examples:
+            s.add(CitationExample(project_id=project_id, engine=d.get("engine") or "",
+                                  question=(d.get("question") or "")[:500],
+                                  snippet=(d.get("snippet") or "")[:280]))
         await s.commit()
     res["saved"] = bool(per)
     res["engines_used"] = engines

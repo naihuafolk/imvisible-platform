@@ -122,6 +122,18 @@ class CitationSnapshot(Base):
     sampled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class CitationExample(Base):
+    """หลักฐาน AEO — คำถามที่ AI 'ตอบแล้วอ้างอิงแบรนด์/เว็บเราจริง' + snippet คำตอบ (ไว้โชว์ลูกค้า)
+    เก็บเฉพาะกรณี cited=True ต่อรอบสุ่มถาม → ตรวจสอบย้อนได้ว่าติด AEO จริง"""
+    __tablename__ = "citation_examples"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    engine: Mapped[str] = mapped_column(String(30))
+    question: Mapped[str] = mapped_column(String(500), default="")
+    snippet: Mapped[str] = mapped_column(Text, default="")
+    sampled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class DistributionChannel(Base):
     """ช่องทางกระจายโพสต่อโปรเจ็ค (โซเชียลของลูกค้าเอง) — โทเคนเก็บแบบเข้ารหัส (crypto.enc)"""
     __tablename__ = "distribution_channels"
