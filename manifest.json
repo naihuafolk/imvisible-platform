@@ -1,0 +1,20 @@
+{
+  "name": "ImVisible — AEO + SEO อัตโนมัติ",
+  "short_name": "ImVisible",
+  "description": "แพลตฟอร์ม AEO + SEO อัตโนมัติด้วย AI สำหรับตลาดไทย",
+  "id": "/",
+  "start_url": "/?src=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#101627",
+  "theme_color": "#3d6bff",
+  "lang": "th",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "marketing"],
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

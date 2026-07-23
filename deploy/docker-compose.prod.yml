@@ -16,6 +16,8 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ../index.html:/srv/frontend/index.html:ro
+      - ../manifest.json:/srv/frontend/manifest.json:ro
+      - ../sw.js:/srv/frontend/sw.js:ro
       - ../assets:/srv/frontend/assets:ro
       - ../content/landing:/srv/landing:ro
       - caddy_data:/data

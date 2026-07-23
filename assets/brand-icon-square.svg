@@ -1,0 +1,20 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ImVisible">
+  <defs>
+    <linearGradient id="ivgm" x1="4" y1="2" x2="60" y2="62" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3d6bff"/>
+      <stop offset="1" stop-color="#5b4ff0"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#ivgm)"/>
+  <g fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="30" cy="34" r="17"/>
+    <ellipse cx="30" cy="34" rx="7.1" ry="17"/>
+    <line x1="13" y1="34" x2="47" y2="34"/>
+    <path d="M17.5 23.5 q12.5 5.6 25 0" stroke-width="2.4"/>
+    <path d="M17.5 44.5 q12.5 -5.6 25 0" stroke-width="2.4"/>
+  </g>
+  <circle cx="49" cy="15" r="7.4" fill="url(#ivgm)"/>
+  <circle cx="49" cy="15" r="7.4" fill="#fff" opacity=".16"/>
+  <circle cx="49" cy="15" r="6.4" fill="none" stroke="#fff" stroke-width="2.6"/>
+  <circle cx="49" cy="15" r="3" fill="#3ce0ff"/>
+</svg>
