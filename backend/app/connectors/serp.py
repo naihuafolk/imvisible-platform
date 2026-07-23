@@ -83,6 +83,46 @@ async def backlinks_summary(domain: str, creds: dict | None = None) -> dict | No
         return {"error": str(e)[:200]}
 
 
+# โดเมนที่ 'แข็ง' (แซงยาก) vs UGC/ฟอรัม (แซงได้ด้วยคอนเทนต์คุณภาพ) — ใช้ประเมินความยากจากหน้า SERP จริง
+_HARD_DOMAINS = ("wikipedia.", "lazada.", "shopee.", "amazon.", "facebook.com",
+                 "youtube.com", "google.", "tiktok.com", "central.co", "jd.co", "agoda.", "booking.")
+_HARD_TLDS = (".gov", ".go.th", ".ac.th", ".edu", ".or.th")
+_UGC_DOMAINS = ("pantip.com", "reddit.com", "quora.com", "medium.com", "blogspot.",
+                "wordpress.com", "twitter.com", "x.com", "sanook.", "kapook.", "dek-d.")
+
+
+async def keyword_difficulty(keyword: str, creds: dict | None = None,
+                             location_code: int | None = None,
+                             language_code: str | None = None) -> dict:
+    """⚡ Easy-Win Radar — ประเมิน 'ความยากในการติดอันดับ' จากโครงหน้า SERP จริง (ใช้ SERP ที่จ่ายอยู่แล้ว 1 call)
+    ไม่ใช่ค่า KD ของเวนเดอร์ — เป็น heuristic โปร่งใสจากผลหน้า 1 (โดเมนแข็ง = ยาก, ฟอรัม/UGC = แซงง่าย)
+    คืน {score 0-100 (น้อย=ง่าย), label, signals} · crash-safe"""
+    try:
+        results = await search(keyword, n=10, location_code=location_code,
+                               language_code=language_code, creds=creds)
+    except Exception:  # noqa: BLE001
+        return {"score": None, "label": "?", "signals": {}}
+    if not results:
+        return {"score": 25, "label": "ง่าย", "signals": {"organic": 0}}   # SERP โล่ง = โอกาสสูง
+    top = results[:10]
+    hard = ugc = homepage = 0
+    for it in top:
+        dom = (it.get("domain") or "").lower().removeprefix("www.")
+        url = (it.get("url") or "").lower()
+        if any(h in dom for h in _HARD_DOMAINS) or any(dom.endswith(t) or t in dom for t in _HARD_TLDS):
+            hard += 1
+        if any(u in dom for u in _UGC_DOMAINS):
+            ugc += 1
+        path = url.split(dom, 1)[1] if (dom and dom in url) else "/"
+        if path in ("", "/"):                     # หน้าแรกของโดเมนติดอันดับ = แบรนด์แข็งกว่า
+            homepage += 1
+    score = 45 + hard * 7 + homepage * 2 - ugc * 6
+    score = max(5, min(95, score))
+    label = "ง่าย" if score < 40 else ("ปานกลาง" if score < 65 else "ยาก")
+    return {"score": score, "label": label,
+            "signals": {"hard": hard, "ugc": ugc, "homepage": homepage, "organic": len(top)}}
+
+
 async def rank_check(keyword: str, domain: str,
                      location_code: int | None = None,
                      language_code: str | None = None,

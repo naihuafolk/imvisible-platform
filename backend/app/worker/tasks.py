@@ -195,6 +195,10 @@ def analyze_project(project_id: int, then_produce: bool = True) -> dict:
         # ฝังออโต: ต้องสั่งผลิตเสมอ แม้ analyze จะล่ม (ไม่งั้นโปรเจ็คจะค้างไม่มีบทความ)
         if then_produce:
             try:
+                assess_easy_wins.delay(project_id, 8)   # ⚡ ประเมิน Easy-Win ก่อน → รอบผลิตถัดไปหยิบคีย์ง่ายก่อน
+            except Exception:  # noqa: BLE001
+                pass
+            try:
                 produce_for_project.delay(project_id, 1)
             except Exception:  # noqa: BLE001
                 pass
@@ -273,6 +277,24 @@ def produce_for_project(project_id: int, max_new: int = 1) -> dict:
     return _run(_produce_for_project(project_id, max_new))
 
 
+def _order_easy_cluster(topics: list[str], cluster_of: dict, diff_of: dict, launch: bool) -> list[str]:
+    """⚡ จัดลำดับหัวข้อผลิตให้ 'ติดไวขึ้น':
+    - launch (บทความยังน้อย): จัดเป็นคลัสเตอร์ เลือกคลัสเตอร์ใหญ่สุดก่อน (สร้างอำนาจหัวข้อ = Cluster-First) ภายในคลัสเตอร์ 'ง่ายก่อน'
+    - steady: เรียง 'ง่ายก่อน' ทั่วทั้งแผน (Easy-Win = คีย์คู่แข่งอ่อน ติดเร็ว ได้โมเมนตัมก่อน)"""
+    if not topics:
+        return topics
+    if launch:
+        groups: dict[str, list[str]] = {}
+        for t in topics:
+            groups.setdefault((cluster_of.get(t) or "_"), []).append(t)
+        order = sorted(groups.keys(), key=lambda c: (c == "_", -len(groups[c])))   # คลัสเตอร์ใหญ่ก่อน (ว่างไปท้าย)
+        out: list[str] = []
+        for c in order:
+            out.extend(sorted(groups[c], key=lambda t: diff_of.get(t, 50)))         # ภายในคลัสเตอร์ ง่ายก่อน
+        return out
+    return sorted(topics, key=lambda t: diff_of.get(t, 50))
+
+
 async def _produce_for_project(project_id: int, max_new: int) -> dict:
     from app.db.models import Project, Article
     if not db.enabled():
@@ -324,14 +346,18 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
         except Exception:  # noqa: BLE001
             plan = []
     if plan:
-        planned = []
+        planned, diff_of = [], {}
         for it in plan:
             if isinstance(it, dict) and it.get("topic"):
                 t = str(it["topic"])
                 planned.append(t)
                 cluster_of[t] = str(it.get("cluster") or "")[:200]
+                diff_of[t] = it.get("difficulty") if it.get("difficulty") is not None else 50
         all_q = planned[:20]
-        topics = [t for t in planned if t not in existing][:max_new]
+        unproduced = [t for t in planned if t not in existing]
+        # ⚡ Easy-Win + Cluster-First: เปิดตัว (<6 บทความ) จัดเป็นคลัสเตอร์สร้างอำนาจหัวข้อ · จากนั้นเรียง 'ง่ายก่อน'
+        unproduced = _order_easy_cluster(unproduced, cluster_of, diff_of, launch=(len(existing) < 6))
+        topics = unproduced[:max_new]
     lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
     if not topics:
         seed = (p.name or p.domain or "").strip()
@@ -682,14 +708,18 @@ async def _boost_rankings(lo: int, hi: int, per_project: int) -> str:
             for kw, rank, op in snaps:                        # ไล่จากเก่า→ใหม่ → latest ได้ค่าล่าสุด
                 latest[kw] = (rank, bool(op))
                 ever_p1[kw] = ever_p1.get(kw, False) or bool(op)
-            targets = []
+            # ⚡ #2 Striking-Distance Sniper: จัดคิวตัว 'จ่อหน้า 1 ที่สุด' ก่อน (#11-20 มาก่อน #21-40)
+            #    ใช้แรง optimize ให้คุ้มสุด → ดันขึ้นหน้า 1 เร็ว (ROI สูงกว่าไล่สุ่ม)
+            scored = []
             for kw, (rank, op) in latest.items():
                 if op:                                        # ติดหน้า 1 อยู่แล้ว = ไม่ต้องดัน
                     continue
-                striking = (rank is not None and lo <= rank <= hi)   # จ่อหน้า 1
-                dropped = ever_p1.get(kw, False)                     # เคยหน้า 1 แล้วหลุด
-                if striking or dropped:
-                    targets.append(kw)
+                if rank is not None and lo <= rank <= hi:     # จ่อหน้า 1 — ใกล้สุดก่อน (#11-20 เป็น tier 0)
+                    scored.append((0 if rank <= 20 else 1, rank, kw))
+                elif ever_p1.get(kw, False):                  # เคยหน้า 1 แล้วหลุด — ดึงกลับ (tier 2)
+                    scored.append((2, 999, kw))
+            scored.sort(key=lambda x: (x[0], x[1]))
+            targets = [kw for _pri, _r, kw in scored]
             for kw in targets[:per_project]:
                 aid = (await s.execute(
                     select(Article.id).where(Article.project_id == pid, Article.title == kw,
@@ -698,6 +728,51 @@ async def _boost_rankings(lo: int, hi: int, per_project: int) -> str:
                     optimize_article.delay(aid)
                     n += 1
     return "queued rank-boost for %d pages (striking %d-%d / dropped off page1)" % (n, lo, hi)
+
+
+@celery_app.task(name="app.worker.tasks.assess_easy_wins")
+def assess_easy_wins(project_id: int = 0, cap: int = 8) -> str:
+    """⚡ #1 Easy-Win Radar: ประเมิน 'ความยากในการติดอันดับ' ของคีย์เวิร์ดในแผน จากหน้า SERP จริง
+    → ติดแท็ก difficulty ลง topic_plan ให้รอบผลิตหยิบ 'คีย์ที่ชนะง่าย' มาทำก่อน = ติดไวขึ้นมาก"""
+    return _run(_assess_easy_wins(project_id, cap))
+
+
+async def _assess_easy_wins(project_id: int, cap: int) -> str:
+    from app.db.models import Project
+    from app.connectors import serp
+    if not db.enabled():
+        return "DB not configured"
+    async with db.session() as s:
+        ids = [project_id] if project_id else \
+            (await s.execute(select(Project.id))).scalars().all()
+    scored = 0
+    for pid in ids:
+        async with db.session() as s:
+            p = await s.get(Project, pid)
+            if not p or not (p.topic_plan or "").strip():
+                continue
+            try:
+                plan = json.loads(p.topic_plan) or []
+            except Exception:  # noqa: BLE001
+                continue
+            dfs = await creds.get_creds(pid, "dataforseo")
+            n = 0
+            for it in plan:
+                if not isinstance(it, dict) or not it.get("topic"):
+                    continue
+                if it.get("difficulty") is not None:          # ประเมินแล้ว ข้าม (ไม่จ่ายซ้ำ)
+                    continue
+                if n >= cap:                                  # cap ต่อรอบ/โปรเจ็ค กันค่า SERP บานปลาย
+                    break
+                d = await serp.keyword_difficulty(it["topic"], creds=dfs or None)
+                if d.get("score") is not None:
+                    it["difficulty"] = d["score"]
+                    it["difficulty_label"] = d.get("label") or ""
+                    n += 1; scored += 1
+            if n:
+                p.topic_plan = json.dumps(plan, ensure_ascii=False)
+                await s.commit()
+    return "easy-win: assessed %d keywords across %d project(s)" % (scored, len(ids))
 
 
 @celery_app.task(name="app.worker.tasks.grow_clusters")

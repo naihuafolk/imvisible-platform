@@ -49,6 +49,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.freshness_sweep",
         "schedule": crontab(hour=3, minute=0),
     },
+    "easy-win-assess-daily": {       # ⚡ #1 Easy-Win Radar · ประเมินความยากคีย์เวิร์ดจาก SERP ทุกวัน 01:30 (ก่อนผลิต 02:00)
+        "task": "app.worker.tasks.assess_easy_wins",
+        "schedule": crontab(hour=1, minute=30),
+    },
     "optimize-lowscore-daily": {     # M3 · ซ่อมบทความคะแนน AEO ต่ำสุดทุกวัน 05:00 (auto-tuning)
         "task": "app.worker.tasks.optimize_low_scores",
         "schedule": crontab(hour=5, minute=0),
