@@ -106,6 +106,10 @@ class KeywordsAddRequest(BaseModel):
     keywords: list[str] = []         # เพิ่มคีย์เวิร์ด/หัวข้อให้โปรเจ็คที่กำลังทำงาน (ต่อท้าย · สูงสุดรวม 50)
 
 
+class AeoQuestionsUpdate(BaseModel):
+    questions: list[str] = []        # คำถาม AEO ที่ลูกค้าตั้งเอง (คำที่คนถาม AI จริง) → บันทึกแทนที่ · สูงสุด 30
+
+
 class PublishTargetUpdate(BaseModel):
     publish_mode: str = "managed"    # managed | wordpress | none
     custom_domain: str = ""

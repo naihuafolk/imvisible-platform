@@ -46,6 +46,7 @@
       '<div class="row gap-s wrap" style="align-items:center">' +
       '<button class="btn btn-primary btn-sm open-dash" data-id="' + esc(p.id) + '">📊 เปิดรายงาน</button>' +
       '<button class="btn btn-sm add-kw" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">＋ คีย์เวิร์ด</button>' +
+      '<button class="btn btn-sm aeo-q" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">🎯 คำถาม AEO</button>' +
       '<button class="btn btn-sm cfg-proj" data-id="' + esc(p.id) + '">⚙️ ตั้งค่า</button>' +
       '<button class="btn btn-sm del-proj" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '" style="margin-left:auto;color:var(--red-600,#dc2626)">🗑 ลบ</button>' +
       '</div></div>';
@@ -97,6 +98,41 @@
       }).catch(function (e) { go.disabled = false; go.textContent = 'เพิ่มคีย์เวิร์ด'; ui.toast('เพิ่มไม่ได้: ' + esc(e.message || String(e))); });
     };
   }
+
+  /* ตั้ง "คำถาม AEO" เอง — คำที่คนถาม AI จริง (ต่างจากคีย์เวิร์ด SEO) → วัด AI Citation ให้ตรง
+     บันทึกแทนที่ทั้งชุด (แก้/ลบได้) · มีผลรอบวัดถัดไป ไม่กระทบบทความที่ผลิตอยู่ · เปิดจากที่ไหนก็ได้ */
+  function aeoQuestionsModal(id, name) {
+    var pid = String(id).replace(/^db/, '');
+    ui.modal({ title: '🎯 ตั้งคำถาม AEO', sub: esc(name || '') + ' · คำที่ "คนถาม AI จริง" — วัดว่าแบรนด์ถูกอ้างอิงไหม', width: 560, body:
+      '<div class="hint mb">พิมพ์ <b>คำถามแบบที่คนถาม ChatGPT/Gemini/Perplexity จริง</b> — <b>บรรทัดละ 1 คำถาม</b> · ระบบจะใช้ชุดนี้ "ก่อน" คำถามอัตโนมัติเวลาวัด AI Citation (สูงสุด 30)</div>' +
+      '<textarea class="input" id="aq_txt" rows="8" placeholder="จ้างบริษัททำ SEO ที่ไหนดี ในไทย&#10;ทำ SEO เองกับจ้าง อันไหนคุ้มกว่า&#10;คลินิกความงามควรทำ SEO ยังไง" style="width:100%;resize:vertical" disabled>กำลังโหลด…</textarea>' +
+      '<div class="row between" style="margin-top:8px;align-items:center"><span class="soft small" id="aq_count">…</span>' +
+      '<button class="btn btn-primary" id="aq_save" disabled>บันทึกคำถาม</button></div>' });
+    var txt = document.getElementById('aq_txt'), cnt = document.getElementById('aq_count'), go = document.getElementById('aq_save');
+    function lines(s) { return (s || '').split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 30); }
+    function upd() { if (cnt && txt) { var n = lines(txt.value).length; cnt.textContent = n + ' คำถาม' + (n >= 30 ? ' (สูงสุด)' : ''); } }
+    if (!RP.api.reachable()) { if (txt) { txt.value = ''; txt.disabled = false; } ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'); return; }
+    RP.api.getAeoQuestions(pid).then(function (d) {
+      var cur = (d.questions && d.questions.length) ? d.questions : (d.suggested || []);
+      var isSug = !(d.questions && d.questions.length) && (d.suggested || []).length;
+      if (txt) {
+        txt.value = cur.join('\n'); txt.disabled = false;
+        if (isSug) { var h = document.querySelector('#modal .hint'); if (h) h.innerHTML += ' <span style="color:var(--amber-600)">· ด้านล่างเป็นชุดแนะนำอัตโนมัติ — ปรับให้ตรงแล้วบันทึก</span>'; }
+        txt.oninput = upd; upd(); setTimeout(function () { txt.focus(); }, 50);
+      }
+      if (go) go.disabled = false;
+    }).catch(function (e) { if (txt) { txt.value = ''; txt.disabled = false; txt.oninput = upd; upd(); } if (go) go.disabled = false; ui.toast('โหลดคำถามเดิมไม่ได้: ' + esc(e.message || String(e))); });
+    if (go) go.onclick = function () {
+      var qs = lines(txt ? txt.value : '');
+      go.disabled = true; go.textContent = 'กำลังบันทึก…';
+      RP.api.setAeoQuestions(pid, qs).then(function (d) {
+        ui.closeModal();
+        ui.toast('บันทึก <b>' + (d.total || 0) + '</b> คำถาม AEO แล้ว ✓ — ใช้ในรอบวัด AI Citation ครั้งถัดไป');
+      }).catch(function (e) { go.disabled = false; go.textContent = 'บันทึกคำถาม'; ui.toast('บันทึกไม่ได้: ' + esc(e.message || String(e))); });
+    };
+  }
+  RP.openAeoQuestions = aeoQuestionsModal;      // ให้หน้ารายงาน/อื่น ๆ เรียกใช้ modal เดียวกันได้
+
   function stat(l, v) { return '<div><div class="soft" style="font-size:11px">' + esc(l) + '</div><div class="bb">' + v + '</div></div>'; }
 
   /* รายการโปรเจ็คที่ "แสดงได้จริง": บัญชีจริงเห็นเฉพาะโปรเจ็คจากฐานข้อมูล (id ขึ้นต้น db) */
@@ -275,6 +311,9 @@
         });
         Array.prototype.forEach.call(root.querySelectorAll('.add-kw'), function (b) {
           b.onclick = function () { addKeywordsModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
+        });
+        Array.prototype.forEach.call(root.querySelectorAll('.aeo-q'), function (b) {
+          b.onclick = function () { aeoQuestionsModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
         });
         Array.prototype.forEach.call(root.querySelectorAll('.del-proj'), function (b) {
           b.onclick = function () { confirmDelete(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };

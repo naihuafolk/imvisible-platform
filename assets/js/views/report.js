@@ -78,12 +78,19 @@
         body: arows || RP.noData('ยังไม่มีบทความ', 'ระบบกำลังผลิตให้ — รอสักครู่') });
     }
     var ct = root.querySelector('#rp_cite');
-    if (ct) ct.innerHTML = ui.card({ title: 'AEO — AI Citation', sub: 'ถูก AI (ChatGPT/Gemini/Perplexity) อ้างอิงแค่ไหน',
-      body: cit.count ? (
+    if (ct) {
+      var citeInner = cit.count ? (
         '<div class="row between" style="margin-bottom:6px"><span class="soft small">SoV ล่าสุด</span><span class="bb" style="font-size:20px">' + (cit.latest_sov != null ? cit.latest_sov + '%' : '—') + '</span></div>' +
         '<div class="row between"><span class="soft small">เทียบรอบก่อน</span><span>' + citTrend(cit) + '</span></div>' +
         '<div class="hint" style="margin-top:8px">วัดจาก ' + cit.count + ' รอบ · ยิงคำถามจริงไปที่ AI แล้ววัดว่าอ้างแบรนด์คุณไหม</div>'
-      ) : RP.noData('ยังไม่มีข้อมูล Citation', 'ระบบสุ่มถาม AI ทุกสัปดาห์ — รอผลรอบแรก') });
+      ) : RP.noData('ยังไม่มีข้อมูล Citation', 'ระบบสุ่มถาม AI ทุกสัปดาห์ — รอผลรอบแรก');
+      ct.innerHTML = ui.card({ title: 'AEO — AI Citation', sub: 'ถูก AI (ChatGPT/Gemini/Perplexity) อ้างอิงแค่ไหน',
+        body: citeInner +
+          '<div class="hint" style="margin-top:10px;color:var(--amber-700,#b45309)">คำถามไม่ตรง? ตั้งคำถามแบบที่ "คนถาม AI จริง" เองได้ — ระบบจะใช้ชุดนี้ก่อน</div>' +
+          '<button class="btn btn-sm" id="aeoQBtn" style="margin-top:6px">🎯 ตั้งคำถาม AEO</button>' });
+      var qb = ct.querySelector('#aeoQBtn');
+      if (qb) qb.onclick = function () { if (RP.openAeoQuestions) RP.openAeoQuestions(rDbId(p), p.name); else RP.go('projects'); };
+    }
   }
 
   function realReport() {

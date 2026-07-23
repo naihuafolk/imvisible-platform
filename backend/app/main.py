@@ -27,7 +27,7 @@ from app.schemas import (
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
-    KeywordSuggestRequest, KeywordsAddRequest,
+    KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social, billing, pagespeed
 from app.auth import security
@@ -625,6 +625,46 @@ async def add_keywords(project_id: int, req: KeywordsAddRequest, user=Depends(ge
         await s.commit()
         total = len(plan)
     return {"added": added, "total": total, "cap": 50}
+
+
+@app.get("/api/projects/{project_id}/aeo-questions")
+async def get_aeo_questions(project_id: int, user=Depends(get_current_user)):
+    """คำถาม AEO ที่ลูกค้าตั้งเอง + ชุด 'แนะนำอัตโนมัติ' (ถ้ายังไม่ได้ตั้ง) ไว้เติมในกล่องให้ง่าย"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project
+    from app.worker.tasks import _aeo_questions_of, _project_questions
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        custom = _aeo_questions_of(p)
+        suggested = [] if custom else await _project_questions(p, project_id)
+    return {"questions": custom, "suggested": suggested, "cap": 30}
+
+
+@app.put("/api/projects/{project_id}/aeo-questions")
+async def set_aeo_questions(project_id: int, req: AeoQuestionsUpdate, user=Depends(get_current_user)):
+    """บันทึกคำถาม AEO (แทนที่ทั้งชุด) — ใช้ 'มาก่อน' คำถามอัตโนมัติเวลาสุ่มถาม AI · สูงสุด 30
+    ไม่กระทบบทความที่ผลิตอยู่ (มีผลกับรอบวัด AI Citation ครั้งถัดไปเท่านั้น)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    import json as _json
+    from app.db.models import Project
+    seen, qs = set(), []
+    for q in (req.questions or []):
+        t = str(q).strip()
+        if t and t.lower() not in seen:
+            seen.add(t.lower()); qs.append(t)
+        if len(qs) >= 30:
+            break
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        p.aeo_questions = _json.dumps(qs, ensure_ascii=False)
+        await s.commit()
+    return {"total": len(qs), "cap": 30}
 
 
 @app.post("/api/keywords/suggest")

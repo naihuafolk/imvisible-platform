@@ -69,6 +69,7 @@ class Project(Base):
     business_context: Mapped[str] = mapped_column(Text, default="")             # ธุรกิจทำอะไร/ขายอะไร/ให้ใคร → ป้อนเครื่องยนต์คอนเทนต์
     brand_terms: Mapped[str] = mapped_column(Text, default="")                  # คำแบรนด์ (คั่นด้วย ,) → ใช้ตรวจ AI citation
     topic_plan: Mapped[str] = mapped_column(Text, default="")                   # แผนหัวข้อ (JSON) เรียงตามคำที่ชนะได้ก่อน
+    aeo_questions: Mapped[str] = mapped_column(Text, default="")                 # คำถาม AEO ที่ลูกค้าตั้งเอง (JSON list) → สุ่มถาม AI 'ให้ตรง' (มาก่อนอัตโนมัติ)
     analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

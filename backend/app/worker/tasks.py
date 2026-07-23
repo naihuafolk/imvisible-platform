@@ -970,11 +970,29 @@ def _brand_terms_of(p) -> list[str]:
     return [t for t in out if t]
 
 
+def _aeo_questions_of(p) -> list[str]:
+    """คำถาม AEO ที่ 'ลูกค้าตั้งเอง' (JSON list) — สิ่งที่คนถาม AI จริง ๆ ให้ตรงกว่าคีย์เวิร์ด SEO"""
+    raw = getattr(p, "aeo_questions", "") or ""
+    if not raw.strip():
+        return []
+    try:
+        data = json.loads(raw)
+        out, seen = [], set()
+        for q in (data or []):
+            t = str(q).strip()
+            if t and t.lower() not in seen:
+                seen.add(t.lower()); out.append(t)
+        return out[:30]
+    except Exception:  # noqa: BLE001
+        return []
+
+
 async def _project_questions(p, project_id: int, limit: int = 6) -> list[str]:
-    """ชุดคำถามสำหรับสุ่มถาม AI — เอาจากแผนหัวข้อ (Site Intelligence) ก่อน
-    แล้วค่อยถอยไปหัวข้อบทความที่เผยแพร่จริง แล้วสุดท้ายขุดสดจากชื่อโปรเจ็ค"""
+    """ชุดคำถามสำหรับสุ่มถาม AI — 'คำถาม AEO ที่ลูกค้าตั้งเอง' มาก่อน (ตรงที่สุด)
+    แล้วค่อยเติมจากแผนหัวข้อ (Site Intelligence) → หัวข้อบทความจริง → ขุดสดจากชื่อโปรเจ็ค"""
     from app.db.models import Article
-    qs: list[str] = []
+    custom = _aeo_questions_of(p)                         # ลูกค้าตั้งเอง = ลำดับแรกเสมอ
+    qs: list[str] = list(custom)
     if getattr(p, "topic_plan", ""):
         try:
             for it in (json.loads(p.topic_plan) or []):
@@ -995,13 +1013,14 @@ async def _project_questions(p, project_id: int, limit: int = 6) -> list[str]:
             qs = [q.get("q") for q in mined.get("questions", []) if q.get("q")]
         except Exception:  # noqa: BLE001
             qs = []
-    # กันซ้ำ คงลำดับ
+    # กันซ้ำ คงลำดับ — ถ้าลูกค้าตั้งคำถามเองไว้เยอะ ให้ใช้ครบ (เพดาน 10 กันค่ายิงบานปลาย)
     seen, out = set(), []
     for q in qs:
         k = q.strip().lower()
         if q.strip() and k not in seen:
             seen.add(k); out.append(q.strip())
-    return out[:limit]
+    cap = min(10, max(limit, len(custom)))
+    return out[:cap]
 
 
 async def _sample_and_save(project_id: int, questions: list[str] | None = None) -> dict:
