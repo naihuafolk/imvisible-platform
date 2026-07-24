@@ -449,6 +449,37 @@ def render_robots(proj) -> str:
 
 # ---------------------------------------------------------------- routes ----
 # ---- แบบ path (ใช้ได้ทันทีบนโดเมนหลัก ไม่ต้องตั้ง DNS): /blog/{slug}/... ----
+def _latest_cards(proj, arts) -> str:
+    """ชิ้นส่วน HTML 'บทความล่าสุด' (การ์ด+ลิงก์จริง) สำหรับฝังในหน้า landing — inline style ไม่พึ่ง CSS ปลายทาง"""
+    out = []
+    for a in arts:
+        url = _esc(a.url or public_url_for(proj, a))
+        cover = getattr(a, "cover_url", "") or ""
+        thumb = ('<img src="%s" alt="" loading="lazy" style="width:100%%;height:150px;object-fit:cover;display:block">'
+                 % _esc(cover)) if cover else ""
+        out.append(
+            '<a href="%s" style="display:block;text-decoration:none;color:inherit;border:1px solid #e5e9f2;'
+            'border-radius:14px;overflow:hidden;background:#fff;transition:transform .15s">%s'
+            '<div style="padding:14px 16px">'
+            '<div style="font-size:12px;color:#5b6ef5;font-weight:700">%s</div>'
+            '<div style="font-weight:700;margin:4px 0 5px;color:#101627;line-height:1.35">%s</div>'
+            '<div style="font-size:13px;color:#5b6478;line-height:1.5">%s</div></div></a>'
+            % (url, thumb, _esc(getattr(a, "cluster", "") or "บทความ"), _esc(a.title), _esc(_desc(a)[:110])))
+    return "".join(out)
+
+
+# บทความล่าสุด (fragment) — ต้องมาก่อน "/blog/{project_slug}" ไม่งั้นจะถูกจับเป็น slug="_latest"
+@router.get("/blog/_latest", response_class=HTMLResponse)
+async def blog_latest(slug: str = "", n: int = 6):
+    """ชิ้นส่วน 'บทความล่าสุด' สำหรับฝังในหน้า landing (same-origin → ไม่ติด CORS) · cache 5 นาที"""
+    hdr = {"Cache-Control": "public, max-age=300"}
+    proj = await _project_by_slug(slug) if slug else None
+    if not proj:
+        return HTMLResponse("", headers=hdr)
+    arts = (await _published(proj.id))[: max(1, min(int(n or 6), 12))]
+    return HTMLResponse(_latest_cards(proj, arts), headers=hdr)
+
+
 @router.get("/blog/{project_slug}", response_class=HTMLResponse)
 async def blog_index_path(project_slug: str):
     proj = await _project_by_slug(project_slug)

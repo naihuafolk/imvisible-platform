@@ -706,6 +706,27 @@
     </div>
   </section>
 
+  <!-- บทความล่าสุด (ดึงจากบล็อกจริง — การ์ด server-rendered + ลิงก์ crawlable) -->
+  <section class="wrap" id="latest" style="padding:60px 20px">
+    <div style="text-align:center;margin-bottom:28px">
+      <div class="eyebrow blue" data-en="From the blog">จากบล็อก</div>
+      <h2 style="margin:8px 0 4px;font-size:clamp(24px,4vw,34px)">บทความล่าสุด</h2>
+      <p style="color:#5b6478;margin:0">ความรู้ SEO / AEO อัปเดตใหม่จากทีม ImVisible</p>
+    </div>
+    <div id="latest-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;max-width:1080px;margin:0 auto"></div>
+    <div style="text-align:center;margin-top:30px">
+      <a href="/blog/imvisible" style="display:inline-block;font-weight:800;color:#3d6bff;text-decoration:none;border:1.5px solid #3d6bff;padding:11px 26px;border-radius:999px">ดูบทความทั้งหมด →</a>
+    </div>
+  </section>
+  <script>
+    (function () {
+      var g = document.getElementById('latest-grid'); if (!g) return;
+      fetch('/blog/_latest?slug=imvisible&n=6').then(function (r) { return r.text(); }).then(function (h) {
+        if (h && h.trim()) g.innerHTML = h;
+      }).catch(function () {});
+    })();
+  </script>
+
   <!-- closing -->
   <section class="wrap closing" id="start">
     <span class="ghostword" aria-hidden="true">VISIBLE</span>
