@@ -70,13 +70,14 @@
     el.innerHTML = ui.card({ title: '🔔 ไฮไลต์ & แจ้งเตือน', sub: 'ความเคลื่อนไหวอันดับล่าสุด (ข้อมูลจริง)', flush: true, body: rows });
   }
 
-  /* 📊 ปัจจัยที่มีผลต่ออันดับ — จาก seo-audit จริง (schema · ลิงก์ภายใน · หน้ากำพร้า · ความสด) */
-  function renderFactors(root, audit) {
+  /* 📊 ปัจจัยที่มีผลต่ออันดับ — จาก seo-audit จริง (schema · ลิงก์ภายใน · หน้ากำพร้า · ความสด) + ปุ่มซ่อมเดี๋ยวนี้ */
+  function renderFactors(root, audit, pid) {
     var el = root.querySelector('#rp_factors'); if (!el) return;
     if (!audit || !audit.articles) {
       el.innerHTML = ui.card({ title: '📊 ปัจจัยที่มีผลต่ออันดับ', body: RP.noData('ยังไม่มีข้อมูล', 'มีบทความเผยแพร่แล้วระบบจะวิเคราะห์ปัจจัยให้อัตโนมัติ') });
       return;
     }
+    var needFix = (audit.schema_coverage < 80) || (audit.internal_links_avg < 2) || (audit.orphan_pages > 0);
     function frow(label, val, ok, hint) {
       return '<div class="list-row"><div class="grow"><div class="t"><span style="color:' + (ok ? 'var(--green-600)' : 'var(--amber-600)') + '">' + (ok ? '✔' : '⚠') + '</span> ' +
         esc(label) + ': <b>' + val + '</b></div><div class="soft small">' + esc(hint) + '</div></div></div>';
@@ -85,7 +86,20 @@
       frow('ลิงก์ภายในเฉลี่ย/หน้า', audit.internal_links_avg, audit.internal_links_avg >= 2, 'กระจายพลังอันดับระหว่างหน้า → ดันคีย์เวิร์ดขึ้นเร็ว') +
       frow('หน้ากำพร้า (ไม่มีลิงก์เข้า)', audit.orphan_pages, audit.orphan_pages === 0, audit.orphan_pages ? 'ควรลิงก์ถึงหน้าเหล่านี้ให้ Google เก็บ index ครบ' : 'ทุกหน้ามีลิงก์เข้า—ดีมาก') +
       frow('เนื้อหาที่ควรรีเฟรช', audit.stale_count, audit.stale_count === 0, 'ความสดของเนื้อหาเป็นสัญญาณอันดับ—ระบบรีเฟรชให้อัตโนมัติ');
+    if (needFix) {
+      b += '<div class="card-pad" style="border-top:1px solid var(--border)"><div class="soft small mb">มีปัจจัยที่ซ่อมได้ทันที (เติม Schema + รีเฟรชลิงก์ภายใน + ช่วยหน้ากำพร้า)</div>' +
+        '<button class="btn btn-primary btn-sm" id="rpFix"' + (pid ? '' : ' disabled') + '>🔧 ซ่อมเดี๋ยวนี้</button></div>';
+    }
     el.innerHTML = ui.card({ title: '📊 ปัจจัยที่มีผลต่ออันดับ', sub: 'วิเคราะห์จากบทความจริง ' + audit.articles + ' หน้า', flush: true, body: b });
+    var fx = el.querySelector('#rpFix');
+    if (fx) fx.onclick = function () {
+      if (!(pid && RP.api.enabled())) { ui.toast('เปิดโหมด Live ก่อน'); return; }
+      fx.disabled = true; fx.textContent = 'กำลังซ่อม…';
+      RP.api.siteHealthFix(pid).then(function (d) {
+        fx.textContent = '✓ ซ่อมแล้ว';
+        ui.toast('เติม Schema <b>' + (d.schema_fixed || 0) + '</b> หน้า · รีเฟรชลิงก์ <b>' + (d.links_refreshed || 0) + '</b> หน้า ✓ — รีเฟรชรายงานดูค่าที่ดีขึ้น');
+      }).catch(function (e) { fx.disabled = false; fx.textContent = '🔧 ซ่อมเดี๋ยวนี้'; ui.toast('ซ่อมไม่ได้: ' + esc(e.message || String(e))); });
+    };
   }
 
   /* 🎯 หลักฐาน AEO — ตัวอย่างจริงที่ถาม AI แล้ว AI ตอบโดยอ้างอิงเรา */
@@ -136,7 +150,7 @@
   function fillReport(root, p, rank, cit, aeo, audit, examples) {
     rank = rank || {}; cit = cit || {}; aeo = aeo || {};
     renderHighlights(root, rank);
-    renderFactors(root, audit);
+    renderFactors(root, audit, rDbId(p));
     renderEvidence(root, examples);
     /* renderBacklinks ปิดไว้ก่อน — ต้องสมัคร DataForSEO Backlinks API แยก */
     var kpi = root.querySelector('#rp_kpi');

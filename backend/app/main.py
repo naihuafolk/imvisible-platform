@@ -1386,6 +1386,41 @@ async def project_seo_audit(project_id: int, user=Depends(get_current_user)):
     }
 
 
+@app.post("/api/projects/{project_id}/site-health/fix")
+async def site_health_fix(project_id: int, user=Depends(get_current_user)):
+    """🔧 ซ่อมปัจจัยอันดับที่แดง 'เดี๋ยวนี้' — เติม Schema ที่ขาด (เร็ว/ฟรี) + รีเฟรชลิงก์ภายในทั้งโปรเจ็ค
+    (ช่วยหน้ากำพร้าให้มีลิงก์เข้าด้วย) · ทำงานกับบทความที่เผยแพร่แล้ว ไม่เขียนใหม่ทั้งบทความ"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+    from app.db.models import Article
+    from app.worker.tasks import _backfill_schema, _apply_internal_links
+    schema_note = await _backfill_schema(project_id, 300)         # เติม schema ทุกหน้าที่ขาด
+    links = 0
+    async with db.session() as s:
+        arts = (await s.execute(
+            select(Article.id, Article.title, Article.html).where(
+                Article.project_id == project_id, Article.status == "published"))).all()
+    for aid, title, html in arts:                                # รีเฟรชลิงก์ภายในต่อหน้า (regex ไม่ใช้ LLM = เร็ว)
+        try:
+            nh = await _apply_internal_links(project_id, title or "", html or "")
+        except Exception:  # noqa: BLE001
+            nh = html
+        if nh and nh != html:
+            async with db.session() as s:
+                a = await s.get(Article, aid)
+                if a:
+                    a.html = nh
+                    await s.commit()
+                    links += 1
+    import re as _re
+    m = _re.search(r"(\d+)", schema_note or "")
+    return {"schema_fixed": int(m.group(1)) if m else 0,
+            "links_refreshed": links, "articles": len(arts),
+            "note": "เติม schema + รีเฟรชลิงก์ภายในแล้ว — รอ ~1 นาทีแล้วรีเฟรชรายงานดูค่าที่ดีขึ้น"}
+
+
 @app.get("/api/projects/{project_id}/citation/examples")
 async def project_citation_examples(project_id: int, user=Depends(get_current_user)):
     """หลักฐาน AEO — ตัวอย่างจริงที่ 'ถาม AI แล้ว AI ตอบโดยอ้างอิงแบรนด์/เว็บเรา' (คำถาม + เอนจิน + snippet)

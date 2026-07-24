@@ -855,6 +855,98 @@ async def _ensure_schema(per_project: int) -> str:
     return "queued schema/optimize for %d articles missing schema" % n
 
 
+def _faq_from_html(html: str) -> list:
+    """ดึงคู่ Q/A จากส่วน 'คำถามที่พบบ่อย' ของบทความ → ทำ FAQPage schema (AEO: ชิง snippet + AI หยิบง่าย)"""
+    import re as _re
+    m = _re.search(r"คำถามที่พบบ่อย|FAQ", html or "", _re.I)
+    seg = (html or "")[m.start():] if m else (html or "")
+    out = []
+    for mm in _re.finditer(r"<h3[^>]*>(.*?)</h3>\s*<p[^>]*>(.*?)</p>", seg, _re.S | _re.I):
+        q = _re.sub(r"<[^>]+>", "", mm.group(1)).strip()
+        a = _re.sub(r"<[^>]+>", "", mm.group(2)).strip()
+        if q and a:
+            out.append((q[:200], a[:900]))
+        if len(out) >= 8:
+            break
+    return out
+
+
+def _build_schema(art, brand: str) -> str:
+    """สร้าง JSON-LD (@graph: Article + Breadcrumb + Organization + FAQPage ถ้ามี) แบบ deterministic
+    เร็ว/ฟรี/ครบ — ไม่ต้องเรียก LLM เขียนใหม่ทั้งบทความ → เติม schema ให้ทุกหน้าได้เร็ว"""
+    import json as _json, re as _re
+    from urllib.parse import urlsplit
+    title = (art.title or "").strip()
+    desc = (art.description or _re.sub(r"<[^>]+>", "", art.html or "")[:155]).strip()
+    url = (art.url or "").strip()
+    home = ""
+    if url:
+        p = urlsplit(url)
+        if p.scheme and p.netloc:
+            home = "%s://%s" % (p.scheme, p.netloc)
+    art_node = {"@type": "Article", "headline": title[:110], "description": desc[:300],
+                "author": {"@type": "Organization", "name": brand},
+                "publisher": {"@type": "Organization", "name": brand}}
+    if url:
+        art_node["mainEntityOfPage"] = {"@type": "WebPage", "@id": url}
+    if getattr(art, "cover_url", ""):
+        art_node["image"] = art.cover_url
+    if getattr(art, "created_at", None):
+        art_node["datePublished"] = art.created_at.isoformat()
+    if getattr(art, "updated_at", None):
+        art_node["dateModified"] = art.updated_at.isoformat()
+    graph = [art_node]
+    if home and url:
+        graph.append({"@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": brand, "item": home},
+            {"@type": "ListItem", "position": 2, "name": title[:80], "item": url}]})
+    graph.append({"@type": "Organization", "name": brand, "url": home or url})
+    faqs = _faq_from_html(art.html or "")
+    if faqs:
+        graph.append({"@type": "FAQPage", "mainEntity": [
+            {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}}
+            for q, a in faqs]})
+    return _json.dumps({"@context": "https://schema.org", "@graph": graph}, ensure_ascii=False)
+
+
+@celery_app.task(name="app.worker.tasks.backfill_schema")
+def backfill_schema(project_id: int = 0, cap: int = 300) -> str:
+    """⚡ เติม Schema (JSON-LD) ให้บทความที่ยังไม่มี — deterministic เร็ว/ฟรี → Schema coverage พุ่งเป็น ~100%"""
+    return _run(_backfill_schema(project_id, cap))
+
+
+async def _backfill_schema(project_id: int, cap: int) -> str:
+    from app.db.models import Project, Article
+    from app.connectors.aeo_score import _valid_schema
+    if not db.enabled():
+        return "DB not configured"
+    async with db.session() as s:
+        ids = [project_id] if project_id else (await s.execute(select(Project.id))).scalars().all()
+    fixed = 0
+    for pid in ids:
+        async with db.session() as s:
+            proj = await s.get(Project, pid)
+            if not proj:
+                continue
+            brand = (proj.name or proj.domain or "").strip()
+            arts = (await s.execute(
+                select(Article).where(Article.project_id == pid, Article.status == "published")
+                .limit(cap))).scalars().all()
+            n = 0
+            for a in arts:
+                if _valid_schema(a.schema_json or "")[0]:      # มี schema ถูกต้องแล้ว ข้าม
+                    continue
+                a.schema_json = _build_schema(a, brand)
+                a.aeo_score = _aeo_of(a.html or "", a.title or "", (a.description or "")[:155],
+                                      a.schema_json, getattr(a, "cover_url", "") or "")
+                n += 1; fixed += 1
+                if n >= cap:
+                    break
+            if n:
+                await s.commit()
+    return "backfilled schema on %d articles" % fixed
+
+
 @celery_app.task(name="app.worker.tasks.gsc_ctr_boost")
 def gsc_ctr_boost(per_project: int = 3) -> str:
     """⚡ #4 CTR Optimizer: ใช้ Google Search Console หา query ที่ 'มีคนเห็นแต่ CTR ต่ำ + อันดับ 5-15'

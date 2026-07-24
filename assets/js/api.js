@@ -83,6 +83,7 @@
     // ---- AEO/SEO Score Engine (M3) — ตัวแปรจัดอันดับที่วัดจริง ----
     projectAeo: function (pid) { return api._get('/api/projects/' + pid + '/aeo'); },
     seoAudit: function (pid) { return api._get('/api/projects/' + pid + '/seo-audit'); },
+    siteHealthFix: function (pid) { return api._post('/api/projects/' + pid + '/site-health/fix', {}); },
     perfAudit: function (pid) { return api._post('/api/projects/' + pid + '/audit/performance', {}); },
     submitSitemap: function (pid) { return api._post('/api/projects/' + pid + '/sitemap/submit', {}); },
     articleAeo: function (aid) { return api._get('/api/articles/' + aid + '/aeo'); },
