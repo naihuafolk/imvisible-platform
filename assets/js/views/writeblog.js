@@ -47,7 +47,19 @@
       '<div id="wbMsg" class="small" style="min-height:18px"></div>' +
       '</div>' });
 
-    var html = head + form + '<div id="wbList"></div>';
+    var ctaCard = ui.card({ title: '🎯 กล่องดักลูกค้า (CTA) ท้ายบทความ', sub: 'เนียนขายบริการ — โผล่ท้ายทุกบทความของโปรเจ็คนี้ (ปุ่มลิงก์ไป signup/LINE/หน้าติดต่อ)', flush: true, cls: 'mb', body:
+      '<div class="card-pad" style="display:flex;flex-direction:column;gap:10px">' +
+      '<label class="row" style="gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="ctaOn"> <span class="small">เปิดกล่อง CTA ท้ายบทความ</span></label>' +
+      '<input class="input" id="ctaHead" placeholder="หัวข้อ เช่น: เว็บคุณอยากติดอันดับแบบนี้?" style="width:100%">' +
+      '<input class="input" id="ctaText" placeholder="ข้อความรอง เช่น: ให้ ImVisible ดันอันดับ SEO+AEO อัตโนมัติ ทดลองฟรี" style="width:100%">' +
+      '<div class="grid" style="grid-template-columns:1fr 2fr;gap:10px">' +
+        '<input class="input" id="ctaBtn" placeholder="ป้ายปุ่ม" style="width:100%">' +
+        '<input class="input" id="ctaUrl" placeholder="ลิงก์ปุ่ม (https://… หรือ https://line.me/…)" style="width:100%"></div>' +
+      '<div class="row between" style="align-items:center"><span class="soft small" id="ctaMsg"></span>' +
+      '<button class="btn btn-sm btn-primary" id="ctaSave">บันทึก CTA</button></div>' +
+      '</div>' });
+
+    var html = head + form + ctaCard + '<div id="wbList"></div>';
 
     return { html: html, mount: function (root) {
       var sel = root.querySelector('#wbProj');
@@ -68,8 +80,37 @@
           box.innerHTML = ui.card({ title: 'โพสต์ล่าสุด', sub: arts.length + ' โพสต์', flush: true, body: rows });
         }).catch(function () { box.innerHTML = ''; });
       }
-      if (sel) sel.onchange = loadPosts;
-      loadPosts();
+      function loadCta() {
+        var pid = dbId(sel.value); if (!(pid && RP.api.enabled())) return;
+        RP.api.getCta(pid).then(function (d) {
+          var q = function (id) { return root.querySelector(id); };
+          if (q('#ctaOn')) q('#ctaOn').checked = !!d.enabled;
+          if (q('#ctaHead')) q('#ctaHead').value = d.headline || '';
+          if (q('#ctaText')) q('#ctaText').value = d.text || '';
+          if (q('#ctaBtn')) q('#ctaBtn').value = d.button || 'ปรึกษาฟรี';
+          if (q('#ctaUrl')) q('#ctaUrl').value = d.url || '';
+        }).catch(function () {});
+      }
+      if (sel) sel.onchange = function () { loadPosts(); loadCta(); };
+      loadPosts(); loadCta();
+
+      var cs = root.querySelector('#ctaSave');
+      if (cs) cs.onclick = function () {
+        var pid = dbId(sel.value);
+        if (!(pid && RP.api.enabled())) { ui.toast('เปิดโหมด Live ก่อน'); return; }
+        cs.disabled = true; cs.textContent = 'กำลังบันทึก…';
+        RP.api.setCta(pid, {
+          enabled: root.querySelector('#ctaOn').checked,
+          headline: root.querySelector('#ctaHead').value || '',
+          text: root.querySelector('#ctaText').value || '',
+          button: root.querySelector('#ctaBtn').value || 'ปรึกษาฟรี',
+          url: (root.querySelector('#ctaUrl').value || '').trim()
+        }).then(function () {
+          cs.disabled = false; cs.textContent = 'บันทึก CTA';
+          var m = root.querySelector('#ctaMsg'); if (m) m.textContent = 'บันทึกแล้ว ✓ มีผลทุกบทความทันที';
+          ui.toast('บันทึก CTA แล้ว ✓');
+        }).catch(function (e) { cs.disabled = false; cs.textContent = 'บันทึก CTA'; ui.toast('บันทึกไม่ได้: ' + esc(e.message || String(e))); });
+      };
 
       var go = root.querySelector('#wbSave'), msg = root.querySelector('#wbMsg');
       if (go) go.onclick = function () {

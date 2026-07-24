@@ -27,7 +27,7 @@ from app.schemas import (
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
-    KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate,
+    KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social, billing, pagespeed
 from app.auth import security
@@ -1420,6 +1420,39 @@ async def site_health_fix(project_id: int, user=Depends(get_current_user)):
     return {"schema_fixed": int(m.group(1)) if m else 0,
             "links_refreshed": links, "articles": len(arts),
             "note": "เติม schema + รีเฟรชลิงก์ภายในแล้ว — รอ ~1 นาทีแล้วรีเฟรชรายงานดูค่าที่ดีขึ้น"}
+
+
+@app.get("/api/projects/{project_id}/cta")
+async def get_cta(project_id: int, user=Depends(get_current_user)):
+    """กล่องดักลูกค้า (CTA) ท้ายบทความของโปรเจ็คนี้"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    import json as _json
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        raw = getattr(p, "cta_json", "") or ""
+    try:
+        c = _json.loads(raw) if raw.strip() else {}
+    except Exception:  # noqa: BLE001
+        c = {}
+    return {"enabled": bool(c.get("enabled")), "headline": c.get("headline", ""), "text": c.get("text", ""),
+            "button": c.get("button", "ปรึกษาฟรี"), "url": c.get("url", "")}
+
+
+@app.put("/api/projects/{project_id}/cta")
+async def set_cta(project_id: int, req: CtaUpdate, user=Depends(get_current_user)):
+    """ตั้งกล่องดักลูกค้า (CTA) ท้ายบทความ — เนียนขายบริการ/พาไปเก็บลีด · มีผลทุกบทความของโปรเจ็คทันที"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    import json as _json
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        p.cta_json = _json.dumps({"enabled": bool(req.enabled),
+                                  "headline": (req.headline or "")[:160], "text": (req.text or "")[:400],
+                                  "button": (req.button or "ปรึกษาฟรี")[:40], "url": (req.url or "")[:500]},
+                                 ensure_ascii=False)
+        await s.commit()
+    return {"saved": True}
 
 
 @app.post("/api/projects/{project_id}/posts")

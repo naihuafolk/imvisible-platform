@@ -114,6 +114,14 @@ class AdCreativeRequest(BaseModel):
     keyword: str = ""                # คีย์เวิร์ดที่จะร่างชุดโฆษณา Google Ads (RSA) ให้
 
 
+class CtaUpdate(BaseModel):
+    enabled: bool = False            # เปิดกล่องดักลูกค้าท้ายบทความ
+    headline: str = ""               # หัวข้อ CTA
+    text: str = ""                   # ข้อความรอง
+    button: str = "ปรึกษาฟรี"        # ป้ายปุ่ม
+    url: str = ""                    # ลิงก์ปุ่ม (signup/ไลน์/หน้าติดต่อ)
+
+
 class PostCreate(BaseModel):
     title: str = ""                  # หัวข้อโพสต์
     content: str = ""                # เนื้อหา (HTML หรือข้อความธรรมดา — ระบบห่อ <p> ให้)

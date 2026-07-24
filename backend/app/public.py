@@ -301,6 +301,36 @@ def _article_jsonld(proj, art, canonical, home, lang):
     return out
 
 
+def _cta_box(proj) -> str:
+    """กล่องดักลูกค้า (CTA) ท้ายบทความ — เนียนขายบริการ/พาไปเก็บลีด · ต่อโปรเจ็ค (ไม่โผล่บล็อกลูกค้าที่ไม่ได้เปิด)
+    ปุ่มลิงก์ล้วน = ใช้ได้ทุกโดเมน ไม่ติด CORS"""
+    import json as _json
+    raw = getattr(proj, "cta_json", "") or ""
+    if not raw.strip():
+        return ""
+    try:
+        c = _json.loads(raw)
+    except Exception:  # noqa: BLE001
+        return ""
+    if not c.get("enabled"):
+        return ""
+    headline = _esc((c.get("headline") or "").strip())
+    text = _esc((c.get("text") or "").strip())
+    btn = _esc((c.get("button") or "ปรึกษาฟรี").strip())
+    url = (c.get("url") or "").strip()
+    if not (headline or url):
+        return ""
+    box = ("background:linear-gradient(135deg,#3d6bff,#5b4ff0);color:#fff;border-radius:16px;"
+           "padding:28px 26px;margin:34px 0;text-align:center")
+    btn_html = ('<a href="%s" target="_blank" rel="noopener" style="display:inline-block;margin-top:14px;'
+                'background:#fff;color:#3d6bff;font-weight:800;padding:12px 28px;border-radius:999px;'
+                'text-decoration:none">%s</a>' % (_esc(url), btn)) if url else ""
+    return ('<aside style="%s">' % box
+            + ('<div style="font-size:20px;font-weight:800;margin-bottom:6px">%s</div>' % headline if headline else "")
+            + ('<div style="opacity:.92;font-size:15px;line-height:1.6">%s</div>' % text if text else "")
+            + btn_html + "</aside>")
+
+
 def render_article_page(proj, art, related=None) -> str:
     home = project_public_home(proj)
     canonical = art.url or public_url_for(proj, art)
@@ -349,6 +379,7 @@ def render_article_page(proj, art, related=None) -> str:
         + '<span class="eyebrow">%s</span>' % _esc(cluster)
         + header + byline + cover_html + toc_html
         + "<article>" + body + "</article>"
+        + _cta_box(proj)
         + _share_bar(canonical, art.title)
         + abox + rel_html
         + _footer(proj) + "</div></main></body></html>"
