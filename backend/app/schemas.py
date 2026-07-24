@@ -114,6 +114,14 @@ class AdCreativeRequest(BaseModel):
     keyword: str = ""                # คีย์เวิร์ดที่จะร่างชุดโฆษณา Google Ads (RSA) ให้
 
 
+class PostCreate(BaseModel):
+    title: str = ""                  # หัวข้อโพสต์
+    content: str = ""                # เนื้อหา (HTML หรือข้อความธรรมดา — ระบบห่อ <p> ให้)
+    cover_url: str = ""              # รูปปก (ไม่บังคับ)
+    video_url: str = ""              # ลิงก์ YouTube → ฝังวิดีโอด้านบน (ไม่บังคับ)
+    status: str = "published"        # published | draft
+
+
 class PublishTargetUpdate(BaseModel):
     publish_mode: str = "managed"    # managed | wordpress | none
     custom_domain: str = ""

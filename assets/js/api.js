@@ -71,6 +71,7 @@
     adsCreative: function (pid, keyword) { return api._post('/api/projects/' + pid + '/ads/creative', { keyword: keyword }); },
     grow: function (pid) { return api._post('/api/projects/' + pid + '/grow', {}); },
     projectArticles: function (pid) { return api._get('/api/projects/' + pid + '/articles'); },
+    createPost: function (pid, o) { return api._post('/api/projects/' + pid + '/posts', o); },
     setPublishTarget: function (pid, o) { return api._put('/api/projects/' + pid + '/publish', o); },
     // ---- AI Citation ต่อโปรเจ็ค (บันทึกผล → สะสมเป็นแนวโน้ม) ----
     citationForProject: function (pid, questions) { return api._post('/api/projects/' + pid + '/citation/sample', { questions: questions || [] }); },

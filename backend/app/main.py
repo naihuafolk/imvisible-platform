@@ -27,7 +27,7 @@ from app.schemas import (
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
-    KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest,
+    KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social, billing, pagespeed
 from app.auth import security
@@ -1419,6 +1419,56 @@ async def site_health_fix(project_id: int, user=Depends(get_current_user)):
     return {"schema_fixed": int(m.group(1)) if m else 0,
             "links_refreshed": links, "articles": len(arts),
             "note": "เติม schema + รีเฟรชลิงก์ภายในแล้ว — รอ ~1 นาทีแล้วรีเฟรชรายงานดูค่าที่ดีขึ้น"}
+
+
+@app.post("/api/projects/{project_id}/posts")
+async def create_post(project_id: int, req: PostCreate, user=Depends(get_current_user)):
+    """✍️ แอดมินเขียนโพสต์เอง (บทความ/วิดีโอ) → เผยแพร่ขึ้นบล็อกแบรนด์
+    ใช้ระบบเดิม (slug/url/schema/ลิงก์ภายใน) → SEO/AEO เต็มเหมือนบทความ AI · เจ้าของโปรเจ็คเท่านั้น"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    import html as _html, re as _re
+    from app.db.models import Article
+    from app import urls
+    from app.worker.tasks import _build_schema, _apply_internal_links, _aeo_of
+    title = (req.title or "").strip()
+    if not title:
+        raise HTTPException(400, "ต้องมีหัวข้อ")
+    c = (req.content or "").strip()
+    if c and "<" not in c:                                        # ข้อความธรรมดา → ห่อเป็นย่อหน้า
+        c = "".join("<p>%s</p>" % _html.escape(x.strip()) for x in _re.split(r"\n{2,}|\n", c) if x.strip())
+    ytm = _re.search(r"(?:v=|youtu\.be/|embed/|shorts/)([A-Za-z0-9_-]{11})", req.video_url or "")
+    embed = (('<div style="position:relative;padding-bottom:56.25%%;height:0;margin:0 0 20px">'
+              '<iframe src="https://www.youtube.com/embed/%s" style="position:absolute;inset:0;width:100%%;height:100%%;border:0" '
+              'loading="lazy" allowfullscreen title="video"></iframe></div>') % ytm.group(1)) if ytm else ""
+    html_body = embed + (c or "<p></p>")
+    status = "published" if (req.status or "published") == "published" else "draft"
+    plain = _re.sub(r"\s+", " ", _re.sub(r"<[^>]+>", " ", html_body)).strip()
+    async with db.session() as s:
+        proj = await _own_project(s, project_id, user)
+        brand = (proj.name or proj.domain or "").strip()
+        art = Article(project_id=project_id, title=title, html=html_body,
+                      description=plain[:300], cover_url=(req.cover_url or "").strip(),
+                      fmt="โพสต์", words=len(plain.split()), status=status)
+        s.add(art); await s.commit(); await s.refresh(art)
+        art.slug = urls.article_slug(title, art.id)
+        if status == "published" and getattr(proj, "publish_mode", "managed") == "managed":
+            art.url = urls.public_url_for(proj, art)
+        art.html = await _apply_internal_links(project_id, title, art.html)   # ลิงก์ภายในจริง
+        art.schema_json = _build_schema(art, brand)                           # JSON-LD ครบ
+        art.aeo_score = _aeo_of(art.html, title, (art.description or "")[:155], art.schema_json, art.cover_url or "")
+        art.words = len(_re.sub(r"<[^>]+>", " ", art.html).split())
+        await s.commit()
+        aid, aurl, aslug = art.id, art.url, art.slug
+    if status == "published" and aurl:                            # แจ้ง IndexNow (crash-safe)
+        try:
+            from app.connectors import publish as _pub
+            from urllib.parse import urlparse as _up
+            if _up(aurl).hostname:
+                await _pub.indexnow_submit(aurl)
+        except Exception:  # noqa: BLE001
+            pass
+    return {"article_id": aid, "url": aurl, "slug": aslug, "status": status}
 
 
 @app.get("/api/projects/{project_id}/citation/examples")
