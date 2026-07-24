@@ -923,7 +923,8 @@ async def project_articles(project_id: int, user=Depends(get_current_user)):
         rows = (await s.execute(
             select(Article).where(Article.project_id == project_id).order_by(Article.id.desc()))).scalars().all()
     return {"articles": [{"id": a.id, "title": a.title, "status": a.status,
-                          "words": a.words, "url": a.url} for a in rows]}
+                          "words": a.words, "url": a.url,
+                          "fmt": getattr(a, "fmt", ""), "aeo_score": getattr(a, "aeo_score", 0)} for a in rows]}
 
 
 # ---------- Distribution (ช่องทางกระจาย + Log โปร่งใส) ----------
@@ -1441,23 +1442,31 @@ async def create_post(project_id: int, req: PostCreate, user=Depends(get_current
     embed = (('<div style="position:relative;padding-bottom:56.25%%;height:0;margin:0 0 20px">'
               '<iframe src="https://www.youtube.com/embed/%s" style="position:absolute;inset:0;width:100%%;height:100%%;border:0" '
               'loading="lazy" allowfullscreen title="video"></iframe></div>') % ytm.group(1)) if ytm else ""
-    html_body = embed + (c or "<p></p>")
     status = "published" if (req.status or "published") == "published" else "draft"
-    plain = _re.sub(r"\s+", " ", _re.sub(r"<[^>]+>", " ", html_body)).strip()
+    from types import SimpleNamespace
+    # 1) ตรวจสิทธิ์ + snapshot ค่าโปรเจ็ค (กัน detached/nested-session)
     async with db.session() as s:
         proj = await _own_project(s, project_id, user)
-        brand = (proj.name or proj.domain or "").strip()
+        p = SimpleNamespace(name=proj.name, domain=proj.domain,
+                            slug=(proj.slug or urls.project_slug_from_domain(proj.domain or proj.name)),
+                            custom_domain=getattr(proj, "custom_domain", "") or "",
+                            publish_mode=getattr(proj, "publish_mode", "managed") or "managed")
+    brand = (p.name or p.domain or "").strip()
+    # 2) ลิงก์ภายใน (เปิด session ของตัวเอง — เรียกนอก block กัน nested)
+    html_body = embed + (c or "<p></p>")
+    html_body = await _apply_internal_links(project_id, title, html_body)
+    plain = _re.sub(r"\s+", " ", _re.sub(r"<[^>]+>", " ", html_body)).strip()
+    # 3) สร้าง + จัดการ slug/url/schema/aeo
+    async with db.session() as s:
         art = Article(project_id=project_id, title=title, html=html_body,
                       description=plain[:300], cover_url=(req.cover_url or "").strip(),
                       fmt="โพสต์", words=len(plain.split()), status=status)
         s.add(art); await s.commit(); await s.refresh(art)
         art.slug = urls.article_slug(title, art.id)
-        if status == "published" and getattr(proj, "publish_mode", "managed") == "managed":
-            art.url = urls.public_url_for(proj, art)
-        art.html = await _apply_internal_links(project_id, title, art.html)   # ลิงก์ภายในจริง
+        if status == "published" and p.publish_mode == "managed":
+            art.url = urls.public_url_for(p, art)
         art.schema_json = _build_schema(art, brand)                           # JSON-LD ครบ
         art.aeo_score = _aeo_of(art.html, title, (art.description or "")[:155], art.schema_json, art.cover_url or "")
-        art.words = len(_re.sub(r"<[^>]+>", " ", art.html).split())
         await s.commit()
         aid, aurl, aslug = art.id, art.url, art.slug
     if status == "published" and aurl:                            # แจ้ง IndexNow (crash-safe)
