@@ -947,6 +947,58 @@ async def _backfill_schema(project_id: int, cap: int) -> str:
     return "backfilled schema on %d articles" % fixed
 
 
+@celery_app.task(name="app.worker.tasks.backfill_covers")
+def backfill_covers(project_id: int = 0, cap: int = 40) -> str:
+    """⚡ เติมรูปปก + รูปในเนื้อ ให้บทความเก่าที่ยังไม่มีภาพ (fal.ai/ModelArk) → หน้าบทความมีภาพครบ ดูพรีเมียม
+    crash-safe: รูปชิ้นไหนล้ม = ข้ามชิ้นนั้น ไม่ล้มทั้งงาน · จำกัด cap กันยิงรูปเยอะเกิน (คุมต้นทุน)"""
+    return _run(_backfill_covers(project_id, cap))
+
+
+async def _backfill_covers(project_id: int, cap: int) -> str:
+    from sqlalchemy import or_, func as _func
+    from app.db.models import Project, Article
+    if not db.enabled():
+        return "DB not configured"
+    if not media.enabled():
+        return "media not enabled (ยังไม่ได้ตั้ง FAL_KEY / ARK_API_KEY)"
+    async with db.session() as s:
+        ids = [project_id] if project_id else (await s.execute(select(Project.id))).scalars().all()
+    fixed = 0
+    for pid in ids:
+        if fixed >= cap:
+            break
+        async with db.session() as s:                      # หาบทความที่ 'ขาดปก' หรือ 'ไม่มีรูปในเนื้อ'
+            arts = (await s.execute(
+                select(Article).where(
+                    Article.project_id == pid, Article.status == "published",
+                    or_(_func.coalesce(Article.cover_url, "") == "",
+                        Article.html.notlike("%inline-img%")))
+                .order_by(Article.id).limit(cap))).scalars().all()
+        for a in arts:
+            if fixed >= cap:
+                break
+            need_cover = not (getattr(a, "cover_url", "") or "").strip()
+            need_inline = "inline-img" not in (a.html or "")
+            cover_new = (await _gen_cover(a.title or "")) if need_cover else ""       # ปก (crash-safe: ล้ม='')
+            html_new = (await _enrich_media(a.html or "", a.title or "")) if need_inline else ""  # รูปในเนื้อ
+            got_inline = bool(html_new) and "inline-img" in html_new
+            if not (cover_new or got_inline):              # สร้างรูปไม่ได้เลย → ข้าม (ไม่แตะ DB)
+                continue
+            async with db.session() as s2:
+                art = await s2.get(Article, a.id)
+                if not art:
+                    continue
+                if cover_new:
+                    art.cover_url = cover_new
+                if got_inline:
+                    art.html = html_new
+                art.aeo_score = _aeo_of(art.html or "", art.title or "", (art.description or "")[:155],
+                                        art.schema_json or "", getattr(art, "cover_url", "") or "")  # มีปก → AEO ขึ้นด้วย
+                await s2.commit()
+            fixed += 1
+    return "backfilled media on %d articles" % fixed
+
+
 @celery_app.task(name="app.worker.tasks.gsc_ctr_boost")
 def gsc_ctr_boost(per_project: int = 3) -> str:
     """⚡ #4 CTR Optimizer: ใช้ Google Search Console หา query ที่ 'มีคนเห็นแต่ CTR ต่ำ + อันดับ 5-15'

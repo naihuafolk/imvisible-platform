@@ -208,6 +208,15 @@ article hr{border:0;border-top:1px solid var(--line);margin:2.3em 0}
 .share-bar .sh:hover{border-color:var(--blue);transform:translateY(-1px);text-decoration:none}
 .share-bar .sh-fb{color:#1877f2}.share-bar .sh-line{color:#06c755}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+/* ---- ภาพประกอบ: ระยะหายใจ + เงานุ่ม ให้ดูพรีเมียม (แก้อาการ 'กำแพงตัวอักษร') ---- */
+.cover img{box-shadow:0 24px 54px -24px rgba(20,40,120,.30)}
+figure.inline-img{margin:42px 0}
+figure.inline-img img{width:100%;border-radius:var(--radius);display:block;box-shadow:0 16px 40px -16px rgba(20,40,120,.24)}
+figure.inline-img figcaption,figure.cover figcaption{color:var(--muted);font-size:13.5px;text-align:center;margin-top:11px;font-style:italic;line-height:1.5}
+figure.hero-video{margin:0 0 30px}
+figure.hero-video video{width:100%;border-radius:var(--radius);display:block;box-shadow:0 24px 54px -24px rgba(20,40,120,.30)}
+article>p:first-of-type{color:var(--ink)}
+article blockquote{position:relative;background:var(--wash);border-radius:0 var(--radius) var(--radius) 0;padding:18px 24px 18px 26px}
 """
 
 

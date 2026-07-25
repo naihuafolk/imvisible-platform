@@ -67,6 +67,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.backfill_schema",
         "schedule": crontab(hour=3, minute=30),
     },
+    "backfill-covers-daily": {       # ⚡ เติมรูปปก+รูปในเนื้อ ให้บทความที่ยังไม่มีภาพ 'ทุกวัน' 03:45 (หลังเติม Schema) → หน้าบทความสวย
+        "task": "app.worker.tasks.backfill_covers",
+        "schedule": crontab(hour=3, minute=45),
+    },
     "refresh-interlinks-daily": {    # ⚡ #5 หมุนลิงก์ภายใน 'ทุกวัน' 04:30 (ช่วยหน้ากำพร้า+ดันหน้าใหม่)
         "task": "app.worker.tasks.refresh_interlinks",
         "schedule": crontab(hour=4, minute=30),
