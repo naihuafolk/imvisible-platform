@@ -390,6 +390,38 @@ async def generate(topic: str, fmt: str = "บทความยาว", words: 
             "engine": "imvisible-content-engine-v2"}
 
 
+async def infographic_spec(article_text: str, topic: str, language: str = "ภาษาไทย") -> dict:
+    """แยก 'ภาพสรุป (อินโฟกราฟิก)' 1 ชิ้นจากบทความ — ใช้ 'เฉพาะเนื้อหาที่มีในบทความ' ห้ามแต่งตัวเลข/ข้อมูลใหม่
+    (ยึดหลักไม่ปั้นข้อมูลของแบรนด์) · คืน dict spec (steps|compare|points) หรือ {} · crash-safe (ล้ม = {})"""
+    try:
+        text = (article_text or "").strip()
+        if len(text) < 200:
+            return {}
+        sysmsg = ("คุณคือดีไซเนอร์อินโฟกราฟิกสาย editorial แยก 'ภาพสรุป 1 ชิ้น' จากบทความที่ให้ "
+                  "เพื่อช่วยให้คนอ่านเข้าใจไว และ AI หยิบไปตอบง่าย "
+                  "กติกาเหล็ก: ใช้ 'เฉพาะข้อมูลที่ปรากฏในบทความ' ห้ามเพิ่ม เดา หรือแต่งตัวเลข สถิติ หรือข้อเท็จจริงใหม่เด็ดขาด "
+                  "ถ้าบทความไม่มีอะไรเหมาะทำเป็นภาพสรุป ให้ตอบ {} เท่านั้น · ตอบเป็น JSON valid อย่างเดียว ห้าม markdown fence")
+        usermsg = (
+            "หัวข้อ: %s · ภาษา %s\n\nบทความ:\n%s\n\n"
+            "เลือกชนิดภาพที่ 'เหมาะที่สุด' กับเนื้อหา 1 ชนิด แล้วส่ง JSON:\n"
+            '- ขั้นตอน/วิธีทำ → {"type":"steps","title":"...","items":[{"title":"...","detail":"สั้นมาก"}]}\n'
+            '- เปรียบเทียบ 2 ฝั่ง → {"type":"compare","title":"...","leftHead":"...","rightHead":"...","items":[{"label":"หัวข้อ","left":"...","right":"..."}]}\n'
+            '- ประเด็นสำคัญ → {"type":"points","title":"...","items":[{"title":"...","detail":"สั้นมาก"}]}\n'
+            "ข้อกำหนด: items 3-5 ชิ้น ข้อความกระชับ · ทุกอย่างต้องมาจากบทความจริง ห้ามเพิ่มตัวเลข/ข้อมูลนอกบทความ · ไม่มีอะไรเหมาะ = {}"
+            % (topic, language, text[:6000]))
+        _prov, out = await _llm(sysmsg, usermsg, tier="fast")
+        spec = json.loads(_strip_fence(out).strip())
+        if not isinstance(spec, dict):
+            return {}
+        items = spec.get("items") or []
+        if spec.get("type") not in ("steps", "compare", "points") or not isinstance(items, list) or len(items) < 2:
+            return {}
+        spec["items"] = items[:6]
+        return spec
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 # ============ optimize (feedback loop จาก AEO Score → เขียนซ่อมให้คะแนนขึ้น) ============
 
 _IMPROVE_SYSTEM = ("คุณคือบรรณาธิการ AEO/SEO ภาษาไทยระดับโลก งานนี้คือ 'ซ่อมบทความเดิม' ให้แข็งขึ้นตามจุดอ่อนที่ระบุ "

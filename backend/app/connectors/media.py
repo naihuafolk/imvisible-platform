@@ -72,9 +72,53 @@ async def generate_image(prompt: str, size: str = "2K") -> str:
     return items[0].get("url") or items[0].get("b64_json") or ""
 
 
+def _extract_video_url(d: dict) -> str:
+    v = d.get("video")
+    if isinstance(v, dict) and v.get("url"):
+        return v["url"]
+    if isinstance(v, str) and v:
+        return v
+    vids = d.get("videos") or d.get("output") or []
+    if isinstance(vids, list) and vids and isinstance(vids[0], dict) and vids[0].get("url"):
+        return vids[0]["url"]
+    return ""
+
+
+async def _fal_video(prompt: str, ratio: str = "16:9", duration: int = 5) -> str:
+    """fal.ai text→video (queue API) · คืน URL วิดีโอ · ช้า (poll หลายรอบ) — ใช้เมื่อตั้ง FAL_VIDEO_MODEL"""
+    headers = {"Authorization": "Key " + settings.fal_key, "Content-Type": "application/json"}
+    body = {"prompt": prompt, "aspect_ratio": ratio, "duration": str(duration)}
+    async with httpx.AsyncClient(timeout=90) as c:
+        r = await c.post("https://queue.fal.run/" + settings.fal_video_model, headers=headers, json=body)
+        r.raise_for_status()
+        data = r.json()
+    direct = _extract_video_url(data)                      # บาง endpoint คืนผลตรง
+    if direct:
+        return direct
+    poll = data.get("response_url") or data.get("status_url")
+    if not poll:
+        raise RuntimeError("fal video: ไม่มี response_url: " + str(data)[:180])
+    for _ in range(45):
+        await asyncio.sleep(5)
+        async with httpx.AsyncClient(timeout=60) as c:
+            rr = await c.get(poll, headers=headers)
+        if rr.status_code >= 400:
+            continue
+        try:
+            d2 = rr.json()
+        except Exception:  # noqa: BLE001
+            continue
+        u = _extract_video_url(d2)
+        if u:
+            return u
+    raise RuntimeError("fal video timeout (task ยังไม่เสร็จ)")
+
+
 async def generate_video(prompt: str, ratio: str = "16:9", duration: int = 5,
                          max_polls: int = 40, interval: int = 6) -> str:
-    """Seedance — text→video (async task) · สร้าง task แล้ว poll จนเสร็จ คืน URL วิดีโอ"""
+    """text→video · ใช้ fal.ai ถ้าตั้ง FAL_VIDEO_MODEL ไม่งั้น Seedance (ModelArk) · สร้าง task → poll → คืน URL"""
+    if settings.fal_video_model and settings.fal_key:      # fal.ai video (ใช้ FAL_KEY เดิม ไม่ต้องคีย์ใหม่)
+        return await _fal_video(prompt, ratio, duration)
     if not settings.ark_video_model:
         raise RuntimeError("ยังไม่ได้ตั้ง ARK_VIDEO_MODEL (Seedance)")
     base = settings.ark_base_url.rstrip("/")

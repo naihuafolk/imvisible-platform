@@ -123,11 +123,55 @@ async def _enrich_media(html: str, topic: str) -> str:
         return html
 
 
+def _render_infographic(spec: dict) -> str:
+    """เรนเดอร์ 'ภาพสรุป' เป็น HTML block (สไตล์อยู่ใน public.py _CSS) — escape ทุก field กัน XSS"""
+    import html as _h
+    def e(x): return _h.escape(str(x or ""))
+    t = spec.get("type"); items = spec.get("items") or []
+    head = '<div class="ig-h">%s</div>' % e(spec.get("title") or "ภาพสรุป")
+    if t == "steps":
+        body = '<div class="ig-steps">%s</div>' % "".join(
+            '<div class="ig-step"><span class="ig-n">%d</span><div><b>%s</b>%s</div></div>'
+            % (i + 1, e(it.get("title")), ('<span>%s</span>' % e(it.get("detail"))) if it.get("detail") else "")
+            for i, it in enumerate(items))
+    elif t == "compare":
+        rows = "".join(
+            '<div class="ig-row"><span class="ig-lab">%s</span><span>%s</span><span>%s</span></div>'
+            % (e(it.get("label")), e(it.get("left")), e(it.get("right"))) for it in items)
+        body = ('<div class="ig-compare"><div class="ig-row ig-head"><span class="ig-lab"></span>'
+                '<span>%s</span><span>%s</span></div>%s</div>'
+                % (e(spec.get("leftHead") or "A"), e(spec.get("rightHead") or "B"), rows))
+    else:  # points
+        body = '<div class="ig-points">%s</div>' % "".join(
+            '<div class="ig-pt"><span class="ig-dot"></span><div><b>%s</b>%s</div></div>'
+            % (e(it.get("title")), ('<span>%s</span>' % e(it.get("detail"))) if it.get("detail") else "")
+            for it in items)
+    return '<aside class="infographic" aria-label="ภาพสรุป">%s%s</aside>' % (head, body)
+
+
+def _insert_infographic(html: str, block: str) -> str:
+    """วาง block ภาพสรุปหลังย่อหน้าแรก (answer-first) — ให้อยู่สูง อ่านง่าย + AEO ดี"""
+    if not block:
+        return html
+    import re as _re
+    m = _re.search(r"</p>", html or "", _re.I)
+    return (html[:m.end()] + block + html[m.end():]) if m else (block + (html or ""))
+
+
+async def _infographic_html(html: str, topic: str, lang: str) -> str:
+    """คืน HTML ภาพสรุป (หรือ '' ถ้าไม่มีอะไรเหมาะ) — จากเนื้อบทความจริง ไม่ปั้นเลข · crash-safe"""
+    try:
+        spec = await content.infographic_spec(_plain(html), topic, lang)
+        return _render_infographic(spec) if spec else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 async def _hero_video(topic: str) -> str:
-    """วิดีโอ hero (Seedance) — ปิดเป็นค่าเริ่มต้น (เปิดเมื่อ operator ตั้ง ARK_VIDEO_MODEL) เพราะช้า+แพง"""
+    """วิดีโอ hero — ปิดเป็นค่าเริ่มต้น (เปิดเมื่อ operator ตั้ง FAL_VIDEO_MODEL หรือ ARK_VIDEO_MODEL) เพราะช้า+แพง"""
     try:
         from app.config import settings
-        if not media.enabled() or not settings.ark_video_model:
+        if not media.enabled() or not (settings.fal_video_model or settings.ark_video_model):
             return ""
         return await media.generate_video("Short cinematic b-roll, blue-white minimal aesthetic, about: " + topic) or ""
     except Exception:  # noqa: BLE001
@@ -393,10 +437,12 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
             html = gen.get("html", "")
             html = await _apply_internal_links(project_id, topic, html)  # ลิงก์ภายในจริง (M3) — ห้ามปล่อยลิงก์ตาย
             import asyncio as _aio
-            html, cover, video = await _aio.gather(                    # ⚡ สร้างรูปในเนื้อ+ปก+วิดีโอ 'พร้อมกัน' → เร็วขึ้นมาก โดยคุณภาพเท่าเดิม
+            html_i, cover, video, ig_block = await _aio.gather(        # ⚡ รูปในเนื้อ+ปก+วิดีโอ+ภาพสรุป 'พร้อมกัน' → เร็วขึ้นมาก
                 _enrich_media(html, topic),                            #   แทรกรูปในเนื้อ (ถ้าเปิด fal/ModelArk)
                 _gen_cover(topic),                                     #   รูปปก (crash-safe: ล้ม='')
-                _hero_video(topic))                                    #   วิดีโอ hero (ถ้าตั้ง ARK_VIDEO_MODEL)
+                _hero_video(topic),                                    #   วิดีโอ hero (ถ้าตั้ง fal/ARK video)
+                _infographic_html(html, topic, lang))                  #   ภาพสรุป (จากเนื้อบทความจริง ไม่ปั้นเลข)
+            html = _insert_infographic(html_i, ig_block)               #   วางภาพสรุปหลังย่อหน้าแรก
             if video:
                 html = ('<figure class="hero-video"><video src="' + video +
                         '" controls preload="metadata" playsinline style="width:100%;border-radius:12px"></video></figure>') + html
@@ -949,8 +995,8 @@ async def _backfill_schema(project_id: int, cap: int) -> str:
 
 @celery_app.task(name="app.worker.tasks.backfill_covers")
 def backfill_covers(project_id: int = 0, cap: int = 40) -> str:
-    """⚡ เติมรูปปก + รูปในเนื้อ ให้บทความเก่าที่ยังไม่มีภาพ (fal.ai/ModelArk) → หน้าบทความมีภาพครบ ดูพรีเมียม
-    crash-safe: รูปชิ้นไหนล้ม = ข้ามชิ้นนั้น ไม่ล้มทั้งงาน · จำกัด cap กันยิงรูปเยอะเกิน (คุมต้นทุน)"""
+    """⚡ เติมรูปปก + รูปในเนื้อ + ภาพสรุป (อินโฟกราฟิก) ให้บทความเก่าที่ยังขาด → หน้าบทความมีภาพครบ ดูพรีเมียม
+    รูปใช้ fal.ai/ModelArk · ภาพสรุปมาจากเนื้อบทความจริง (ไม่ปั้นเลข) · crash-safe + จำกัด cap คุมต้นทุน"""
     return _run(_backfill_covers(project_id, cap))
 
 
@@ -959,30 +1005,38 @@ async def _backfill_covers(project_id: int, cap: int) -> str:
     from app.db.models import Project, Article
     if not db.enabled():
         return "DB not configured"
-    if not media.enabled():
-        return "media not enabled (ยังไม่ได้ตั้ง FAL_KEY / ARK_API_KEY)"
+    can_img = media.enabled()                              # รูป (ปก/ในเนื้อ) ต้องมี fal/ARK · ภาพสรุปใช้แค่ LLM
     async with db.session() as s:
         ids = [project_id] if project_id else (await s.execute(select(Project.id))).scalars().all()
     fixed = 0
     for pid in ids:
         if fixed >= cap:
             break
-        async with db.session() as s:                      # หาบทความที่ 'ขาดปก' หรือ 'ไม่มีรูปในเนื้อ'
+        async with db.session() as s:                      # หาบทความที่ขาด ปก / รูปในเนื้อ / ภาพสรุป
+            proj = await s.get(Project, pid)
+            lang = "English" if (proj and str(proj.language).lower().startswith("en")) else "ภาษาไทย"
             arts = (await s.execute(
                 select(Article).where(
                     Article.project_id == pid, Article.status == "published",
                     or_(_func.coalesce(Article.cover_url, "") == "",
-                        Article.html.notlike("%inline-img%")))
+                        Article.html.notlike("%inline-img%"),
+                        Article.html.notlike('%class="infographic"%')))
                 .order_by(Article.id).limit(cap))).scalars().all()
         for a in arts:
             if fixed >= cap:
                 break
-            need_cover = not (getattr(a, "cover_url", "") or "").strip()
-            need_inline = "inline-img" not in (a.html or "")
-            cover_new = (await _gen_cover(a.title or "")) if need_cover else ""       # ปก (crash-safe: ล้ม='')
-            html_new = (await _enrich_media(a.html or "", a.title or "")) if need_inline else ""  # รูปในเนื้อ
-            got_inline = bool(html_new) and "inline-img" in html_new
-            if not (cover_new or got_inline):              # สร้างรูปไม่ได้เลย → ข้าม (ไม่แตะ DB)
+            cur = a.html or ""
+            cover_new = (await _gen_cover(a.title or "")) \
+                if (can_img and not (getattr(a, "cover_url", "") or "").strip()) else ""
+            if can_img and "inline-img" not in cur:        # เติมรูปในเนื้อ
+                h2 = await _enrich_media(cur, a.title or "")
+                if h2 and "inline-img" in h2:
+                    cur = h2
+            if 'class="infographic"' not in cur:           # เติมภาพสรุป (จากเนื้อบทความจริง ไม่ปั้นเลข)
+                blk = await _infographic_html(cur, a.title or "", lang)
+                if blk:
+                    cur = _insert_infographic(cur, blk)
+            if not (cover_new or cur != (a.html or "")):   # ไม่มีอะไรเปลี่ยน → ข้าม
                 continue
             async with db.session() as s2:
                 art = await s2.get(Article, a.id)
@@ -990,10 +1044,10 @@ async def _backfill_covers(project_id: int, cap: int) -> str:
                     continue
                 if cover_new:
                     art.cover_url = cover_new
-                if got_inline:
-                    art.html = html_new
+                if cur != (art.html or ""):
+                    art.html = cur
                 art.aeo_score = _aeo_of(art.html or "", art.title or "", (art.description or "")[:155],
-                                        art.schema_json or "", getattr(art, "cover_url", "") or "")  # มีปก → AEO ขึ้นด้วย
+                                        art.schema_json or "", getattr(art, "cover_url", "") or "")
                 await s2.commit()
             fixed += 1
     return "backfilled media on %d articles" % fixed

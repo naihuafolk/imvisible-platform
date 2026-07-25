@@ -217,6 +217,26 @@ figure.hero-video{margin:0 0 30px}
 figure.hero-video video{width:100%;border-radius:var(--radius);display:block;box-shadow:0 24px 54px -24px rgba(20,40,120,.30)}
 article>p:first-of-type{color:var(--ink)}
 article blockquote{position:relative;background:var(--wash);border-radius:0 var(--radius) var(--radius) 0;padding:18px 24px 18px 26px}
+/* ---- ภาพสรุป (อินโฟกราฟิก จากเนื้อบทความจริง) ---- */
+.infographic{background:var(--wash);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin:36px 0}
+.infographic .ig-h{font-size:12.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-bottom:16px}
+.ig-steps{display:flex;flex-direction:column}
+.ig-step{display:flex;gap:14px;padding:13px 0;border-top:1px solid var(--line)}
+.ig-step:first-child{border-top:0;padding-top:0}
+.ig-step .ig-n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:800;font-size:14px}
+.ig-step b,.ig-pt b{display:block;font-size:16.5px;line-height:1.42}
+.ig-step>div>span,.ig-pt>div>span{color:var(--muted);font-size:14.5px;line-height:1.5}
+.ig-points{display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:560px){.ig-points{grid-template-columns:1fr 1fr}}
+.ig-pt{display:flex;gap:11px}
+.ig-pt .ig-dot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--blue);margin-top:8px}
+.ig-compare{display:flex;flex-direction:column}
+.ig-compare .ig-row{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px;padding:11px 0;border-top:1px solid var(--line);font-size:15px}
+.ig-compare .ig-row:first-child{border-top:0}
+.ig-compare .ig-head{font-weight:800;font-size:13px;color:var(--ink)}
+.ig-compare .ig-lab{font-weight:700;color:var(--ink)}
+.ig-compare .ig-row>span:not(.ig-lab){color:var(--muted)}
+.ig-compare .ig-head>span{color:var(--ink)}
 """
 
 
