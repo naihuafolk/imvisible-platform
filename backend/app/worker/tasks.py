@@ -167,6 +167,62 @@ async def _infographic_html(html: str, topic: str, lang: str) -> str:
         return ""
 
 
+def _render_trend_chart(data: dict) -> str:
+    """เรนเดอร์กราฟแท่งเทรนด์การค้นหา 'จริง' (SVG) — ตัวเลขจาก DataForSEO ทั้งหมด (ไม่ปั้นเลข)"""
+    import html as _h
+    monthly = data.get("monthly") or []
+    vals = [int(m.get("v") or 0) for m in monthly]
+    if not vals:
+        return ""
+    kw = _h.escape(str(data.get("keyword") or ""))
+    vol = data.get("volume")
+    src = _h.escape(str(data.get("source") or "DataForSEO"))
+    mx = max(vals) or 1
+    n = len(vals); W = 520; H = 150; gap = 7
+    bw = (W - gap * (n - 1)) / n
+    mth = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
+    def _ml(m): mi = m.get("m") or 0; return (mth[mi] if 0 <= mi <= 12 else "") + " " + str(m.get("y") or "")
+    bars = []
+    for i, m in enumerate(monthly):
+        v = int(m.get("v") or 0)
+        bh = max(2.0, (v / mx) * (H - 8)); x = i * (bw + gap); y = H - bh
+        mi = m.get("m") or 0
+        lbl = ((mth[mi] if 0 <= mi <= 12 else "") + " {:,}".format(v)).strip()
+        bars.append('<rect class="tc-bar" x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="3"><title>%s</title></rect>'
+                    % (x, y, bw, bh, _h.escape(lbl)))
+    svg = ('<svg viewBox="0 0 %d %d" style="width:100%%;height:auto" role="img" aria-label="กราฟเทรนด์การค้นหา">%s</svg>'
+           % (W, H, "".join(bars)))
+    avg = "{:,}".format(int(vol)) if isinstance(vol, (int, float)) else _h.escape(str(vol))
+    rng = _h.escape((_ml(monthly[0]) + "–" + _ml(monthly[-1])).strip())
+    return ('<figure class="trend-chart"><div class="tc-h">ความสนใจการค้นหา “%s” · 12 เดือน</div>%s'
+            '<figcaption class="tc-cap">เฉลี่ย ~%s ครั้ง/เดือน · %s · ที่มา: %s</figcaption></figure>'
+            % (kw, svg, avg, rng, src))
+
+
+def _insert_trend(html: str, block: str) -> str:
+    """วางกราฟเทรนด์ก่อนหัวข้อที่ 2 (กลางเนื้อ) — ถ้า h2 < 2 ต่อท้าย"""
+    if not block:
+        return html
+    import re as _re
+    ms = list(_re.finditer(r"<h2", html or "", _re.I))
+    if len(ms) >= 2:
+        pos = ms[1].start()
+        return html[:pos] + block + html[pos:]
+    return (html or "") + block
+
+
+async def _trend_chart_html(keyword: str, creds) -> str:
+    """กราฟเทรนด์การค้นหาจริง (DataForSEO) — เปิดเมื่อ settings.trend_chart=true · crash-safe → ''"""
+    try:
+        from app.config import settings as _cfg
+        if not getattr(_cfg, "trend_chart", False):
+            return ""
+        data = await serp.keyword_volume(keyword, creds=creds or None)
+        return _render_trend_chart(data) if (data and data.get("monthly")) else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 async def _hero_video(topic: str) -> str:
     """วิดีโอ hero — ปิดเป็นค่าเริ่มต้น (เปิดเมื่อ operator ตั้ง FAL_VIDEO_MODEL หรือ ARK_VIDEO_MODEL) เพราะช้า+แพง"""
     try:
@@ -437,12 +493,14 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
             html = gen.get("html", "")
             html = await _apply_internal_links(project_id, topic, html)  # ลิงก์ภายในจริง (M3) — ห้ามปล่อยลิงก์ตาย
             import asyncio as _aio
-            html_i, cover, video, ig_block = await _aio.gather(        # ⚡ รูปในเนื้อ+ปก+วิดีโอ+ภาพสรุป 'พร้อมกัน' → เร็วขึ้นมาก
+            html_i, cover, video, ig_block, tc_block = await _aio.gather(   # ⚡ รูปในเนื้อ+ปก+วิดีโอ+ภาพสรุป+กราฟเทรนด์ 'พร้อมกัน'
                 _enrich_media(html, topic),                            #   แทรกรูปในเนื้อ (ถ้าเปิด fal/ModelArk)
                 _gen_cover(topic),                                     #   รูปปก (crash-safe: ล้ม='')
                 _hero_video(topic),                                    #   วิดีโอ hero (ถ้าตั้ง fal/ARK video)
-                _infographic_html(html, topic, lang))                  #   ภาพสรุป (จากเนื้อบทความจริง ไม่ปั้นเลข)
+                _infographic_html(html, topic, lang),                  #   ภาพสรุป (จากเนื้อบทความจริง ไม่ปั้นเลข)
+                _trend_chart_html(topic, dfs))                         #   กราฟเทรนด์ค้นหาจริง (เปิดเมื่อ trend_chart=true)
             html = _insert_infographic(html_i, ig_block)               #   วางภาพสรุปหลังย่อหน้าแรก
+            html = _insert_trend(html, tc_block)                       #   วางกราฟเทรนด์กลางเนื้อ
             if video:
                 html = ('<figure class="hero-video"><video src="' + video +
                         '" controls preload="metadata" playsinline style="width:100%;border-radius:12px"></video></figure>') + html
@@ -1005,23 +1063,28 @@ async def _backfill_covers(project_id: int, cap: int) -> str:
     from app.db.models import Project, Article
     if not db.enabled():
         return "DB not configured"
+    from app.config import settings as _cfg
     can_img = media.enabled()                              # รูป (ปก/ในเนื้อ) ต้องมี fal/ARK · ภาพสรุปใช้แค่ LLM
+    trend_on = bool(getattr(_cfg, "trend_chart", False))   # กราฟเทรนด์ = opt-in (กินเครดิต DataForSEO)
     async with db.session() as s:
         ids = [project_id] if project_id else (await s.execute(select(Project.id))).scalars().all()
     fixed = 0
     for pid in ids:
         if fixed >= cap:
             break
-        async with db.session() as s:                      # หาบทความที่ขาด ปก / รูปในเนื้อ / ภาพสรุป
+        async with db.session() as s:                      # หาบทความที่ขาด ปก / รูปในเนื้อ / ภาพสรุป / กราฟเทรนด์
             proj = await s.get(Project, pid)
             lang = "English" if (proj and str(proj.language).lower().startswith("en")) else "ภาษาไทย"
+            conds = [_func.coalesce(Article.cover_url, "") == "",
+                     Article.html.notlike("%inline-img%"),
+                     Article.html.notlike('%class="infographic"%')]
+            if trend_on:
+                conds.append(Article.html.notlike('%class="trend-chart"%'))
             arts = (await s.execute(
                 select(Article).where(
-                    Article.project_id == pid, Article.status == "published",
-                    or_(_func.coalesce(Article.cover_url, "") == "",
-                        Article.html.notlike("%inline-img%"),
-                        Article.html.notlike('%class="infographic"%')))
+                    Article.project_id == pid, Article.status == "published", or_(*conds))
                 .order_by(Article.id).limit(cap))).scalars().all()
+        dfs = await creds.get_creds(pid, "dataforseo") if trend_on else None
         for a in arts:
             if fixed >= cap:
                 break
@@ -1036,6 +1099,10 @@ async def _backfill_covers(project_id: int, cap: int) -> str:
                 blk = await _infographic_html(cur, a.title or "", lang)
                 if blk:
                     cur = _insert_infographic(cur, blk)
+            if trend_on and 'class="trend-chart"' not in cur:   # เติมกราฟเทรนด์ค้นหาจริง (DataForSEO)
+                tcb = await _trend_chart_html(a.title or "", dfs)
+                if tcb:
+                    cur = _insert_trend(cur, tcb)
             if not (cover_new or cur != (a.html or "")):   # ไม่มีอะไรเปลี่ยน → ข้าม
                 continue
             async with db.session() as s2:

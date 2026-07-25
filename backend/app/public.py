@@ -237,6 +237,13 @@ article blockquote{position:relative;background:var(--wash);border-radius:0 var(
 .ig-compare .ig-lab{font-weight:700;color:var(--ink)}
 .ig-compare .ig-row>span:not(.ig-lab){color:var(--muted)}
 .ig-compare .ig-head>span{color:var(--ink)}
+/* ---- กราฟเทรนด์การค้นหา (ข้อมูลจริง DataForSEO) ---- */
+.trend-chart{margin:36px 0;background:var(--wash);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px}
+.trend-chart .tc-h{font-size:14px;font-weight:800;color:var(--ink);margin-bottom:14px;line-height:1.4}
+.trend-chart svg{width:100%;height:auto;display:block}
+.trend-chart .tc-bar{fill:var(--blue);transition:opacity .15s}
+.trend-chart .tc-bar:hover{opacity:.72}
+.trend-chart .tc-cap{color:var(--muted);font-size:13px;margin-top:11px;line-height:1.5}
 """
 
 

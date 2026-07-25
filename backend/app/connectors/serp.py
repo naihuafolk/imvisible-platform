@@ -123,6 +123,42 @@ async def keyword_difficulty(keyword: str, creds: dict | None = None,
             "signals": {"hard": hard, "ugc": ugc, "homepage": homepage, "organic": len(top)}}
 
 
+async def keyword_volume(keyword: str, creds: dict | None = None,
+                         location_code: int | None = None,
+                         language_code: str | None = None) -> dict | None:
+    """ปริมาณการค้นหา 'จริง' (Google Ads · DataForSEO) — เฉลี่ย/เดือน + เทรนด์ 12 เดือน (มีที่มา 100% ไม่ปั้นเลข)
+    ⚠️ Keywords Data เป็นผลิตภัณฑ์แยก คิดเครดิตต่อคำ · crash-safe (None ถ้าไม่มีข้อมูล/พลาด)
+    คืน {"keyword","volume","monthly":[{"y","m","v"}],"source"} หรือ None"""
+    kw = (keyword or "").strip()
+    if not kw:
+        return None
+    loc = location_code or settings.serp_location_code
+    lang = language_code or settings.serp_language_code
+    try:
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.post(
+                "https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live",
+                headers=_auth_header(creds),
+                json=[{"keywords": [kw], "location_code": loc, "language_code": lang}])
+            data = r.json()
+        if r.status_code >= 400 or data.get("status_code") not in (20000, None):
+            return None
+        res = ((data.get("tasks") or [{}])[0].get("result")) or []
+        if not res:
+            return None
+        d = res[0] or {}
+        vol = d.get("search_volume")
+        monthly = [{"y": m.get("year"), "m": m.get("month"), "v": int(m.get("search_volume") or 0)}
+                   for m in (d.get("monthly_searches") or []) if m.get("search_volume") is not None]
+        monthly.sort(key=lambda x: ((x["y"] or 0), (x["m"] or 0)))
+        monthly = monthly[-12:]
+        if not monthly or vol is None:
+            return None
+        return {"keyword": kw, "volume": vol, "monthly": monthly, "source": "Google Ads · DataForSEO"}
+    except Exception:  # noqa: BLE001
+        return None
+
+
 async def rank_check(keyword: str, domain: str,
                      location_code: int | None = None,
                      language_code: str | None = None,
