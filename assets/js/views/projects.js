@@ -176,7 +176,7 @@
   }
   function renderChips(container, ks, source) {
     var head = '<div class="row between wrap" style="margin-bottom:8px;gap:8px"><div class="soft small">' +
-      (source === 'ai' ? '🤖 AI แนะนำ — ' : '') + 'ติ๊กเลือกหัวข้อที่อยากให้เขียน (เลือกได้หลายอัน)</div>' +
+      (source === 'site' ? '🤖 AI อ่านเว็บแล้วแนะนำ — ' : (source === 'ai' ? '🤖 AI แนะนำ — ' : '')) + 'ติ๊กเลือกหัวข้อที่อยากให้เขียน (เลือกได้หลายอัน)</div>' +
       '<button type="button" class="btn btn-sm" id="kwAll">เลือกทั้งหมด</button></div>';
     var body = ks.map(function (k, i) {
       return '<span class="kw-chip" data-kw="' + esc(k.kw) + '" data-on="' + (i < 5 ? '1' : '0') + '"' + (k.why ? ' title="' + esc(k.why) + '"' : '') + '></span>';
@@ -204,7 +204,7 @@
       '<div class="row wrap" style="gap:8px;margin:2px 0 14px"><button type="button" class="btn btn-primary btn-sm" id="np_suggest">🤖 ให้ AI ช่วยคิดคีย์เวิร์ด</button>' +
       '<span class="soft small" style="align-self:center">ไม่ต้องคิดเอง — AI ดูจากเว็บให้</span></div>' +
       '<div id="np_kwchips" class="mb"></div>' +
-      field('หรือพิมพ์คีย์เวิร์ดเองเพิ่ม (คั่นด้วย , — ไม่ใส่ก็ได้)', '<input class="input" id="np_kw" placeholder="เลเซอร์หน้าใส, ฟิลเลอร์" style="width:100%">') +
+      field('หรือพิมพ์คีย์เวิร์ดเองเพิ่ม (1 คีย์ต่อบรรทัด หรือคั่นด้วย , — ไม่ใส่ก็ได้)', '<textarea class="input" id="np_kw" rows="4" placeholder="เลเซอร์หน้าใส&#10;ฟิลเลอร์&#10;ร้อยไหมละลาย&#10;โบท็อกซ์ ราคา" style="width:100%;resize:vertical"></textarea>') +
       '<details style="margin:8px 0"><summary class="soft small" style="cursor:pointer">ตัวเลือกเพิ่มเติม (ชื่อโปรเจ็ค · ภาษา · โหมดเผยแพร่)</summary><div style="padding-top:12px">' +
         field('ชื่อโปรเจ็ค (เว้นว่าง = ใช้ชื่อโดเมน)', '<input class="input" id="np_name" placeholder="เช่น คลินิกความงาม XYZ" style="width:100%">') +
         field('ภาษาเนื้อหา', '<select class="select" id="np_country" style="width:100%"><option value="th">ไทย</option><option value="en">อังกฤษ</option></select>') +
@@ -248,7 +248,7 @@
         .then(function (p) {
           var home = p.public_home || '', dom = p.domain || url;
           ui.closeModal();
-          RP.ui.toast('สร้างแล้ว ✓ ระบบเริ่มเขียน' + (keywords.length ? (' ' + keywords.length + ' หัวข้อที่เลือก') : 'บทความแรก') + 'ให้อัตโนมัติ');
+          RP.ui.toast('สร้างแล้ว ✓ ระบบกำลัง<b>อ่านเว็บ + เขียนบทความแรก</b>' + (keywords.length ? (' (' + keywords.length + ' คีย์)') : '') + ' — อีก ~2-5 นาที กดรีเฟรชดูได้');
           if (RP.loadRealData) RP.loadRealData(function () { mountNow(); }); else mountNow();
           if (home) RP.ui.modal({ title: 'บล็อกของคุณพร้อมแล้ว 🎉', sub: 'ลูกค้าใส่แค่ลิงก์ — ที่เหลือเราจัดการให้', width: 560,
             body: '<div class="note-box mb">ระบบจะเขียนบทความตามสูตร AEO แล้วเผยแพร่ที่นี่ให้อัตโนมัติ (ไม่ต้องแตะอะไรเลย)</div>' +
@@ -262,7 +262,7 @@
         });
     };
   }
-  function splitc(s) { return (s || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean); }
+  function splitc(s) { return (s || '').split(/[,\n]+/).map(function (x) { return x.trim(); }).filter(Boolean); }
   function wizSection(t, inner) { return '<div class="panel mb"><div class="panel-head">' + esc(t) + '</div><div class="panel-body">' + inner + '</div></div>'; }
   function field(l, inp) { return '<div style="margin-bottom:10px"><div class="soft small" style="margin-bottom:4px">' + esc(l) + '</div>' + inp + '</div>'; }
   function checkline(t, on) { return '<div class="list-row"><span style="color:' + (on ? 'var(--green-600)' : 'var(--text-soft)') + ';font-weight:800">' + (on ? '✓' : '○') + '</span><div class="grow t small">' + esc(t) + '</div>' + (on ? ui.badge('พร้อม', 'green') : ui.badge('ต้องเชื่อม', 'amber')) + '</div>'; }

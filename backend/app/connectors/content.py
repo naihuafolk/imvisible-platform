@@ -146,17 +146,28 @@ async def _llm(system: str, user: str, tier: str = "fast") -> tuple[str, str]:
     raise RuntimeError("LLM ทุกตัวคืนค่าว่าง/ล้มเหลว (ตรวจคีย์ ANTHROPIC/OPENAI/GEMINI)")
 
 
-async def suggest_keywords(domain: str, name: str = "", language: str = "ภาษาไทย", n: int = 12) -> list[dict]:
-    """AI เสนอคีย์เวิร์ด/หัวข้อที่ธุรกิจนี้ควรทำ (เร็ว 1 คอล) — ช่วยลูกค้าที่คิดคีย์เวิร์ดไม่ออก
+async def suggest_keywords(domain: str, name: str = "", language: str = "ภาษาไทย", n: int = 12,
+                           context: str = "", seed=None) -> list[dict]:
+    """AI เสนอคีย์เวิร์ด/หัวข้อที่ธุรกิจนี้ควรทำ — ถ้าส่ง context/seed (จากการ 'อ่านเว็บจริง') มาด้วย
+    จะยึดสินค้า/บริการจริงบนเว็บ (ตรงกว่ามาก ไม่เดาจากชื่อโดเมน)
     หมายเหตุ: ไม่แต่งตัวเลขปริมาณค้นหา/สถิติ ให้เฉพาะ intent เชิงคุณภาพ (เป็นคำแนะนำ ไม่ใช่ค่าที่วัดจริง)"""
+    grounded = bool((context or "").strip() or seed)
     sysmsg = ("คุณคือนักวางกลยุทธ์ SEO/AEO ที่เข้าใจพฤติกรรมการค้นหาของคนไทย "
               "เสนอคีย์เวิร์ด/หัวข้อที่ 'คนค้นหาจริงเพื่อตัดสินใจ' (ไม่ใช่ชื่อแบรนด์) "
-              "ห้ามแต่งตัวเลขปริมาณการค้นหา/สถิติใด ๆ ตอบเป็น JSON valid เท่านั้น ห้าม markdown fence")
-    usermsg = ("ธุรกิจ/เว็บไซต์: %s (โดเมน %s) · ภาษา %s\n"
-               "เสนอคีย์เวิร์ด/หัวข้อ %d รายการ ที่ควรทำคอนเทนต์เพื่อดึงลูกค้าเป้าหมาย "
+              + ("โดย 'ยึดข้อมูลจริงจากเว็บไซต์' ที่ให้มา — ให้ตรงกับสินค้า/บริการที่ธุรกิจนี้ทำจริงเท่านั้น "
+                 "ห้ามเดาเรื่องที่เว็บไม่ได้ทำ. " if grounded else "")
+              + "ห้ามแต่งตัวเลขปริมาณการค้นหา/สถิติใด ๆ ตอบเป็น JSON valid เท่านั้น ห้าม markdown fence")
+    ctx_block = ""
+    if grounded:
+        seeds_txt = ", ".join(str(x) for x in (seed or [])[:12])
+        ctx_block = ("\n\n--- ข้อมูลจริงจากเว็บไซต์ (ระบบอ่านมาแล้ว) ---\n" + (context or "")[:1500]
+                     + ("\nคีย์เวิร์ดตั้งต้นที่สกัดจากเว็บ: " + seeds_txt if seeds_txt else "")
+                     + "\n--- จบข้อมูลเว็บ ---")
+    usermsg = ("ธุรกิจ/เว็บไซต์: %s (โดเมน %s) · ภาษา %s%s\n"
+               "เสนอคีย์เวิร์ด/หัวข้อ %d รายการ ที่ 'ตรงกับสิ่งที่ธุรกิจนี้ทำจริง' และคนค้นหาเพื่อตัดสินใจ "
                "คละ intent (หาข้อมูล / เปรียบเทียบ / พร้อมซื้อ)\n"
                'ส่ง JSON เท่านั้น: {"keywords":[{"kw":"คีย์เวิร์ด","intent":"ซื้อ|เทียบ|หาข้อมูล","why":"เหตุผลสั้นมาก"}]}'
-               % ((name or domain), domain, language, n))
+               % ((name or domain), domain, language, ctx_block, n))
     _prov, text = await _llm(sysmsg, usermsg, tier="fast")
     raw = _strip_fence(text).strip()
     try:

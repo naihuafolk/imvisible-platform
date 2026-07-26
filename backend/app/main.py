@@ -627,7 +627,7 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
         if p is None:
             raise HTTPException(409, "สร้างโปรเจ็คไม่สำเร็จ (โดเมน/slug ชนกัน) ลองใหม่อีกครั้ง")
         # คีย์เวิร์ดที่ลูกค้าเลือก (AI ช่วยคิด) → บันทึกเป็นแผนหัวข้อตั้งต้น เพื่อให้ระบบผลิตบทความจากคีย์เหล่านี้จริง
-        seeds = [str(k).strip() for k in (req.keywords or []) if str(k).strip()][:20]
+        seeds = [str(k).strip() for k in (req.keywords or []) if str(k).strip()][:50]
         if seeds:
             import json as _json
             p.topic_plan = _json.dumps([{"topic": k, "cluster": ""} for k in seeds], ensure_ascii=False)
@@ -635,13 +635,16 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
         await s.refresh(p)
         result = _proj_dict(p)
         new_id = p.id
-    # "ใส่แค่ลิงก์" → ระบบไปอ่านเว็บลูกค้าเองทันที (เบื้องหลัง · ล้มก็ไม่กระทบการสร้างโปรเจ็ค)
+    # "ใส่แค่ลิงก์" → อ่านเว็บลูกค้าเอง + 'เริ่มเขียนบทความแรกให้เลย' (เบื้องหลัง · ล้มก็ไม่กระทบการสร้างโปรเจ็ค)
     try:
-        from app.worker.tasks import analyze_project
-        analyze_project.delay(new_id)
+        from app.worker.tasks import analyze_project, produce_for_project
+        analyze_project.delay(new_id)                                 # อ่านเว็บจริง → บริบท/แบรนด์
+        produce_for_project.apply_async((new_id, 1), countdown=90)    # ⚡ เริ่มเขียนบทความแรกเลย (หน่วง 90 วิ ให้ analyze เติมบริบทก่อน)
         result["analyzing"] = True
+        result["producing"] = True
     except Exception:  # noqa: BLE001
         result["analyzing"] = False
+        result["producing"] = False
     return result
 
 
@@ -802,9 +805,18 @@ async def keywords_suggest(req: KeywordSuggestRequest, user=Depends(get_current_
     if not domain:
         raise HTTPException(422, "กรุณาระบุลิงก์/โดเมนเว็บไซต์ก่อน")
     lang = "English" if str(req.language).lower().startswith("en") else "ภาษาไทย"
-    source = "ai"
+    source, context, seed = "ai", "", None
+    try:                                             # อ่านเว็บลูกค้า 'จริง' ก่อน → คีย์ตรงกับสินค้า/บริการจริง (ไม่เดาจากชื่อโดเมน)
+        from app.connectors import site
+        ctx = await site.analyze(domain, req.name or "", lang)
+        if ctx:
+            context = site.context_text(ctx)
+            seed = ctx.get("seed_keywords") or None
+            source = "site"
+    except Exception:  # noqa: BLE001
+        pass
     try:
-        kws = await content.suggest_keywords(domain, req.name or "", lang, 12)
+        kws = await content.suggest_keywords(domain, req.name or "", lang, 12, context=context, seed=seed)
     except Exception:  # noqa: BLE001
         kws = []
     if not kws:                                   # AI ล่ม/คีย์ไม่พร้อม → หัวข้อตั้งต้นจากแบรนด์ (ยังใช้งานได้)
