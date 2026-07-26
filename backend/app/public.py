@@ -247,18 +247,21 @@ article blockquote{position:relative;background:var(--wash);border-radius:0 var(
 """
 
 
-def _share_bar(url: str, title: str) -> str:
+def _share_bar(url: str, title: str, en: bool = False) -> str:
     """ปุ่มแชร์ท้ายบทความ (Facebook / LINE / X / คัดลอกลิงก์) — ให้คนอ่านช่วยแชร์ต่อ = reach + โอกาส earned link"""
     from urllib.parse import quote
     u = quote(url or "", safe="")
     t = quote(title or "", safe="")
     cu = (url or "").replace('"', "").replace("'", "").replace("\\", "").replace("<", "").replace(">", "")  # ตัดอักขระอันตราย (กัน attribute injection/XSS)
+    lbl = "Share this" if en else "แชร์บทความนี้"
+    copy_lbl = "Copy link" if en else "คัดลอกลิงก์"
+    copied = "Copied ✓" if en else "คัดลอกแล้ว ✓"
     return (
-        '<div class="share-bar"><span class="share-lbl">แชร์บทความนี้</span>'
+        '<div class="share-bar"><span class="share-lbl">' + lbl + '</span>'
         '<a class="sh sh-fb" href="https://www.facebook.com/sharer/sharer.php?u=' + u + '" target="_blank" rel="noopener">Facebook</a>'
         '<a class="sh sh-line" href="https://social-plugins.line.me/lineit/share?url=' + u + '" target="_blank" rel="noopener">LINE</a>'
         '<a class="sh sh-x" href="https://twitter.com/intent/tweet?url=' + u + '&text=' + t + '" target="_blank" rel="noopener">X (Twitter)</a>'
-        '<button class="sh sh-copy" type="button" onclick="navigator.clipboard.writeText(\'' + cu + '\');this.textContent=\'คัดลอกแล้ว ✓\'">คัดลอกลิงก์</button>'
+        '<button class="sh sh-copy" type="button" onclick="navigator.clipboard.writeText(\'' + cu + '\');this.textContent=\'' + copied + '\'">' + copy_lbl + '</button>'
         '</div>')
 
 
@@ -298,9 +301,14 @@ def _chrome(proj, home):
 
 
 def _footer(proj):
-    return ('<footer class="foot">© %s · ทุกบทความผลิตและดูแลโดยระบบ AEO ของ '
-            '<a href="https://imvisible.tech" rel="nofollow">ImVisible</a> — เขียนให้ตอบคำถามจริง โปร่งใส ตรวจสอบได้'
-            '</footer>' % _esc(proj.name or proj.domain))
+    en = str(getattr(proj, "language", "") or "").lower().startswith("en")
+    link = '<a href="https://imvisible.tech" rel="nofollow">ImVisible</a>'
+    nm = _esc(proj.name or proj.domain)
+    if en:
+        return ('<footer class="foot">© %s · every article produced &amp; maintained by %s\'s AEO system '
+                '— written to answer real questions, transparent and verifiable</footer>' % (nm, link))
+    return ('<footer class="foot">© %s · ทุกบทความผลิตและดูแลโดยระบบ AEO ของ %s '
+            '— เขียนให้ตอบคำถามจริง โปร่งใส ตรวจสอบได้</footer>' % (nm, link))
 
 
 def _article_jsonld(proj, art, canonical, home, lang):
@@ -371,35 +379,41 @@ def render_article_page(proj, art, related=None) -> str:
     home = project_public_home(proj)
     canonical = art.url or public_url_for(proj, art)
     lang = "en" if str(proj.language).lower().startswith("en") else "th"
+    en = (lang == "en")
+
+    def t(th, en_):
+        return en_ if en else th
+
     author = proj.name or proj.domain
-    cluster = getattr(art, "cluster", "") or "บทความ"
+    cluster = getattr(art, "cluster", "") or t("บทความ", "Articles")
     dt = getattr(art, "updated_at", None)
     body, toc = _build_toc(art.html or "")
     has_h1 = bool(re.search(r"<h1[\s>]", body, re.I))
 
-    byline = ('<div class="byline"><span class="who"><span class="av">%s</span>ทีม %s</span>'
-              % (_esc(author[:1].upper()), _esc(author)))
+    byline = ('<div class="byline"><span class="who"><span class="av">%s</span>%s</span>'
+              % (_esc(author[:1].upper()), t("ทีม %s", "By %s") % _esc(author)))
     if _fmt_date(dt):
-        byline += '<span class="sep"></span><span>อัปเดต %s</span>' % _esc(_fmt_date(dt))
-    byline += '<span class="sep"></span><span>อ่าน ~%d นาที</span></div>' % _reading_time(getattr(art, "words", 0))
+        byline += '<span class="sep"></span><span>%s</span>' % (t("อัปเดต %s", "Updated %s") % _esc(_fmt_date(dt)))
+    byline += '<span class="sep"></span><span>%s</span></div>' % (t("อ่าน ~%d นาที", "%d min read") % _reading_time(getattr(art, "words", 0)))
 
     toc_html = ""
     if len(toc) >= 3:
         lis = "".join('<li class="l%s"><a href="#%s">%s</a></li>' % (lvl, hid, _esc(text))
                       for lvl, hid, text in toc)
-        toc_html = '<nav class="toc"><div class="lb">สารบัญ</div><ol>%s</ol></nav>' % lis
+        toc_html = '<nav class="toc"><div class="lb">%s</div><ol>%s</ol></nav>' % (t("สารบัญ", "Contents"), lis)
 
-    abox = ('<div class="abox"><div class="av">%s</div><div><div class="nm">ทีม %s</div>'
-            '<div class="ds">ผลิต + ดูแลคอนเทนต์โดยระบบ AEO ของ ImVisible — ทุกบทความเขียนให้ตอบคำถามจริง '
-            'ตรวจข้อเท็จจริง และปรับให้สดใหม่อยู่เสมอ</div></div></div>'
-            % (_esc(author[:1].upper()), _esc(author)))
+    abox = ('<div class="abox"><div class="av">%s</div><div><div class="nm">%s</div>'
+            '<div class="ds">%s</div></div></div>'
+            % (_esc(author[:1].upper()), t("ทีม %s", "%s Team") % _esc(author),
+               t("ผลิต + ดูแลคอนเทนต์โดยระบบ AEO ของ ImVisible — ทุกบทความเขียนให้ตอบคำถามจริง ตรวจข้อเท็จจริง และปรับให้สดใหม่อยู่เสมอ",
+                 "Content produced &amp; maintained by ImVisible's AEO system — every article is written to answer real questions, fact-checked, and kept fresh.")))
 
     rel_html = ""
     if related:
         cards = "".join('<a class="rcard" href="%s"><div class="t">%s</div><div class="x">%s</div></a>'
                         % (_esc(a.url or public_url_for(proj, a)), _esc(a.title), _esc(_desc(a)))
                         for a in related)
-        rel_html = '<section class="rel"><div class="lb">อ่านต่อ</div><div class="grid">%s</div></section>' % cards
+        rel_html = '<section class="rel"><div class="lb">%s</div><div class="grid">%s</div></section>' % (t("อ่านต่อ", "Read more"), cards)
 
     header = "" if has_h1 else "<h1>%s</h1>" % _esc(art.title)
     cover = getattr(art, "cover_url", "") or ""
@@ -411,12 +425,12 @@ def render_article_page(proj, art, related=None) -> str:
               published=dt, modified=dt, image=cover)
         + "<body>" + _chrome(proj, home)
         + '<main><div class="wrap">'
-        + '<div class="crumb"><a href="%s">หน้าแรก</a> › %s</div>' % (_esc(home), _esc(cluster))
+        + '<div class="crumb"><a href="%s">%s</a> › %s</div>' % (_esc(home), t("หน้าแรก", "Home"), _esc(cluster))
         + '<span class="eyebrow">%s</span>' % _esc(cluster)
         + header + byline + cover_html + toc_html
         + "<article>" + body + "</article>"
         + _cta_box(proj)
-        + _share_bar(canonical, art.title)
+        + _share_bar(canonical, art.title, en)
         + abox + rel_html
         + _footer(proj) + "</div></main></body></html>"
     )
@@ -606,8 +620,12 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
 def render_index_page(proj, arts) -> str:
     home = project_public_home(proj)
     lang = "en" if str(proj.language).lower().startswith("en") else "th"
-    title = "%s — บทความ & คู่มือ" % (proj.name or proj.domain)
-    desc = "คลังบทความและคู่มือจาก %s เขียนให้ตอบคำถามจริง ถูกหลัก SEO/AEO อ่านง่าย ตรวจสอบได้" % (proj.name or proj.domain)
+    en = (lang == "en")
+    nm = proj.name or proj.domain
+    title = ("%s — Articles & Guides" % nm) if en else ("%s — บทความ & คู่มือ" % nm)
+    desc = (("Articles and guides from %s — written to answer real questions, SEO/AEO-optimized, easy to read and verifiable" % nm)
+            if en else
+            ("คลังบทความและคู่มือจาก %s เขียนให้ตอบคำถามจริง ถูกหลัก SEO/AEO อ่านง่าย ตรวจสอบได้" % nm))
     website_ld = json.dumps({
         "@context": "https://schema.org", "@type": "WebSite",
         "name": proj.name or proj.domain, "url": home, "inLanguage": lang,
@@ -615,21 +633,24 @@ def render_index_page(proj, arts) -> str:
     if arts:
         cards = "".join(
             '<a class="card" href="%s">%s<div class="ey">%s</div><div class="t">%s</div>'
-            '<div class="x">%s</div><div class="mt">อ่าน ~%d นาที</div></a>'
+            '<div class="x">%s</div><div class="mt">%s</div></a>'
             % (_esc(a.url or public_url_for(proj, a)),
                ('<img class="thumb" src="%s" alt="" loading="lazy">' % _esc(getattr(a, "cover_url", "") or ""))
                if getattr(a, "cover_url", "") else "",
-               _esc(getattr(a, "cluster", "") or "บทความ"),
-               _esc(a.title), _esc(_desc(a)), _reading_time(getattr(a, "words", 0)))
+               _esc(getattr(a, "cluster", "") or ("Articles" if en else "บทความ")),
+               _esc(a.title), _esc(_desc(a)),
+               (("%d min read" % _reading_time(getattr(a, "words", 0))) if en
+                else ("อ่าน ~%d นาที" % _reading_time(getattr(a, "words", 0)))))
             for a in arts)
         body = '<div class="cards">%s</div>' % cards
     else:
-        body = '<div class="empty">กำลังจัดเตรียมบทความ — ระบบ AEO กำลังผลิตให้เร็ว ๆ นี้</div>'
+        body = ('<div class="empty">Articles are being prepared — the AEO system is producing them shortly</div>'
+                if en else '<div class="empty">กำลังจัดเตรียมบทความ — ระบบ AEO กำลังผลิตให้เร็ว ๆ นี้</div>')
     return (
         _head(title, desc, home, lang, [website_ld], "website")
         + "<body>" + _chrome(proj, home)
         + '<main><div class="wrap">'
-        + '<header class="hero"><span class="eyebrow">คลังความรู้</span>'
+        + ('<header class="hero"><span class="eyebrow">%s</span>' % ("Knowledge Hub" if en else "คลังความรู้"))
         + "<h1>%s</h1><p>%s</p></header>" % (_esc(proj.name or proj.domain), _esc(desc))
         + body + _footer(proj) + "</div></main></body></html>"
     )
