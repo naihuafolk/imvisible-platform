@@ -76,6 +76,24 @@ async def _gen_cover(topic: str) -> str:
         return ""
 
 
+async def _gen_magnet_cover(topic: str, kind: str = "guide") -> str:
+    """รูปปกสื่อแจกฟรี — สไตล์ 'ปกอีบุ๊ก/คอร์ส' ดึงดูดสายตาที่สุด (ใช้เป็น OG image ตอนแชร์ด้วย) · crash-safe"""
+    try:
+        if not media.enabled():
+            return ""
+        label = {"course": "online course", "guide": "guide / ebook",
+                 "checklist": "checklist", "template": "template"}.get(kind, "guide / ebook")
+        prompt = ("Eye-catching promotional cover for a free %s about: %s. "
+                  "Bold modern marketing design, vibrant cobalt-blue and clean white with one energetic accent color, "
+                  "dynamic geometric composition, premium ebook/course-cover aesthetic, strong depth and studio lighting, "
+                  "conveys value and expertise, high contrast, scroll-stopping and share-worthy. "
+                  "Award-winning art direction, magazine-quality, ultra-detailed. "
+                  "Absolutely no text, no letters, no words, no numbers, no logos, no watermark, no signature, no UI." % (label, topic))
+        return await media.generate_image(prompt) or ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _pick_h2_idxs(n: int) -> list:
     """เลือก H2 ที่จะแทรกรูป (กระจายกลาง ๆ เลี่ยงหัว/ท้าย) — บทความยาวใส่ได้ถึง 3 จุด"""
     if n <= 0:
@@ -1030,6 +1048,46 @@ async def _assess_easy_wins(project_id: int, cap: int) -> str:
                 p.topic_plan = json.dumps(plan, ensure_ascii=False)
                 await s.commit()
     return "easy-win: assessed %d keywords across %d project(s)" % (scored, len(ids))
+
+
+@celery_app.task(name="app.worker.tasks.build_lead_magnet")
+def build_lead_magnet(magnet_id: int, topic: str) -> dict:
+    """🎁 สร้างสื่อแจกฟรีเบื้องหลัง: เขียนเนื้อหา (Fable 5) + รูปปก + รูปประกอบในเนื้อ (fal.ai) ตามหัวข้อ
+    ทำใน worker เพื่อไม่ให้ HTTP timeout (เนื้อหายาว + สร้างรูปหลายใบ)"""
+    return _run(_build_lead_magnet(magnet_id, topic))
+
+
+async def _build_lead_magnet(magnet_id: int, topic: str) -> dict:
+    from app.db.models import LeadMagnet, Project
+    if not db.enabled():
+        return {"error": "DB not configured"}
+    async with db.session() as s:
+        m = await s.get(LeadMagnet, magnet_id)
+        if not m:
+            return {"error": "magnet not found"}
+        proj = await s.get(Project, m.project_id)
+        kind = m.kind
+        biz = (getattr(proj, "business_context", "") or (proj.name if proj else "")) if proj else ""
+        lang_code = (getattr(m, "language", "") or (proj.language if proj else "") or "th")
+        lang = "English" if str(lang_code).lower().startswith("en") else "ภาษาไทย"
+    try:
+        gen = await content.generate_lead_magnet(kind, topic, business_context=biz, language=lang)
+    except Exception as e:  # noqa: BLE001
+        return {"error": ("generate failed: " + str(e))[:180]}
+    import asyncio as _aio
+    content_html, cover = await _aio.gather(
+        _enrich_media(gen["content_html"], topic),      # แทรกรูปประกอบในเนื้อตามหัวข้อ (fal.ai · crash-safe)
+        _gen_magnet_cover(topic, kind))                 # รูปปกดึงดูด (สไตล์อีบุ๊ก · crash-safe: ล้ม='')
+    async with db.session() as s:
+        m = await s.get(LeadMagnet, magnet_id)
+        if m:
+            m.title = gen["title"]
+            m.description = gen["description"]
+            m.teaser_html = gen["teaser_html"]
+            m.content_html = content_html or gen["content_html"]
+            m.cover_url = cover or ""
+            await s.commit()
+    return {"magnet_id": magnet_id, "built": True, "images": bool(cover)}
 
 
 @celery_app.task(name="app.worker.tasks.gsc_opportunities")

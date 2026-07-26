@@ -627,7 +627,8 @@ body{margin:0;background:var(--wash);color:var(--ink);font-family:"Sarabun","Not
 .kb{display:inline-block;background:var(--bl);color:#fff;font-size:12.5px;font-weight:800;padding:4px 13px;border-radius:999px;margin:16px 0 0}
 h1{font-size:clamp(25px,4.5vw,37px);line-height:1.16;letter-spacing:-.02em;margin:10px 0 6px;text-wrap:balance}
 .desc{color:var(--mut);font-size:16px;margin-bottom:20px}
-.cover{width:100%;border-radius:16px;aspect-ratio:16/9;object-fit:cover;margin-bottom:20px;display:block}
+.cover{width:100%;border-radius:16px;aspect-ratio:16/9;object-fit:cover;margin-bottom:20px;display:block;box-shadow:0 26px 56px -24px rgba(20,40,120,.34)}
+h1{text-wrap:balance}.kb{box-shadow:0 8px 20px -8px rgba(26,86,255,.6)}
 .card{background:var(--pp,#fff);border:1px solid var(--ln);border-radius:18px;padding:22px 24px}
 .teaser h2{font-size:19px;margin:20px 0 8px}.teaser h3{font-size:16px;margin:14px 0 6px}.teaser p,.teaser li{font-size:15.5px}.teaser ul,.teaser ol{padding-left:1.35em}
 .gate{background:linear-gradient(135deg,#3d6bff,#5b4ff0);color:#fff;border-radius:18px;padding:26px 22px;margin:24px 0;text-align:center}
@@ -644,7 +645,7 @@ h1{font-size:clamp(25px,4.5vw,37px);line-height:1.16;letter-spacing:-.02em;margi
 def render_lead_magnet_gate(magnet, proj) -> str:
     """หน้า gate สื่อแจกฟรี — teaser สาธารณะ (ให้ติดอันดับ) + ฟอร์มกรอกอีเมลปลดล็อกเนื้อหาเต็ม · สองภาษาตามโปรเจ็ค"""
     import json as _json
-    en = str(getattr(proj, "language", "") or "").lower().startswith("en")
+    en = str(getattr(magnet, "language", "") or getattr(proj, "language", "") or "").lower().startswith("en")
 
     def t(th, e):
         return e if en else th
@@ -655,6 +656,23 @@ def render_lead_magnet_gate(magnet, proj) -> str:
     brand = _esc(proj.name or proj.domain)
     cover = _esc(getattr(magnet, "cover_url", "") or "")
     req_share = bool(getattr(magnet, "require_share", False))
+    if not str(getattr(magnet, "content_html", "") or "").strip():   # กำลังสร้างเบื้องหลัง → หน้ารอ (auto-refresh)
+        return (
+            '<!doctype html><html lang="%s"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<meta http-equiv="refresh" content="20"><title>%s</title>'
+            '<link rel="icon" href="/favicon.svg"><style>%s</style></head><body><div class="wrap" style="text-align:center;padding-top:72px">'
+            '<div class="brand" style="justify-content:center"><span class="mk">i</span>%s</div>'
+            '<div style="font-size:52px;margin:26px 0 6px">🎁</div>'
+            '<h1>%s</h1>'
+            '<div class="card" style="max-width:440px;margin:18px auto 0"><p style="margin:0">%s</p>'
+            '<p class="desc" style="margin:10px 0 0">%s</p></div>'
+            '</div></body></html>'
+            % ("en" if en else "th", (title or brand), _LM_CSS, brand,
+               t("กำลังเตรียมสื่อให้คุณ…", "Preparing your resource…"),
+               t("AI กำลังเขียนเนื้อหา + สร้างรูปประกอบตามหัวข้อ (~2-4 นาที)",
+                 "AI is writing the content + generating images (~2-4 min)"),
+               t("หน้านี้รีเฟรชอัตโนมัติทุก 20 วินาที — เปิดค้างไว้ได้เลย", "This page auto-refreshes every 20s — just keep it open")))
     kb = {"course": t("🎓 คอร์สเรียนฟรี", "🎓 Free course"), "guide": t("📕 คู่มือฟรี", "📕 Free guide"),
           "checklist": t("✅ เช็คลิสต์ฟรี", "✅ Free checklist"), "template": t("📝 เทมเพลตฟรี", "📝 Free template")
           }.get(magnet.kind, t("🎁 ของฟรี", "🎁 Free"))
@@ -690,13 +708,15 @@ def render_lead_magnet_gate(magnet, proj) -> str:
         '<form id="lm-form">%s'
         '<input id="lm-name" type="text" placeholder="%s" autocomplete="name">'
         '<input id="lm-email" type="email" required placeholder="%s" autocomplete="email">'
-        '<button class="btn" id="lm-btn" type="submit">%s</button></form></div>'
+        '<button class="btn" id="lm-btn" type="submit">%s</button>'
+        '<div style="opacity:.9;font-size:12px;margin-top:12px">%s</div></form></div>'
         % (t("กรอกอีเมลเพื่อรับฟรีทันที", "Enter your email to get it free"),
            t("ส่งให้ทางอีเมล + ปลดล็อกอ่านได้เลยด้านล่าง", "Delivered to your inbox + unlocked below instantly"),
            ('<button type="button" id="lm-share" class="share">%s</button><br>' % share_lbl),
            t("ชื่อ (ไม่บังคับ)", "Name (optional)"),
            t("อีเมลของคุณ", "Your email"),
-           t("รับเลย — ปลดล็อกฟรี", "Get it — unlock free")))
+           t("รับเลย — ปลดล็อกฟรี", "Get it — unlock free"),
+           t("ฟรี 100% · ส่งเข้าอีเมลทันที · ไม่สแปม", "100% free · instant to your inbox · no spam")))
     return (
         '<!doctype html><html lang="%s"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'

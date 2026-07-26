@@ -179,6 +179,7 @@ class LeadMagnet(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     kind: Mapped[str] = mapped_column(String(20), default="guide")      # course | guide | checklist | template
+    language: Mapped[str] = mapped_column(String(20), default="th")     # th | en (สื่อมีเวอร์ชันภาษาของตัวเอง)
     title: Mapped[str] = mapped_column(String(300), default="")
     description: Mapped[str] = mapped_column(Text, default="")          # คำโปรยสั้น (โชว์บนหน้า gate + meta)
     teaser_html: Mapped[str] = mapped_column(Text, default="")          # สารบัญ/เกริ่น โชว์ก่อนปลดล็อก (สาธารณะ ติดอันดับได้)

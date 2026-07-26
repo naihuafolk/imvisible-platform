@@ -149,6 +149,7 @@ class LeadMagnetCreate(BaseModel):
     kind: str = "guide"              # course | guide | checklist | template
     topic: str = ""                  # หัวข้อสื่อที่อยากแจก
     require_share: bool = False       # ต้องกดแชร์ก่อนปลดล็อก (เพิ่ม reach)
+    lang: str = ""                   # "" = ตามภาษาโปรเจ็ค · th · en · both (สร้างทั้งไทย+อังกฤษ)
 
 
 class LeadUnlock(BaseModel):

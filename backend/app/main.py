@@ -2012,32 +2012,35 @@ async def backlink_outreach(project_id: int, req: BacklinkOutreachRequest, user=
 
 @app.post("/api/projects/{project_id}/lead-magnets")
 async def create_lead_magnet(project_id: int, req: LeadMagnetCreate, user=Depends(get_current_user)):
-    """สร้างสื่อแจกฟรี (คอร์ส/คู่มือ/เช็คลิสต์/เทมเพลต) ด้วย AI → ได้ลิงก์ gate เก็บลีด"""
+    """สร้างสื่อแจกฟรี (คอร์ส/คู่มือ/เช็คลิสต์/เทมเพลต) — สร้างเบื้องหลัง (เขียน + ใส่รูป) กัน HTTP timeout"""
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import LeadMagnet
-    from app.connectors import content
     topic = (req.topic or "").strip()
     if not topic:
         raise HTTPException(422, "กรุณาระบุหัวข้อสื่อ")
     kind = req.kind if req.kind in ("course", "guide", "checklist", "template") else "guide"
+    lang = (req.lang or "").strip().lower()
     async with db.session() as s:
         p = await _own_project(s, project_id, user)
-        biz = getattr(p, "business_context", "") or p.name
-        lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
-    try:
-        gen = await content.generate_lead_magnet(kind, topic, business_context=biz, language=lang)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, "สร้างสื่อไม่สำเร็จ (ตรวจคีย์ LLM): " + str(e)[:150])
-    async with db.session() as s:
-        m = LeadMagnet(project_id=project_id, kind=kind, title=gen["title"],
-                       description=gen["description"], teaser_html=gen["teaser_html"],
-                       content_html=gen["content_html"], token=secrets.token_urlsafe(12),
-                       require_share=bool(req.require_share))
-        s.add(m); await s.commit(); await s.refresh(m)
-        out = {"id": m.id, "kind": m.kind, "title": m.title, "token": m.token,
-               "require_share": m.require_share, "path": "/api/lead/%s" % m.token}
-    return out
+        proj_lang = "en" if str(p.language).lower().startswith("en") else "th"
+        langs = ["th", "en"] if lang == "both" else ([lang] if lang in ("th", "en") else [proj_lang])
+        created = []
+        for lc in langs:                              # lang=both → สร้างทั้งไทย+อังกฤษ (2 ชิ้น)
+            m = LeadMagnet(project_id=project_id, kind=kind, language=lc, title=topic[:280],
+                           description="", teaser_html="", content_html="",
+                           token=secrets.token_urlsafe(12), require_share=bool(req.require_share))
+            s.add(m); await s.commit(); await s.refresh(m)
+            created.append({"id": m.id, "token": m.token, "language": lc, "path": "/api/lead/%s" % m.token})
+    building = True
+    try:                                              # ⚡ สร้างเบื้องหลัง: เนื้อหา (Fable 5) + รูปปกดึงดูด + รูปในเนื้อ
+        from app.worker.tasks import build_lead_magnet
+        for c in created:
+            build_lead_magnet.delay(c["id"], topic)
+    except Exception:  # noqa: BLE001
+        building = False
+    return {"created": created, "count": len(created), "building": building,
+            "kind": kind, "title": topic[:280]}
 
 
 @app.get("/api/projects/{project_id}/lead-magnets")
@@ -2050,7 +2053,9 @@ async def list_lead_magnets(project_id: int, user=Depends(get_current_user)):
         rows = (await s.execute(select(LeadMagnet).where(LeadMagnet.project_id == project_id)
                 .order_by(LeadMagnet.id.desc()))).scalars().all()
     return {"magnets": [{"id": m.id, "kind": m.kind, "title": m.title, "token": m.token,
+                         "language": getattr(m, "language", "th"),
                          "require_share": m.require_share, "leads_count": m.leads_count,
+                         "building": not (m.content_html or "").strip(),
                          "path": "/api/lead/%s" % m.token} for m in rows]}
 
 

@@ -40,6 +40,8 @@
         '<div><label class="soft small">ต้องแชร์ก่อนปลดล็อก?</label>' +
           '<label class="row" style="gap:8px;align-items:center;margin-top:9px;cursor:pointer"><input type="checkbox" id="lmShare"> <span class="small">บังคับกดแชร์ (เพิ่ม reach)</span></label></div>' +
       '</div>' +
+      '<div><label class="soft small">ภาษาของสื่อ</label><select class="input" id="lmLang" style="width:100%">' +
+        '<option value="">ตามภาษาโปรเจ็ค</option><option value="th">🇹🇭 ไทย</option><option value="en">🇬🇧 English</option><option value="both">🇹🇭+🇬🇧 ทั้งไทย &amp; อังกฤษ</option></select></div>' +
       '<div><label class="soft small">หัวข้อสื่อ (อยากแจกเรื่องอะไร)</label>' +
       '<input class="input" id="lmTopic" placeholder="เช่น คู่มือทำ AEO ให้ธุรกิจไทยติดอันดับบน AI" style="width:100%"></div>' +
       '<div class="row between" style="align-items:center"><span class="soft small" id="lmMsg"></span>' +
@@ -58,10 +60,12 @@
           if (!ms.length) { box.innerHTML = ui.card({ title: 'สื่อของคุณ', body: RP.noData('ยังไม่มีสื่อ', 'สร้างชิ้นแรกด้านบนได้เลย') }); return; }
           var rows = ms.map(function (m) {
             var url = location.origin + m.path;
+            var right = m.building
+              ? '<span class="soft small">⏳ กำลังสร้าง (เขียน+ใส่รูป)…</span>'
+              : '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="btn btn-sm">เปิด ↗</a> ' +
+                '<button class="btn btn-sm lm-copy" data-u="' + esc(url) + '">คัดลอกลิงก์</button>';
             return '<div class="list-row"><div class="grow"><div class="t">' + esc(m.title) + '</div>' +
-              '<div class="soft small">' + esc(m.kind) + ' · ลีด ' + (m.leads_count || 0) + (m.require_share ? ' · ต้องแชร์' : '') + '</div></div>' +
-              '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="btn btn-sm">เปิด ↗</a> ' +
-              '<button class="btn btn-sm lm-copy" data-u="' + esc(url) + '">คัดลอกลิงก์</button></div>';
+              '<div class="soft small">' + esc(m.kind) + ' · ' + (m.language === 'en' ? '🇬🇧 EN' : '🇹🇭 TH') + ' · ลีด ' + (m.leads_count || 0) + (m.require_share ? ' · ต้องแชร์' : '') + '</div></div>' + right + '</div>';
           }).join('');
           box.innerHTML = ui.card({ title: 'สื่อของคุณ', sub: ms.length + ' ชิ้น', flush: true, body: rows });
           Array.prototype.forEach.call(box.querySelectorAll('.lm-copy'), function (b) {
@@ -95,13 +99,16 @@
         RP.api.createLeadMagnet(pid, {
           kind: root.querySelector('#lmKind').value,
           topic: topic,
-          require_share: root.querySelector('#lmShare').checked
-        }).then(function (m) {
+          require_share: root.querySelector('#lmShare').checked,
+          lang: root.querySelector('#lmLang').value
+        }).then(function (d) {
           go.disabled = false; go.textContent = '🪄 ให้ AI สร้างสื่อ';
           root.querySelector('#lmTopic').value = '';
-          if (msg) msg.innerHTML = 'สร้างแล้ว ✓ <a href="' + esc(location.origin + m.path) + '" target="_blank" rel="noopener">เปิดหน้าแจก ↗</a>';
-          ui.toast('สร้างสื่อแจกฟรีแล้ว ✓');
+          var n = (d && d.count) || 1;
+          if (msg) msg.innerHTML = 'เริ่มสร้าง ' + n + ' เวอร์ชัน ⏳ AI กำลังเขียน + ใส่รูปประกอบ (~2-4 นาที/ชิ้น) — จะโผล่ในลิสต์เมื่อเสร็จ';
+          ui.toast('เริ่มสร้างสื่อแล้ว ✓ (' + n + ' เวอร์ชัน)');
           loadMagnets();
+          setTimeout(loadMagnets, 30000); setTimeout(loadMagnets, 80000); setTimeout(loadMagnets, 140000);   // อัปเดตเมื่อสร้างเสร็จ
         }).catch(function (e) { go.disabled = false; go.textContent = '🪄 ให้ AI สร้างสื่อ'; ui.toast('สร้างไม่ได้: ' + esc(e.message || String(e))); });
       };
     } };
