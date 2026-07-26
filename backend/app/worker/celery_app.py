@@ -43,6 +43,14 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.boost_rankings",
         "schedule": crontab(hour=6, minute=30),
     },
+    "link-push-daily": {             # ⚡ อัดลิงก์ภายใน → หน้าจ่อหน้า1 ทุกวัน 06:45 (ฟรี ไม่ยิง API)
+        "task": "app.worker.tasks.link_push",
+        "schedule": crontab(hour=6, minute=45),
+    },
+    "paa-sniper-weekly": {           # ⚡ ดึง PAA จริง → เติม FAQ ให้หน้าจ่อหน้า1 ทุกวันอังคาร 07:15 (ต้องต่อ DataForSEO)
+        "task": "app.worker.tasks.paa_boost",
+        "schedule": crontab(hour=7, minute=15, day_of_week=2),
+    },
     "sample-citation-weekly": {      # M5 · Prompt Sampling ทุกวันจันทร์ 07:00
         "task": "app.worker.tasks.sample_all_citations",
         "schedule": crontab(hour=7, minute=0, day_of_week=1),

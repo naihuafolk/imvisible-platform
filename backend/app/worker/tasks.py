@@ -834,6 +834,159 @@ async def _boost_rankings(lo: int, hi: int, per_project: int) -> str:
     return "queued rank-boost for %d pages (striking %d-%d / dropped off page1)" % (n, lo, hi)
 
 
+def _striking_keywords(snaps, lo: int = 11, hi: int = 30) -> list:
+    """คีย์ 'จ่อหน้า 1' (#lo-hi ยังไม่ติดหน้า 1) เรียงใกล้ติดสุดก่อน — จาก RankSnapshot rows (asc by time)"""
+    latest = {}
+    for kw, rank, op in snaps:
+        latest[kw] = (rank, bool(op))
+    striking = [(rank, kw) for kw, (rank, op) in latest.items()
+                if (not op) and rank is not None and lo <= rank <= hi]
+    striking.sort(key=lambda x: x[0])
+    return [kw for _r, kw in striking]
+
+
+@celery_app.task(name="app.worker.tasks.paa_boost")
+def paa_boost(per_project: int = 3) -> str:
+    """⚡ PAA Sniper: ดึง 'People Also Ask' จริงจาก Google ของคีย์ 'จ่อหน้า 1 (#11-30)'
+    → เติมเป็น FAQ ตรงคำถามที่ Google โชว์ → คว้า featured snippet / PAA box / AI citation
+    ข้อมูลจริงจาก SERP (ไม่ปั้นคำถาม) · ต้องต่อ DataForSEO"""
+    return _run(_paa_boost(per_project))
+
+
+async def _paa_boost(per_project: int) -> str:
+    from app.db.models import Project, Article, RankSnapshot
+    if not db.enabled():
+        return "DB not configured"
+    n = 0
+    async with db.session() as s:
+        pids = (await s.execute(select(Project.id))).scalars().all()
+    for pid in pids:
+        async with db.session() as s:
+            snaps = (await s.execute(
+                select(RankSnapshot.keyword, RankSnapshot.rank, RankSnapshot.on_page1)
+                .where(RankSnapshot.project_id == pid).order_by(RankSnapshot.checked_at))).all()
+        targets = _striking_keywords(snaps)
+        if not targets:
+            continue
+        dfs = await creds.get_creds(pid, "dataforseo")
+        for kw in targets[:per_project]:
+            try:
+                pr = await mining.paa_related(kw, creds=dfs or None)
+                paa = [q.strip() for q in (pr.get("paa") or []) if q and q.strip()][:8]
+            except Exception:  # noqa: BLE001
+                paa = []
+            if not paa:
+                continue
+            async with db.session() as s:
+                art = (await s.execute(select(Article).where(
+                    Article.project_id == pid, Article.title == kw,
+                    Article.status == "published").limit(1))).scalars().first()
+                if not art:
+                    continue
+                proj = await s.get(Project, pid)
+                aid, title = art.id, art.title
+                html, schema = art.html or "", art.schema_json or ""
+                cover = getattr(art, "cover_url", "") or ""
+                lang = "English" if str(getattr(proj, "language", "th")).lower().startswith("en") else "ภาษาไทย"
+            new_qs = [q for q in paa if q.lower()[:18] not in html.lower()]   # คำถามที่ยังไม่มีในบทความ
+            if not new_qs:
+                continue
+            weaknesses = ("เพิ่ม/เสริมหัวข้อ 'คำถามที่พบบ่อย' ด้วยคำถามจริงที่ Google แสดง (People Also Ask) เหล่านี้ "
+                          "พร้อมคำตอบตรงประเด็น self-contained 40-60 คำต่อข้อ (ใช้เฉพาะข้อมูลจริง ห้ามแต่งตัวเลข):\n"
+                          + "\n".join("- " + q for q in new_qs[:6]))
+            try:
+                imp = await content.improve(html, title, weaknesses, language=lang)
+            except Exception:  # noqa: BLE001
+                continue
+            if not imp.get("changed"):
+                continue
+            new_html = await _apply_internal_links(pid, title, imp["html"])
+            if len(new_html) < len(html) * 0.9:              # กัน regress (เนื้อหด = ทิ้ง)
+                continue
+            new_schema = imp.get("schema") or schema
+            new_desc = _plain(new_html)[:300]
+            after = aeo_score.score(new_html, title=title, description=new_desc[:155],
+                                    schema_json=new_schema, cover_url=cover, keyword=title, target_words=1200)
+            async with db.session() as s:
+                a = await s.get(Article, aid)
+                if a:
+                    a.html = new_html; a.schema_json = new_schema; a.description = new_desc
+                    a.words = _wordcount(new_html); a.aeo_score = after["score"]
+                    a.updated_at = datetime.now(timezone.utc)
+                    await s.commit(); n += 1
+    return "PAA-enriched %d striking articles" % n
+
+
+def _find_linkable(html: str, phrase: str) -> int:
+    """หาตำแหน่งวลีในเนื้อ (อยู่ใน <p> · ไม่อยู่ในแท็ก/ลิงก์เดิม) ที่ปลอดภัยจะแทรกลิงก์ · -1 = ไม่พบ"""
+    low = html.lower(); p = phrase.lower()
+    if len(p) < 6:                                          # สั้นไปเสี่ยงลิงก์มั่ว
+        return -1
+    start = 0
+    while True:
+        i = low.find(p, start)
+        if i < 0:
+            return -1
+        in_p = low.rfind("<p", 0, i) > low.rfind("</p>", 0, i)
+        in_anchor = (low.count("<a ", 0, i) + low.count("<a>", 0, i)) > low.count("</a>", 0, i)
+        in_tag = html.rfind("<", 0, i) > html.rfind(">", 0, i)
+        if in_p and not in_anchor and not in_tag:
+            return i
+        start = i + len(p)
+
+
+@celery_app.task(name="app.worker.tasks.link_push")
+def link_push(per_project: int = 4, links_each: int = 3) -> str:
+    """⚡ Internal-Link Power Push: อัดลิงก์ภายในจากบทความอื่น → หน้า 'จ่อหน้า 1 (#11-30)'
+    (แทรกที่วลีคีย์เวิร์ดปรากฏจริงในย่อหน้า) → โฟกัสพลังลิงก์ที่หน้าใกล้ติด = ดันขึ้นหน้า 1 ไว · ฟรี (ไม่ยิง API)"""
+    return _run(_link_push_striking(per_project, links_each))
+
+
+async def _link_push_striking(per_project: int, links_each: int) -> str:
+    from app.db.models import Project, Article, RankSnapshot
+    import html as _h
+    if not db.enabled():
+        return "DB not configured"
+    n = 0
+    async with db.session() as s:
+        pids = (await s.execute(select(Project.id))).scalars().all()
+    for pid in pids:
+        async with db.session() as s:
+            snaps = (await s.execute(
+                select(RankSnapshot.keyword, RankSnapshot.rank, RankSnapshot.on_page1)
+                .where(RankSnapshot.project_id == pid).order_by(RankSnapshot.checked_at))).all()
+        targets = _striking_keywords(snaps)
+        if not targets:
+            continue
+        for kw in targets[:per_project]:
+            async with db.session() as s:
+                target = (await s.execute(select(Article).where(
+                    Article.project_id == pid, Article.title == kw,
+                    Article.status == "published", Article.url != "").limit(1))).scalars().first()
+                if not target or not (target.url or "").strip():
+                    continue
+                turl = target.url
+                others = (await s.execute(select(Article).where(
+                    Article.project_id == pid, Article.status == "published",
+                    Article.id != target.id))).scalars().all()
+                added = 0
+                for o in others:
+                    if added >= links_each:
+                        break
+                    oh = o.html or ""
+                    if not oh or turl in oh:                 # ลิงก์ไปเป้าหมายอยู่แล้ว → ข้าม (idempotent)
+                        continue
+                    idx = _find_linkable(oh, kw)
+                    if idx < 0:
+                        continue
+                    anchor = '<a href="%s">%s</a>' % (_h.escape(turl), _h.escape(kw))
+                    o.html = oh[:idx] + anchor + oh[idx + len(kw):]
+                    added += 1; n += 1
+                if added:
+                    await s.commit()
+    return "power-pushed %d internal links to striking pages" % n
+
+
 @celery_app.task(name="app.worker.tasks.assess_easy_wins")
 def assess_easy_wins(project_id: int = 0, cap: int = 8) -> str:
     """⚡ #1 Easy-Win Radar: ประเมิน 'ความยากในการติดอันดับ' ของคีย์เวิร์ดในแผน จากหน้า SERP จริง
