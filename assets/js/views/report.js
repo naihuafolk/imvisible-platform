@@ -155,7 +155,7 @@
     /* renderBacklinks ปิดไว้ก่อน — ต้องสมัคร DataForSEO Backlinks API แยก */
     var kpi = root.querySelector('#rp_kpi');
     if (kpi) kpi.innerHTML = '<div class="grid grid-4">' +
-      ui.kpi({ label: 'ติดหน้า 1 (Top 10)', value: rank.page1 != null ? rank.page1 : '—', tone: 'pos', foot: rank.keywords_tracked ? ('จาก ' + rank.keywords_tracked + ' คีย์เวิร์ด') : 'ยังไม่ได้วัด' }) +
+      ui.kpi({ label: 'ติดหน้า 1 (Top 10)', value: rank.page1 != null ? rank.page1 : '—', tone: 'pos', foot: (rank.keywords_total || rank.keywords_tracked) ? ('จาก ' + (rank.keywords_total || rank.keywords_tracked) + ' คีย์เวิร์ดที่ติดตาม') : 'ยังไม่ได้วัด' }) +
       ui.kpi({ label: 'Top 3', value: rank.top3 != null ? rank.top3 : '—', tone: 'brand' }) +
       ui.kpi({ label: 'อันดับเฉลี่ย', value: rank.avg_position != null ? rank.avg_position : '—' }) +
       ui.kpi({ label: 'AI Citation SoV', value: cit.latest_sov != null ? (cit.latest_sov + '%') : '—', tone: 'brand', foot: cit.count ? '' : 'ยังไม่ได้วัด' }) +
@@ -169,12 +169,15 @@
       } else {
         var rows = kws.map(function (k) {
           var striking = (k.rank != null && k.rank >= 11 && k.rank <= 40 && !k.on_page1);
-          var badge = k.on_page1 ? ui.badge('หน้า 1', 'green') : (striking ? ui.badge('จ่อหน้า 1 · กำลังดัน', 'amber') : '');
+          var badge = k.on_page1 ? ui.badge('หน้า 1', 'green')
+            : (striking ? ui.badge('จ่อหน้า 1 · กำลังดัน', 'amber')
+            : (k.pending ? ui.badge('รอวัดอันดับ', '') : ''));
+          var rl = k.pending ? '<span class="soft">กำลังติดตาม</span>' : rankLabel(k.rank);
           return '<tr' + (striking ? ' style="background:var(--amber-50,#fffbeb)"' : '') + '>' +
             '<td><span class="t">' + esc(k.keyword) + '</span> ' + badge + diffChip(k) + '</td>' +
-            '<td class="num bb">' + rankLabel(k.rank) + '</td>' +
+            '<td class="num bb">' + rl + '</td>' +
             '<td class="num soft">' + (k.best_rank != null ? ('#' + k.best_rank) : '—') + '</td>' +
-            '<td class="num">' + moveCell(k) + '</td></tr>';
+            '<td class="num">' + (k.pending ? '<span class="soft">รอวัด</span>' : moveCell(k)) + '</td></tr>';
         }).join('');
         rk.innerHTML = ui.card({ title: 'อันดับ Google (ต่อคีย์เวิร์ด)', sub: 'อันดับจริงจาก SERP · แถวเหลือง = จ่อหน้า 1 (กำลังดัน) · ป้าย ง่าย/ปานกลาง/ยาก = ความยากในการติด (ระบบตีตัวง่ายก่อน)', flush: true,
           body: '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>คีย์เวิร์ด</th><th class="right">อันดับ</th><th class="right">ดีสุด</th><th class="right">เปลี่ยนแปลง</th></tr></thead><tbody>' + rows + '</tbody></table></div>' });

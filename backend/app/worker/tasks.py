@@ -1261,6 +1261,23 @@ def measure_all_ranks() -> str:
     return _run(_measure_all_ranks())
 
 
+def _tracked_keywords(p, article_titles, cap: int = 50) -> list:
+    """คีย์ที่โปรเจ็ค 'ติดตาม' = คีย์ใน topic_plan (ที่ลูกค้าเพิ่ม) ก่อน + หัวข้อบทความที่เผยแพร่ · ตัดซ้ำ · สูงสุด cap"""
+    out, seen = [], set()
+    try:
+        for it in (json.loads(p.topic_plan) if (getattr(p, "topic_plan", "") or "").strip() else []):
+            t = ((it.get("topic") if isinstance(it, dict) else str(it)) or "").strip()
+            if t and t.lower() not in seen:
+                seen.add(t.lower()); out.append(t)
+    except Exception:  # noqa: BLE001
+        pass
+    for t in (article_titles or []):
+        t = (t or "").strip()
+        if t and t.lower() not in seen:
+            seen.add(t.lower()); out.append(t)
+    return out[:cap]
+
+
 async def _measure_all_ranks() -> str:
     from app.db.models import Project, Article
     if not db.enabled():
@@ -1268,13 +1285,14 @@ async def _measure_all_ranks() -> str:
     n = 0
     async with db.session() as s:
         projs = (await s.execute(select(Project))).scalars().all()
-        for p in projs:
-            kws = (await s.execute(
+    for p in projs:
+        async with db.session() as s:
+            titles = (await s.execute(
                 select(Article.title).where(Article.project_id == p.id,
                                             Article.status == "published"))).scalars().all()
-            for kw in kws[:20]:
-                measure_rank.delay(kw, p.domain, p.id)
-                n += 1
+        for kw in _tracked_keywords(p, titles, 50):    # คีย์ลูกค้า (topic_plan) + หัวข้อบทความ · สูงสุด 50
+            measure_rank.delay(kw, p.domain, p.id)
+            n += 1
     return "queued %d rank checks across %d projects" % (n, len(projs))
 
 

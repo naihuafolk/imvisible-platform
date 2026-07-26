@@ -1184,6 +1184,23 @@ async def project_rank_history(project_id: int, user=Depends(get_current_user)):
         if d:
             k["difficulty"] = d["difficulty"]
             k["difficulty_label"] = d["difficulty_label"]
+    # แสดง 'คีย์ที่กำลังติดตาม' ทุกตัวจาก topic_plan แม้ยังไม่ถูกวัดอันดับ
+    # (ลูกค้าซื้อสูงสุด 50 คีย์ → ต้องเห็นครบทันทีที่เพิ่ม ไม่ต้องรอมีบทความ/วัดอันดับก่อน)
+    have_kw = {str(k.get("keyword") or "").strip().lower() for k in kws}
+    try:
+        for it in (_json.loads(plan_raw) if plan_raw.strip() else []):
+            topic = ((it.get("topic") if isinstance(it, dict) else str(it)) or "").strip()
+            if not topic or topic.lower() in have_kw:
+                continue
+            have_kw.add(topic.lower())
+            entry = {"keyword": topic, "rank": None, "on_page1": False,
+                     "best_rank": None, "prev_rank": None, "pending": True}
+            if isinstance(it, dict) and it.get("difficulty") is not None:
+                entry["difficulty"] = it.get("difficulty")
+                entry["difficulty_label"] = it.get("difficulty_label") or ""
+            kws.append(entry)
+    except Exception:  # noqa: BLE001
+        pass
     ranked = [k["rank"] for k in kws if k["rank"] is not None]
     page1 = sum(1 for k in kws if k["on_page1"])
     top3 = sum(1 for k in kws if k["rank"] is not None and k["rank"] <= 3)
@@ -1192,6 +1209,7 @@ async def project_rank_history(project_id: int, user=Depends(get_current_user)):
              for d, m in sorted(day_page1.items())]
     return {
         "keywords_tracked": len(latest),
+        "keywords_total": len(have_kw),          # คีย์ที่ติดตามทั้งหมด (วัดแล้ว + รอวัด) — ตรงกับที่ลูกค้าเพิ่ม
         "page1": page1, "top3": top3, "avg_position": avg_position,
         "keywords": kws[:50],
         "page1_trend": [t["page1"] for t in trend],
