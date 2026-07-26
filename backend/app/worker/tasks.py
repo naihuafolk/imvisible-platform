@@ -1032,6 +1032,70 @@ async def _assess_easy_wins(project_id: int, cap: int) -> str:
     return "easy-win: assessed %d keywords across %d project(s)" % (scored, len(ids))
 
 
+@celery_app.task(name="app.worker.tasks.gsc_opportunities")
+def gsc_opportunities(per_project: int = 5) -> str:
+    """⚡ GSC Opportunity Finder: ดึงคีย์ที่ 'Google โชว์เราแล้วจริง' (impression สูง) จาก Search Console
+    → คีย์ 'ยังไม่มีบทความ' = เพิ่มเข้าแผนเขียนเลย (ดีมานด์พิสูจน์แล้ว = ติดไวสุด) · คีย์ที่มีแล้วแต่จ่อหน้า 1 = ดัน
+    ต้องต่อ GSC ต่อโปรเจ็คก่อน (ไม่ต่อ = ข้าม)"""
+    return _run(_gsc_opportunities(per_project))
+
+
+async def _gsc_opportunities(per_project: int) -> str:
+    from app.db.models import Project, Article
+    from app.connectors import gsc
+    if not db.enabled():
+        return "DB not configured"
+    added = boosted = 0
+    async with db.session() as s:
+        projs = (await s.execute(select(Project))).scalars().all()
+    for p in projs:
+        g = await creds.get_creds(p.id, "gsc")
+        if not g or not p.domain:                         # ยังไม่ต่อ GSC = ข้าม (gated)
+            continue
+        try:
+            summ = await gsc.summary("sc-domain:" + p.domain, 28, creds=g)
+        except Exception:  # noqa: BLE001
+            continue
+        async with db.session() as s:
+            titles = set((t or "").strip().lower() for t in (await s.execute(
+                select(Article.title).where(Article.project_id == p.id))).scalars().all())
+        new_topics = []
+        for q in (summ.get("top_queries") or []):
+            query = (q.get("query") or "").strip()
+            pos = q.get("position") or 0
+            if not query or (q.get("impressions") or 0) < 20:    # เอาเฉพาะคีย์ที่มีดีมานด์จริง
+                continue
+            if query.lower() in titles:                   # มีบทความแล้ว + จ่อหน้า 1 → ดัน
+                if 8 <= pos <= 25:
+                    async with db.session() as s:
+                        aid = (await s.execute(select(Article.id).where(
+                            Article.project_id == p.id, Article.title == query,
+                            Article.status == "published").limit(1))).scalar()
+                    if aid:
+                        optimize_article.delay(aid); boosted += 1
+            else:                                         # Google โชว์เราแต่ยังไม่มีบทความ → เขียนเลย
+                new_topics.append(query)
+        if new_topics:
+            async with db.session() as s:
+                proj = await s.get(Project, p.id)
+                try:
+                    plan = json.loads(proj.topic_plan) if (proj.topic_plan or "").strip() else []
+                except Exception:  # noqa: BLE001
+                    plan = []
+                have = set(((it.get("topic") if isinstance(it, dict) else str(it)) or "").strip().lower() for it in plan)
+                pa = 0
+                for t in new_topics[:per_project]:
+                    if len(plan) >= 50:                   # เพดานรวม 50 คีย์/โปรเจ็ค
+                        break
+                    if t.lower() not in have:
+                        plan.append({"topic": t, "cluster": "GSC opportunity"})
+                        have.add(t.lower()); pa += 1
+                if pa:
+                    proj.topic_plan = json.dumps(plan, ensure_ascii=False)
+                    await s.commit(); added += pa
+    return "GSC opportunities: +%d new topics (proven demand), %d boosts queued" % (added, boosted)
+
+
 @celery_app.task(name="app.worker.tasks.grow_clusters")
 def grow_clusters(batch: int = 3) -> str:
     """⚡ #3 Cluster Autopilot: ผลิตเป็นชุด (batch) ต่อโปรเจ็ค → ขยายคลัสเตอร์ให้ลึก = สร้างอำนาจหัวข้อ
