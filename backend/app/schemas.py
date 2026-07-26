@@ -139,6 +139,12 @@ class ProjectModeUpdate(BaseModel):
     mode: str = "approve"            # auto (Full-Auto เผยแพร่เอง) | approve (ร่างรออนุมัติก่อนเผยแพร่)
 
 
+class BacklinkOutreachRequest(BaseModel):
+    url: str = ""                    # เว็บเป้าหมายที่จะติดต่อ
+    title: str = ""                  # ชื่อหน้า/เว็บ (ประกอบการร่าง)
+    kind: str = "mention"            # mention | resource | guest
+
+
 class ChannelUpdate(BaseModel):
     kind: str                        # line | facebook | telegram | x | linkedin | discord | mastodon | webhook
     ref: str = ""                    # facebook: page_id · line: userId/groupId (หรือ 'broadcast')

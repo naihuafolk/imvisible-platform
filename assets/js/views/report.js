@@ -318,7 +318,8 @@
       desc: 'อันดับ Google (1–100) · AEO/AI Citation · ความคืบหน้า — ข้อมูลจริงจากระบบ ตรวจสอบได้' }) +
       '<div class="row between wrap mb" style="gap:8px;align-items:center">' +
       '<span class="soft small">อันดับวัดอัตโนมัติทุกวัน 06:00 · กดเพื่อวัดเดี๋ยวนี้ (ต้องต่อ DataForSEO)</span>' +
-      '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-sm" id="rpShare">🔗 ลิงก์รายงานลูกค้า</button>' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-sm" id="rpBacklink">🔗 หาโอกาสแบ็กลิงก์</button>' +
+      '<button class="btn btn-sm" id="rpShare">🔗 ลิงก์รายงานลูกค้า</button>' +
       '<button class="btn btn-sm btn-primary" id="rpMeasure">🔄 วัดอันดับเดี๋ยวนี้</button></div></div>' +
       '<div id="rp_kpi" class="mb"><div class="hint">กำลังโหลดรายงาน…</div></div>' +
       '<div id="rp_hl" class="mb"></div>' +
@@ -357,6 +358,45 @@
             });
           }, 50);
         }).catch(function (e) { sb.disabled = false; sb.textContent = '🔗 ลิงก์รายงานลูกค้า'; ui.toast('สร้างลิงก์ไม่ได้: ' + esc(e.message || String(e))); });
+      };
+      var bl = root.querySelector('#rpBacklink');
+      if (bl) bl.onclick = function () {
+        if (!(pid && RP.api.enabled())) { ui.toast('เปิดโหมด Live ก่อน'); return; }
+        bl.disabled = true; bl.textContent = 'กำลังหา… (SERP)';
+        RP.api.backlinkOpportunities(pid).then(function (d) {
+          bl.disabled = false; bl.textContent = '🔗 หาโอกาสแบ็กลิงก์';
+          var opps = (d && d.opportunities) || [];
+          var kl = { mention: '💬 พูดถึงเราแล้ว (ขอลิงก์ง่ายสุด)', resource: '📋 หน้ารวม/แนะนำ (ขอเพิ่มเข้าลิสต์)', guest: '✍️ รับบทความรับเชิญ' };
+          var kt = { mention: 'green', resource: 'blue', guest: 'amber' };
+          if (!opps.length) {
+            ui.modal({ title: '🔗 โอกาสแบ็กลิงก์ (white-hat)', width: 620, body: RP.noData('ยังไม่เจอโอกาส', 'ลองใหม่ หรือเพิ่มบทความ/คำแบรนด์ให้ระบบมีข้อมูลค้นมากขึ้น') });
+            return;
+          }
+          var rows = opps.map(function (o, i) {
+            return '<div class="list-row" style="display:block">' +
+              '<div class="row between" style="align-items:center;gap:8px">' + ui.badge(kl[o.kind] || o.kind, kt[o.kind] || '') +
+              '<a href="' + esc(o.url) + '" target="_blank" rel="noopener" class="soft small">' + esc(o.domain || '') + ' ↗</a></div>' +
+              '<div class="t" style="margin:3px 0">' + esc(o.title || o.url) + '</div>' +
+              (o.snippet ? '<div class="soft small">' + esc(o.snippet) + '</div>' : '') +
+              '<button class="btn btn-sm btn-primary bl-draft" data-i="' + i + '" style="margin-top:6px">✍️ ร่างข้อความติดต่อ</button>' +
+              '<div class="bl-out" style="margin-top:8px"></div></div>';
+          }).join('');
+          ui.modal({ title: '🔗 โอกาสแบ็กลิงก์ (white-hat)', sub: 'ติดต่อขอลิงก์เอง ไม่ซื้อ ไม่สแปม = ไม่โดนแบน · ระบบร่างข้อความให้', width: 660,
+            body: '<div class="hint mb">' + esc(d.note || '') + '</div>' + rows });
+          setTimeout(function () {
+            Array.prototype.forEach.call(document.querySelectorAll('.bl-draft'), function (b) {
+              b.onclick = function () {
+                var o = opps[parseInt(b.getAttribute('data-i'), 10)];
+                var out = b.parentNode.querySelector('.bl-out');
+                b.disabled = true; b.textContent = 'กำลังร่าง…';
+                RP.api.backlinkOutreach(pid, { url: o.url, title: o.title || '', kind: o.kind }).then(function (r) {
+                  b.disabled = false; b.textContent = '✍️ ร่างใหม่';
+                  out.innerHTML = '<textarea class="input" rows="7" style="width:100%;font-size:12.5px" onclick="this.select()">' + esc(r.text || '') + '</textarea>';
+                }).catch(function (e) { b.disabled = false; b.textContent = '✍️ ร่างข้อความติดต่อ'; ui.toast('ร่างไม่ได้: ' + esc(e.message || String(e))); });
+              };
+            });
+          }, 50);
+        }).catch(function (e) { bl.disabled = false; bl.textContent = '🔗 หาโอกาสแบ็กลิงก์'; ui.toast('หาไม่ได้: ' + esc(e.message || String(e))); });
       };
       if (!(pid && RP.api.enabled())) return;
       Promise.all([

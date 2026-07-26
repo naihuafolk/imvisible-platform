@@ -77,6 +77,8 @@
     setPublishTarget: function (pid, o) { return api._put('/api/projects/' + pid + '/publish', o); },
     setMode: function (pid, mode) { return api._put('/api/projects/' + pid + '/mode', { mode: mode }); },
     reportLink: function (pid) { return api._post('/api/projects/' + pid + '/report-link', {}); },
+    backlinkOpportunities: function (pid) { return api._post('/api/projects/' + pid + '/backlink-opportunities', {}); },
+    backlinkOutreach: function (pid, o) { return api._post('/api/projects/' + pid + '/backlink-outreach', o); },
     // ---- AI Citation ต่อโปรเจ็ค (บันทึกผล → สะสมเป็นแนวโน้ม) ----
     citationForProject: function (pid, questions) { return api._post('/api/projects/' + pid + '/citation/sample', { questions: questions || [] }); },
     citationHistory: function (pid) { return api._get('/api/projects/' + pid + '/citation/history'); },

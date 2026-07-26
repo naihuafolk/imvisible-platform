@@ -26,6 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ChannelUpdate, DraftRequest,
+    BacklinkOutreachRequest,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -1969,6 +1970,44 @@ async def draft_reply_ep(project_id: int, req: DraftRequest, user=Depends(get_cu
         return await discovery.draft_reply(req.question, req.snippet, req.url, brand, lang)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, "ร่างคำตอบไม่ได้ (ตรวจคีย์ LLM): " + str(e)[:150])
+
+
+@app.post("/api/projects/{project_id}/backlink-opportunities")
+async def backlink_opportunities(project_id: int, user=Depends(get_current_user)):
+    """หาโอกาสได้แบ็กลิงก์ white-hat (mention/resource/guest) จาก SERP จริง — คนเอาไปติดต่อเอง (ไม่ซื้อ ไม่สแปม)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project, Article
+    from app.connectors import discovery
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        name, domain = p.name, p.domain
+        lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
+        brand_terms = [t.strip() for t in (getattr(p, "brand_terms", "") or "").split(",") if t.strip()]
+        titles = (await s.execute(select(Article.title).where(
+            Article.project_id == project_id).order_by(Article.id.desc()).limit(3))).scalars().all()
+    kws = [name] + [t for t in titles if t]
+    try:
+        return await discovery.find_link_opportunities(name, domain, brand_terms, kws, lang)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "หาโอกาสแบ็กลิงก์ไม่ได้ (ตรวจคีย์ SERP/DataForSEO): " + str(e)[:150])
+
+
+@app.post("/api/projects/{project_id}/backlink-outreach")
+async def backlink_outreach(project_id: int, req: BacklinkOutreachRequest, user=Depends(get_current_user)):
+    """ร่างข้อความติดต่อขอแบ็กลิงก์ (คนเอาไปตรวจ+ส่งเอง · ไม่ auto-ยิง = white-hat)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project
+    from app.connectors import discovery
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        brand, domain = p.name, p.domain
+        lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
+    try:
+        return await discovery.draft_outreach(req.url, req.title, req.kind, brand, domain, lang)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ร่างข้อความไม่ได้ (ตรวจคีย์ LLM): " + str(e)[:150])
 
 
 @app.get("/api/tls/check")
