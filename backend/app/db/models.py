@@ -71,6 +71,7 @@ class Project(Base):
     topic_plan: Mapped[str] = mapped_column(Text, default="")                   # แผนหัวข้อ (JSON) เรียงตามคำที่ชนะได้ก่อน
     aeo_questions: Mapped[str] = mapped_column(Text, default="")                 # คำถาม AEO ที่ลูกค้าตั้งเอง (JSON list) → สุ่มถาม AI 'ให้ตรง' (มาก่อนอัตโนมัติ)
     cta_json: Mapped[str] = mapped_column(Text, default="")                      # กล่องดักลูกค้า (CTA) ท้ายบทความ (JSON) — เนียนขายบริการ/เก็บลีดต่อโปรเจ็ค
+    report_token: Mapped[str] = mapped_column(String(64), default="", index=True)  # โทเคนลิงก์รายงานสาธารณะ (ส่งให้ลูกค้าเปิดดูได้โดยไม่ต้องล็อกอิน)
     analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

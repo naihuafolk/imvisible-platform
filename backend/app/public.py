@@ -422,6 +422,171 @@ def render_article_page(proj, art, related=None) -> str:
     )
 
 
+_REPORT_ENGINES = {"openai": "ChatGPT", "gemini": "Gemini", "perplexity": "Perplexity", "anthropic": "Claude"}
+
+
+async def report_data(project_id: int, days: int) -> dict | None:
+    """รวมข้อมูลรายงานของโปรเจ็ค (อันดับ · AEO · AI citation · บทความ) — สำหรับหน้ารายงานสาธารณะ (ไม่ต้องล็อกอิน)"""
+    from datetime import datetime, timezone, timedelta
+    from app.db.models import Project, Article, RankSnapshot, CitationSnapshot, CitationExample
+    if not db.enabled():
+        return None
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    async with db.session() as s:
+        proj = await s.get(Project, project_id)
+        if not proj:
+            return None
+        rows = (await s.execute(select(RankSnapshot).where(RankSnapshot.project_id == project_id)
+                .order_by(RankSnapshot.checked_at))).scalars().all()
+        arts = (await s.execute(select(Article).where(Article.project_id == project_id,
+                Article.status == "published").order_by(Article.id.desc()))).scalars().all()
+        csnaps = (await s.execute(select(CitationSnapshot).where(CitationSnapshot.project_id == project_id)
+                .order_by(CitationSnapshot.sampled_at))).scalars().all()
+        cexs = (await s.execute(select(CitationExample).where(CitationExample.project_id == project_id)
+                .order_by(CitationExample.id.desc()).limit(6))).scalars().all()
+    latest, series = {}, {}
+    for r in rows:
+        latest[r.keyword] = {"keyword": r.keyword, "rank": r.rank, "on_page1": bool(r.on_page1)}
+        series.setdefault(r.keyword, []).append(r.rank)
+    for kw, info in latest.items():
+        seq = [x for x in series[kw] if x is not None]
+        info["best"] = min(seq) if seq else None
+        info["prev"] = series[kw][-2] if len(series[kw]) >= 2 else None
+    kws = sorted(latest.values(), key=lambda k: (k["rank"] is None, k["rank"] if k["rank"] is not None else 999))
+    ranked = [k["rank"] for k in kws if k["rank"] is not None]
+    scored = [a.aeo_score for a in arts if getattr(a, "aeo_score", 0)]
+
+    def _aware(dt):
+        return (dt.replace(tzinfo=timezone.utc) if (dt and not dt.tzinfo) else dt)
+    new_arts = [a for a in arts if _aware(getattr(a, "created_at", None)) and _aware(a.created_at) >= since]
+    by_bucket = {}
+    for c in csnaps:
+        b = c.sampled_at.strftime("%Y-%m-%dT%H:%M") if c.sampled_at else ""
+        by_bucket.setdefault(b, {})[c.engine] = c.sov_percent
+    runs = list(by_bucket.values())
+    per_engine = runs[-1] if runs else {}
+    sov_vals = [v for v in per_engine.values() if v is not None]
+    return {
+        "proj": proj, "kws": kws[:30],
+        "page1": sum(1 for k in kws if k["on_page1"]),
+        "top3": sum(1 for k in kws if k["rank"] is not None and k["rank"] <= 3),
+        "avg": round(sum(ranked) / len(ranked), 1) if ranked else None,
+        "keywords_tracked": len(latest), "published": len(arts),
+        "aeo_avg": round(sum(scored) / len(scored)) if scored else None,
+        "new_count": len(new_arts), "recent": arts[:6],
+        "per_engine": per_engine, "sov": round(sum(sov_vals) / len(sov_vals), 1) if sov_vals else None,
+        "examples": cexs,
+    }
+
+
+_REPORT_CSS = """
+*{box-sizing:border-box}:root{--pp:#fff;--ink:#0f1830;--mut:#5a6a86;--bl:#1b3fd4;--ln:#e7ecf6;--wash:#f6f8fd;--grn:#0a7350;--rd:#dc2626}
+@media(prefers-color-scheme:dark){:root{--pp:#0b111f;--ink:#eef2fb;--mut:#93a3c2;--bl:#7d97ff;--ln:#233150;--wash:#111a2e}}
+body{margin:0;background:var(--wash);color:var(--ink);font-family:"Sarabun","Noto Sans Thai","Segoe UI",system-ui,sans-serif;line-height:1.6}
+.wrap{max-width:860px;margin:0 auto;padding:28px 20px 70px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;margin-bottom:4px}
+.brand .mk{width:26px;height:26px;border-radius:7px;background:var(--bl);color:#fff;display:grid;place-items:center;font-size:14px}
+.brand span{color:var(--mut);font-weight:500;font-size:13px}
+h1{font-size:clamp(24px,4vw,34px);margin:14px 0 2px;letter-spacing:-.02em}
+.sub{color:var(--mut);font-size:14px;margin-bottom:22px}
+.card{background:var(--pp,#fff);border:1px solid var(--ln);border-radius:16px;padding:20px 22px;margin:0 0 18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0}
+.kpi{padding:8px 16px;border-left:1px solid var(--ln)}.kpi:first-child{border-left:0}
+.kpi .kv{font-size:26px;font-weight:800;letter-spacing:-.02em;color:var(--bl)}
+.kpi .kl{font-size:12.5px;color:var(--mut);margin-top:2px}
+h2{font-size:17px;margin:26px 0 12px}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--ln)}
+th{font-size:12px;color:var(--mut);font-weight:700}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.center{text-align:center}.muted{color:var(--mut)}.pending{color:var(--mut);font-size:13px}
+.up{color:var(--grn);font-weight:700}.down{color:var(--rd);font-weight:700}
+.pill{font-size:11px;padding:1px 8px;border-radius:999px;font-weight:700}.pill.green{background:rgba(10,115,80,.12);color:var(--grn)}
+.engs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.eng{text-align:center;border:1px solid var(--ln);border-radius:12px;padding:14px 8px}
+.eng .en{font-weight:800}.eng .ev{font-size:22px;font-weight:800;margin:5px 0 2px}.eng .es{font-size:12.5px;color:var(--mut)}
+.proof{border-left:3px solid #4ade80;padding:2px 0 2px 12px;margin:10px 0}
+.proof .pe{font-weight:700;color:var(--grn);font-size:13px}.proof .pq{font-size:13.5px;margin:2px 0}.proof .pa{color:var(--mut);font-size:13.5px}
+.arts{list-style:none;padding:0;margin:0}.arts li{padding:8px 0;border-bottom:1px solid var(--ln);display:flex;justify-content:space-between;gap:10px}
+.arts a{color:var(--bl);text-decoration:none}.arts a:hover{text-decoration:underline}
+.foot{color:var(--mut);font-size:12.5px;text-align:center;margin-top:30px;line-height:1.7}
+.note{background:var(--wash);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--mut);margin-top:10px}
+"""
+
+
+def render_report_page(data: dict, period_label: str, generated: str) -> str:
+    proj = data["proj"]
+    name = _esc(proj.name or proj.domain)
+
+    def n(v):
+        return "—" if v is None else str(v)
+
+    kpis = [("ติดหน้า 1", n(data["page1"])), ("Top 3", n(data["top3"])), ("อันดับเฉลี่ย", n(data["avg"])),
+            ("บทความเผยแพร่", n(data["published"])),
+            ("AI Citation", ("%s%%" % data["sov"]) if data["sov"] is not None else "—")]
+    kpi_html = "".join('<div class="kpi"><div class="kv">%s</div><div class="kl">%s</div></div>' % (v, _esc(l)) for l, v in kpis)
+
+    def mv(k):
+        cur, prev = k["rank"], k["prev"]
+        if cur is None:
+            return '<span class="pending">รอวัด</span>'
+        if prev is None:
+            return '<span class="muted">ใหม่</span>'
+        d = prev - cur
+        return ('<span class="up">▲ %d</span>' % d) if d > 0 else (('<span class="down">▼ %d</span>' % (-d)) if d < 0 else '<span class="muted">—</span>')
+
+    rank_rows = "".join(
+        '<tr><td>%s%s</td><td class="n">%s</td><td class="n">%s</td><td class="n">%s</td></tr>'
+        % (_esc(k["keyword"]), ' <span class="pill green">หน้า 1</span>' if k["on_page1"] else '',
+           ('#%d' % k["rank"]) if k["rank"] is not None else '<span class="pending">รอวัด</span>',
+           ('#%d' % k["best"]) if k["best"] is not None else '—', mv(k))
+        for k in data["kws"]) or '<tr><td colspan="4" class="center muted">ยังไม่มีข้อมูลอันดับ</td></tr>'
+
+    engs = "".join(
+        '<div class="eng"><div class="en">%s</div><div class="ev">%s</div><div class="es">%s</div></div>'
+        % (_esc(_REPORT_ENGINES.get(e, e)),
+           ('%s%%' % data["per_engine"].get(e)) if data["per_engine"].get(e) is not None else '—',
+           '✓ อ้างอิงแล้ว' if (data["per_engine"].get(e) or 0) > 0 else '○ ยังไม่หยิบ')
+        for e in ("openai", "gemini", "perplexity"))
+
+    proof = ""
+    if data["examples"]:
+        proof = ('<h2>🎯 หลักฐาน — AI พูดถึงคุณจริง</h2><div class="card">'
+                 + "".join('<div class="proof"><div class="pe">%s ✓</div><div class="pq">ถาม: "%s"</div><div class="pa">"%s…"</div></div>'
+                           % (_esc(_REPORT_ENGINES.get(e.engine, e.engine)), _esc(e.question), _esc(e.snippet or "")[:220])
+                           for e in data["examples"][:4]) + '</div>')
+
+    recent = ""
+    if data["recent"]:
+        recent = ('<h2>บทความล่าสุด</h2><div class="card"><ul class="arts">'
+                  + "".join('<li>%s<span class="muted">AEO %s</span></li>'
+                            % (('<a href="%s" target="_blank" rel="noopener">%s</a>' % (_esc(a.url), _esc(a.title))) if getattr(a, "url", "") else _esc(a.title),
+                               getattr(a, "aeo_score", "") or "—")
+                            for a in data["recent"]) + '</ul></div>')
+
+    return (
+        '<!doctype html><html lang="th"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="robots" content="noindex,nofollow"><title>รายงานผลงาน · %s</title>'
+        '<link rel="icon" href="/favicon.svg"><style>%s</style></head><body><div class="wrap">'
+        '<div class="brand"><span class="mk">i</span>ImVisible<span>· รายงานผลงาน</span></div>'
+        '<h1>%s</h1><div class="sub">%s · %s · ผลิตในช่วงนี้ %d บทความ · คะแนน AEO เฉลี่ย %s</div>'
+        '<div class="card"><div class="kpis">%s</div></div>'
+        '<h2>อันดับ Google (ต่อคีย์เวิร์ด)</h2><div class="card" style="overflow-x:auto">'
+        '<table><thead><tr><th>คีย์เวิร์ด</th><th class="n">อันดับ</th><th class="n">ดีสุด</th><th class="n">เปลี่ยนแปลง</th></tr></thead>'
+        '<tbody>%s</tbody></table></div>'
+        '<h2>🤖 AI แนะนำเราหรือยัง</h2><div class="card"><div class="engs">%s</div>'
+        '<div class="note">วัดจริงโดยถาม ChatGPT / Gemini / Perplexity แล้วเช็คว่าคำตอบอ้างอิงแบรนด์/เว็บของคุณ (Share of Voice)</div></div>'
+        '%s%s'
+        '<div class="foot">รายงานสร้างเมื่อ %s · ทุกตัวเลขวัดจริง ตรวจสอบย้อนได้ · จัดทำโดยระบบ AEO+SEO ของ '
+        '<a href="https://imvisible.tech" style="color:var(--bl)">ImVisible</a></div>'
+        '</div></body></html>'
+        % (name, _REPORT_CSS, name, _esc(period_label), _esc(proj.domain or ""),
+           data["new_count"], (data["aeo_avg"] if data["aeo_avg"] is not None else "—"),
+           kpi_html, rank_rows, engs, proof, recent, _esc(generated))
+    )
+
+
 def render_index_page(proj, arts) -> str:
     home = project_public_home(proj)
     lang = "en" if str(proj.language).lower().startswith("en") else "th"

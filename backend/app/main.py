@@ -899,6 +899,52 @@ async def set_project_mode(project_id: int, req: ProjectModeUpdate, user=Depends
     return result
 
 
+@app.post("/api/projects/{project_id}/report-link")
+async def create_report_link(project_id: int, user=Depends(get_current_user)):
+    """สร้าง/ดึงลิงก์รายงานสาธารณะของโปรเจ็ค — ส่งให้ลูกค้าเปิดดูได้โดยไม่ต้องล็อกอิน (read-only)
+    คืน token + path รายสัปดาห์/รายเดือน (frontend ต่อ origin เอง)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        if not (getattr(p, "report_token", "") or "").strip():
+            p.report_token = secrets.token_urlsafe(16)
+            await s.commit()
+        token = p.report_token
+    return {"token": token,
+            "week": "/api/report/%s?period=week" % token,
+            "month": "/api/report/%s?period=month" % token}
+
+
+@app.get("/api/report/{token}")
+async def public_report(token: str, period: str = "week"):
+    """หน้ารายงานสาธารณะ (ไม่ต้องล็อกอิน) — เปิดจากลิงก์ที่แอดมินสร้างให้ลูกค้า · read-only · noindex"""
+    from fastapi.responses import HTMLResponse
+    from datetime import datetime, timezone, timedelta
+    from app.db.models import Project
+    from app import public as _public
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    token = (token or "").strip()
+    if len(token) < 8:
+        raise HTTPException(404, "ไม่พบรายงาน")
+    async with db.session() as s:
+        pid = (await s.execute(select(Project.id).where(Project.report_token == token))).scalar_one_or_none()
+    if not pid:
+        raise HTTPException(404, "ไม่พบรายงาน (ลิงก์ไม่ถูกต้องหรือถูกยกเลิก)")
+    days = 30 if str(period).lower().startswith("m") else 7
+    label = "รายเดือน (30 วันล่าสุด)" if days == 30 else "รายสัปดาห์ (7 วันล่าสุด)"
+    data = await _public.report_data(pid, days)
+    if not data:
+        raise HTTPException(404, "ยังไม่มีข้อมูลรายงาน")
+    gen = (datetime.now(timezone.utc) + timedelta(hours=7)).strftime("%d/%m/%Y %H:%M น.")
+    html = _public.render_report_page(data, label, gen)
+    return HTMLResponse(html, headers={"Cache-Control": "public, max-age=300", "X-Robots-Tag": "noindex"})
+
+
 @app.post("/api/projects/{project_id}/grow")
 async def grow_project(project_id: int, user=Depends(get_current_user)):
     """🚀 สั่ง 'วงจรโต' ให้โปรเจ็คนี้เดี๋ยวนี้: ขุดคำถาม→เขียน→เผยแพร่ (เข้าคิว Celery ทำเบื้องหลัง)"""

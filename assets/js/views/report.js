@@ -190,9 +190,29 @@
 
     el.innerHTML = ui.card({ title: '🤖 AI แนะนำเราหรือยัง',
       sub: 'ถาม ChatGPT / Gemini / Perplexity จริง แล้วเช็คว่าหยิบเราไปตอบมั้ย — เห็นความเคลื่อนไหวทุกสัปดาห์',
+      action: '<button class="btn btn-sm btn-primary" id="rpAiNow">🤖 วัด AI เดี๋ยวนี้</button>',
       body: head + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">' + cards + '</div>' + mov + proof + aeoNote });
     var q = el.querySelector('#airecQ');
     if (q) q.onclick = function (ev) { ev.preventDefault(); if (RP.openAeoQuestions) RP.openAeoQuestions(rDbId(p), p && p.name); else RP.go('projects'); };
+    var mn = el.querySelector('#rpAiNow');
+    if (mn) mn.onclick = function () {
+      var pid = rDbId(p);
+      if (!(pid && RP.api && RP.api.enabled())) { ui.toast('เปิดโหมด Live ก่อน'); return; }
+      mn.disabled = true; mn.textContent = 'กำลังถาม AI… (สักครู่)';
+      RP.api.citationForProject(pid).then(function () {
+        return Promise.all([
+          RP.api.citationHistory(pid).catch(function () { return null; }),
+          RP.api.citationExamples(pid).catch(function () { return null; }),
+          RP.api.projectAeo(pid).catch(function () { return null; })
+        ]);
+      }).then(function (r) {
+        renderAiRecommend(root, p, r[0], r[1], r[2]);          // เรนเดอร์ใหม่ด้วยผลสด
+        ui.toast('วัด AI เสร็จ ✓ อัปเดตผลแล้ว');
+      }).catch(function (e) {
+        mn.disabled = false; mn.textContent = '🤖 วัด AI เดี๋ยวนี้';
+        ui.toast('วัดไม่ได้: ' + esc(e.message || String(e)));
+      });
+    };
   }
 
   /* 🔗 Backlink คุณภาพจริง — ดึงตามคำขอ (กดปุ่ม) เพื่อคุมค่าเครดิต DataForSEO Backlinks */
@@ -298,7 +318,8 @@
       desc: 'อันดับ Google (1–100) · AEO/AI Citation · ความคืบหน้า — ข้อมูลจริงจากระบบ ตรวจสอบได้' }) +
       '<div class="row between wrap mb" style="gap:8px;align-items:center">' +
       '<span class="soft small">อันดับวัดอัตโนมัติทุกวัน 06:00 · กดเพื่อวัดเดี๋ยวนี้ (ต้องต่อ DataForSEO)</span>' +
-      '<button class="btn btn-sm btn-primary" id="rpMeasure">🔄 วัดอันดับเดี๋ยวนี้</button></div>' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-sm" id="rpShare">🔗 ลิงก์รายงานลูกค้า</button>' +
+      '<button class="btn btn-sm btn-primary" id="rpMeasure">🔄 วัดอันดับเดี๋ยวนี้</button></div></div>' +
       '<div id="rp_kpi" class="mb"><div class="hint">กำลังโหลดรายงาน…</div></div>' +
       '<div id="rp_hl" class="mb"></div>' +
       '<div id="rp_airec" class="mb"></div>' +
@@ -313,6 +334,29 @@
           ui.toast(d.queued ? ('สั่งวัดอันดับ ' + d.queued + ' คีย์เวิร์ดแล้ว ✓ อีกสักครู่กดรีเฟรช') : (d.note || 'ยังไม่มีบทความให้วัด'));
           mb.textContent = '⏳ กำลังวัด';
         }).catch(function (e) { mb.disabled = false; mb.textContent = '🔄 วัดอันดับเดี๋ยวนี้'; ui.toast('วัดไม่ได้: ' + esc(e.message || String(e))); });
+      };
+      var sb = root.querySelector('#rpShare');
+      if (sb) sb.onclick = function () {
+        if (!(pid && RP.api.enabled())) { ui.toast('เปิดโหมด Live ก่อน'); return; }
+        sb.disabled = true; sb.textContent = 'กำลังสร้าง…';
+        RP.api.reportLink(pid).then(function (d) {
+          sb.disabled = false; sb.textContent = '🔗 ลิงก์รายงานลูกค้า';
+          var org = location.origin;
+          function linkRow(lb, url) {
+            return '<div style="margin-bottom:12px"><div class="soft small" style="margin-bottom:4px">' + lb + '</div>' +
+              '<div class="row" style="gap:8px;align-items:center"><input class="input" readonly value="' + esc(url) + '" style="flex:1;font-size:12px" onclick="this.select()">' +
+              '<button class="btn btn-sm rlcopy" data-url="' + esc(url) + '">คัดลอก</button>' +
+              '<a class="btn btn-sm btn-primary" href="' + esc(url) + '" target="_blank" rel="noopener">เปิด ↗</a></div></div>';
+          }
+          ui.modal({ title: '🔗 ลิงก์รายงานสำหรับลูกค้า', sub: 'ส่งลิงก์ให้ลูกค้าเปิดดูได้เลย — ไม่ต้องล็อกอิน (read-only)', width: 580,
+            body: linkRow('📅 รายสัปดาห์ (7 วันล่าสุด)', org + d.week) + linkRow('🗓️ รายเดือน (30 วันล่าสุด)', org + d.month) +
+              '<div class="hint" style="margin-top:8px">ข้อมูลอัปเดตสดทุกครั้งที่เปิด · กดสร้างใหม่ = ออก token ใหม่ (ลิงก์เก่าใช้ไม่ได้)</div>' });
+          setTimeout(function () {
+            Array.prototype.forEach.call(document.querySelectorAll('.rlcopy'), function (b) {
+              b.onclick = function () { try { navigator.clipboard.writeText(b.getAttribute('data-url')); } catch (e) {} b.textContent = '✓ คัดลอกแล้ว'; setTimeout(function () { b.textContent = 'คัดลอก'; }, 1500); };
+            });
+          }, 50);
+        }).catch(function (e) { sb.disabled = false; sb.textContent = '🔗 ลิงก์รายงานลูกค้า'; ui.toast('สร้างลิงก์ไม่ได้: ' + esc(e.message || String(e))); });
       };
       if (!(pid && RP.api.enabled())) return;
       Promise.all([
