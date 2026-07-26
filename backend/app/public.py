@@ -516,74 +516,90 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 
 def render_report_page(data: dict, period_label: str, generated: str) -> str:
     proj = data["proj"]
+    en = str(getattr(proj, "language", "") or "").lower().startswith("en")   # โปรเจ็คภาษาอังกฤษ → รายงาน EN อัตโนมัติ
+
+    def t(th, en_):
+        return en_ if en else th
+
     name = _esc(proj.name or proj.domain)
 
     def n(v):
         return "—" if v is None else str(v)
 
-    kpis = [("ติดหน้า 1", n(data["page1"])), ("Top 3", n(data["top3"])), ("อันดับเฉลี่ย", n(data["avg"])),
-            ("บทความเผยแพร่", n(data["published"])),
+    kpis = [(t("ติดหน้า 1", "On page 1"), n(data["page1"])), ("Top 3", n(data["top3"])),
+            (t("อันดับเฉลี่ย", "Avg. rank"), n(data["avg"])),
+            (t("บทความเผยแพร่", "Articles published"), n(data["published"])),
             ("AI Citation", ("%s%%" % data["sov"]) if data["sov"] is not None else "—")]
     kpi_html = "".join('<div class="kpi"><div class="kv">%s</div><div class="kl">%s</div></div>' % (v, _esc(l)) for l, v in kpis)
 
     def mv(k):
         cur, prev = k["rank"], k["prev"]
         if cur is None:
-            return '<span class="pending">รอวัด</span>'
+            return '<span class="pending">%s</span>' % t("รอวัด", "Pending")
         if prev is None:
-            return '<span class="muted">ใหม่</span>'
+            return '<span class="muted">%s</span>' % t("ใหม่", "New")
         d = prev - cur
         return ('<span class="up">▲ %d</span>' % d) if d > 0 else (('<span class="down">▼ %d</span>' % (-d)) if d < 0 else '<span class="muted">—</span>')
 
     rank_rows = "".join(
         '<tr><td>%s%s</td><td class="n">%s</td><td class="n">%s</td><td class="n">%s</td></tr>'
-        % (_esc(k["keyword"]), ' <span class="pill green">หน้า 1</span>' if k["on_page1"] else '',
-           ('#%d' % k["rank"]) if k["rank"] is not None else '<span class="pending">รอวัด</span>',
+        % (_esc(k["keyword"]), (' <span class="pill green">%s</span>' % t("หน้า 1", "Page 1")) if k["on_page1"] else '',
+           ('#%d' % k["rank"]) if k["rank"] is not None else ('<span class="pending">%s</span>' % t("รอวัด", "Pending")),
            ('#%d' % k["best"]) if k["best"] is not None else '—', mv(k))
-        for k in data["kws"]) or '<tr><td colspan="4" class="center muted">ยังไม่มีข้อมูลอันดับ</td></tr>'
+        for k in data["kws"]) or ('<tr><td colspan="4" class="center muted">%s</td></tr>' % t("ยังไม่มีข้อมูลอันดับ", "No ranking data yet"))
 
     engs = "".join(
         '<div class="eng"><div class="en">%s</div><div class="ev">%s</div><div class="es">%s</div></div>'
         % (_esc(_REPORT_ENGINES.get(e, e)),
            ('%s%%' % data["per_engine"].get(e)) if data["per_engine"].get(e) is not None else '—',
-           '✓ อ้างอิงแล้ว' if (data["per_engine"].get(e) or 0) > 0 else '○ ยังไม่หยิบ')
+           t("✓ อ้างอิงแล้ว", "✓ Cited") if (data["per_engine"].get(e) or 0) > 0 else t("○ ยังไม่หยิบ", "○ Not yet"))
         for e in ("openai", "gemini", "perplexity"))
 
     proof = ""
     if data["examples"]:
-        proof = ('<h2>🎯 หลักฐาน — AI พูดถึงคุณจริง</h2><div class="card">'
-                 + "".join('<div class="proof"><div class="pe">%s ✓</div><div class="pq">ถาม: "%s"</div><div class="pa">"%s…"</div></div>'
-                           % (_esc(_REPORT_ENGINES.get(e.engine, e.engine)), _esc(e.question), _esc(e.snippet or "")[:220])
+        proof = ('<h2>%s</h2><div class="card">' % t("🎯 หลักฐาน — AI พูดถึงคุณจริง", "🎯 Proof — AI actually mentions you")
+                 + "".join('<div class="proof"><div class="pe">%s ✓</div><div class="pq">%s: "%s"</div><div class="pa">"%s…"</div></div>'
+                           % (_esc(_REPORT_ENGINES.get(e.engine, e.engine)), t("ถาม", "Q"), _esc(e.question), _esc(e.snippet or "")[:220])
                            for e in data["examples"][:4]) + '</div>')
 
     recent = ""
     if data["recent"]:
-        recent = ('<h2>บทความล่าสุด</h2><div class="card"><ul class="arts">'
+        recent = ('<h2>%s</h2><div class="card"><ul class="arts">' % t("บทความล่าสุด", "Recent articles")
                   + "".join('<li>%s<span class="muted">AEO %s</span></li>'
                             % (('<a href="%s" target="_blank" rel="noopener">%s</a>' % (_esc(a.url), _esc(a.title))) if getattr(a, "url", "") else _esc(a.title),
                                getattr(a, "aeo_score", "") or "—")
                             for a in data["recent"]) + '</ul></div>')
 
+    link = '<a href="https://imvisible.tech" style="color:var(--bl)">ImVisible</a>'
+    sub = (t("%s · %s · ผลิตในช่วงนี้ %d บทความ · คะแนน AEO เฉลี่ย %s",
+             "%s · %s · %d articles this period · avg AEO %s")
+           % (_esc(period_label), _esc(proj.domain or ""), data["new_count"],
+              (data["aeo_avg"] if data["aeo_avg"] is not None else "—")))
+    foot = (t("รายงานสร้างเมื่อ %s · ทุกตัวเลขวัดจริง ตรวจสอบย้อนได้ · จัดทำโดยระบบ AEO+SEO ของ %s",
+              "Generated %s · every figure measured &amp; verifiable · powered by %s AEO+SEO")
+            % (_esc(generated), link))
     return (
-        '<!doctype html><html lang="th"><head><meta charset="utf-8">'
+        '<!doctype html><html lang="%s"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        '<meta name="robots" content="noindex,nofollow"><title>รายงานผลงาน · %s</title>'
+        '<meta name="robots" content="noindex,nofollow"><title>%s · %s</title>'
         '<link rel="icon" href="/favicon.svg"><style>%s</style></head><body><div class="wrap">'
-        '<div class="brand"><span class="mk">i</span>ImVisible<span>· รายงานผลงาน</span></div>'
-        '<h1>%s</h1><div class="sub">%s · %s · ผลิตในช่วงนี้ %d บทความ · คะแนน AEO เฉลี่ย %s</div>'
+        '<div class="brand"><span class="mk">i</span>ImVisible<span>%s</span></div>'
+        '<h1>%s</h1><div class="sub">%s</div>'
         '<div class="card"><div class="kpis">%s</div></div>'
-        '<h2>อันดับ Google (ต่อคีย์เวิร์ด)</h2><div class="card" style="overflow-x:auto">'
-        '<table><thead><tr><th>คีย์เวิร์ด</th><th class="n">อันดับ</th><th class="n">ดีสุด</th><th class="n">เปลี่ยนแปลง</th></tr></thead>'
+        '<h2>%s</h2><div class="card" style="overflow-x:auto">'
+        '<table><thead><tr><th>%s</th><th class="n">%s</th><th class="n">%s</th><th class="n">%s</th></tr></thead>'
         '<tbody>%s</tbody></table></div>'
-        '<h2>🤖 AI แนะนำเราหรือยัง</h2><div class="card"><div class="engs">%s</div>'
-        '<div class="note">วัดจริงโดยถาม ChatGPT / Gemini / Perplexity แล้วเช็คว่าคำตอบอ้างอิงแบรนด์/เว็บของคุณ (Share of Voice)</div></div>'
-        '%s%s'
-        '<div class="foot">รายงานสร้างเมื่อ %s · ทุกตัวเลขวัดจริง ตรวจสอบย้อนได้ · จัดทำโดยระบบ AEO+SEO ของ '
-        '<a href="https://imvisible.tech" style="color:var(--bl)">ImVisible</a></div>'
+        '<h2>%s</h2><div class="card"><div class="engs">%s</div><div class="note">%s</div></div>'
+        '%s%s<div class="foot">%s</div>'
         '</div></body></html>'
-        % (name, _REPORT_CSS, name, _esc(period_label), _esc(proj.domain or ""),
-           data["new_count"], (data["aeo_avg"] if data["aeo_avg"] is not None else "—"),
-           kpi_html, rank_rows, engs, proof, recent, _esc(generated))
+        % ("en" if en else "th", t("รายงานผลงาน", "Performance Report"), name, _REPORT_CSS,
+           t(" · รายงานผลงาน", " · Performance Report"), name, sub, kpi_html,
+           t("อันดับ Google (ต่อคีย์เวิร์ด)", "Google Rankings (by keyword)"),
+           t("คีย์เวิร์ด", "Keyword"), t("อันดับ", "Rank"), t("ดีสุด", "Best"), t("เปลี่ยนแปลง", "Change"),
+           rank_rows, t("🤖 AI แนะนำเราหรือยัง", "🤖 Is AI recommending you?"), engs,
+           t("วัดจริงโดยถาม ChatGPT / Gemini / Perplexity แล้วเช็คว่าคำตอบอ้างอิงแบรนด์/เว็บของคุณ (Share of Voice)",
+             "Measured by actually querying ChatGPT / Gemini / Perplexity and checking whether the answer cites your brand/site (Share of Voice)"),
+           proof, recent, foot)
     )
 
 

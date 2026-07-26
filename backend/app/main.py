@@ -936,11 +936,17 @@ async def public_report(token: str, period: str = "week"):
     if not pid:
         raise HTTPException(404, "ไม่พบรายงาน (ลิงก์ไม่ถูกต้องหรือถูกยกเลิก)")
     days = 30 if str(period).lower().startswith("m") else 7
-    label = "รายเดือน (30 วันล่าสุด)" if days == 30 else "รายสัปดาห์ (7 วันล่าสุด)"
     data = await _public.report_data(pid, days)
     if not data:
-        raise HTTPException(404, "ยังไม่มีข้อมูลรายงาน")
-    gen = (datetime.now(timezone.utc) + timedelta(hours=7)).strftime("%d/%m/%Y %H:%M น.")
+        raise HTTPException(404, "ยังไม่มีข้อมูลรายงาน / no report data yet")
+    en = str(getattr(data["proj"], "language", "") or "").lower().startswith("en")   # ภาษาโปรเจ็ค → รายงานสองภาษา
+    now7 = datetime.now(timezone.utc) + timedelta(hours=7)
+    if en:
+        label = "Monthly (last 30 days)" if days == 30 else "Weekly (last 7 days)"
+        gen = now7.strftime("%d %b %Y, %H:%M")
+    else:
+        label = "รายเดือน (30 วันล่าสุด)" if days == 30 else "รายสัปดาห์ (7 วันล่าสุด)"
+        gen = now7.strftime("%d/%m/%Y %H:%M น.")
     html = _public.render_report_page(data, label, gen)
     return HTMLResponse(html, headers={"Cache-Control": "public, max-age=300", "X-Robots-Tag": "noindex"})
 
