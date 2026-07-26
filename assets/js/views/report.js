@@ -121,6 +121,80 @@
     el.innerHTML = ui.card({ title: '🎯 หลักฐาน AEO — AI อ้างอิงเราจริง', sub: 'ถาม AI แล้ว AI ตอบโดยอ้างถึงแบรนด์/เว็บคุณ (ตรวจสอบย้อนได้)', flush: true, body: rows });
   }
 
+  /* 🤖 AI แนะนำเราหรือยัง — โชว์ลูกค้าเห็นความเคลื่อนไหวจริง (ต่อเอนจิน + SoV + คำตอบจริงที่ AI พูดถึงเรา) */
+  function engLabel(e) { return ({ openai: 'ChatGPT', gemini: 'Gemini', perplexity: 'Perplexity', anthropic: 'Claude' })[e] || e; }
+  function engColor(e) { return ({ openai: '#10a37f', gemini: '#4285f4', perplexity: '#20b8cd', anthropic: '#d97757' })[e] || 'var(--brand-600,#4f46e5)'; }
+  function sparkline(vals) {
+    if (!vals || vals.length < 2) return '';
+    var w = 120, h = 30, mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals), rng = (mx - mn) || 1;
+    var pts = vals.map(function (v, i) { var x = (i / (vals.length - 1)) * w; var y = h - ((v - mn) / rng) * (h - 4) - 2; return x.toFixed(1) + ',' + y.toFixed(1); }).join(' ');
+    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '"><polyline points="' + pts + '" fill="none" stroke="var(--brand-600,#4f46e5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+  function moveTag(cur, prev) {
+    if (cur == null || prev == null) return '';
+    var d = Math.round((cur - prev) * 10) / 10;
+    if (d > 0) return '<span style="color:var(--green-600)">▲ +' + d + '</span>';
+    if (d < 0) return '<span style="color:var(--red-600)">▼ ' + d + '</span>';
+    return '<span class="soft">คงที่</span>';
+  }
+  function renderAiRecommend(root, p, cit, examples, aeo) {
+    var el = root.querySelector('#rp_airec'); if (!el) return;
+    cit = cit || {}; aeo = aeo || {};
+    var perEng = cit.per_engine_latest || {};
+    var runs = cit.runs || [];
+    var prevEng = (runs.length >= 2 ? (runs[runs.length - 2].per_engine || {}) : {});
+    var exs = (examples && examples.examples) || [];
+    var engines = ['openai', 'gemini', 'perplexity'];
+    var citedEngines = engines.filter(function (e) { return (perEng[e] || 0) > 0; });
+    var citedAny = citedEngines.length > 0 || exs.length > 0;
+
+    var head = citedAny
+      ? '<div class="row" style="gap:11px;align-items:center"><span style="font-size:26px">✅</span><div>' +
+          '<div class="bb" style="font-size:19px;color:var(--green-700,#15803d)">AI เริ่มแนะนำคุณแล้ว</div>' +
+          '<div class="soft small">ถูกอ้างอิงจริง ' + (exs.length || citedEngines.length) + ' รายการ · ' + (citedEngines.length || 1) + ' เอนจิน</div></div></div>'
+      : '<div class="row" style="gap:11px;align-items:center"><span style="font-size:26px">⏳</span><div>' +
+          '<div class="bb" style="font-size:19px">กำลังดันให้ AI หยิบไปแนะนำ</div>' +
+          '<div class="soft small">รอบล่าสุดยังไม่ถูกอ้างอิง — ระบบเขียน/ปรับต่อเนื่อง แล้ววัดจริงทุกสัปดาห์</div></div></div>';
+
+    var cards = engines.map(function (e) {
+      var sov = perEng[e], has = (sov || 0) > 0, mv = moveTag(sov, prevEng[e]);
+      return '<div class="card card-pad" style="text-align:center">' +
+        '<div class="bb" style="color:' + engColor(e) + '">' + engLabel(e) + '</div>' +
+        '<div style="font-size:22px;font-weight:800;margin:6px 0 2px">' + (sov != null ? sov + '%' : '—') + '</div>' +
+        '<div class="soft small">' + (has ? '✓ อ้างอิงแล้ว' : '○ ยังไม่หยิบ') + (mv ? ' · ' + mv : '') + '</div></div>';
+    }).join('');
+
+    var mov = '';
+    if (cit.latest_sov != null) {
+      mov = '<div class="row between" style="align-items:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">' +
+        '<div><div class="soft small">Share of Voice รวม (ส่วนแบ่งบนคำตอบ AI)</div>' +
+        '<div class="bb" style="font-size:20px">' + cit.latest_sov + '% <span style="font-size:13px">' + moveTag(cit.latest_sov, cit.prev_sov) + '</span></div></div>' +
+        sparkline(cit.trend) + '</div>';
+    }
+
+    var proof = '';
+    if (exs.length) {
+      proof = '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><div class="soft small" style="margin-bottom:9px">🎯 หลักฐาน — คำตอบจริงที่ AI พูดถึงคุณ (ตรวจย้อนได้)</div>' +
+        exs.slice(0, 3).map(function (e) {
+          return '<div style="margin-bottom:11px"><span style="font-weight:700;color:' + engColor(e.engine) + '">' + esc(engLabel(e.engine)) + ' ✓</span> ' +
+            '<span class="soft small">ถาม: “' + esc(e.question) + '”</span>' +
+            '<div class="soft small" style="border-left:3px solid var(--green-400,#4ade80);padding-left:9px;margin-top:4px">“' + esc(e.snippet) + '…”</div></div>';
+        }).join('') + '</div>';
+    }
+
+    var aeoNote = '';
+    if (aeo.avg_score != null) {
+      aeoNote = '<div class="hint" style="margin-top:14px">บทความคุณคะแนน AEO เฉลี่ย <b>' + aeo.avg_score + '</b> — ยิ่งคะแนนสูง (ตอบตรง+FAQ+Schema) AI ยิ่งหยิบไปแนะนำง่าย · ' +
+        '<a href="#" id="airecQ" style="font-weight:700">ตั้งคำถามที่คนถาม AI จริง →</a></div>';
+    }
+
+    el.innerHTML = ui.card({ title: '🤖 AI แนะนำเราหรือยัง',
+      sub: 'ถาม ChatGPT / Gemini / Perplexity จริง แล้วเช็คว่าหยิบเราไปตอบมั้ย — เห็นความเคลื่อนไหวทุกสัปดาห์',
+      body: head + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">' + cards + '</div>' + mov + proof + aeoNote });
+    var q = el.querySelector('#airecQ');
+    if (q) q.onclick = function (ev) { ev.preventDefault(); if (RP.openAeoQuestions) RP.openAeoQuestions(rDbId(p), p && p.name); else RP.go('projects'); };
+  }
+
   /* 🔗 Backlink คุณภาพจริง — ดึงตามคำขอ (กดปุ่ม) เพื่อคุมค่าเครดิต DataForSEO Backlinks */
   function renderBacklinks(root, pid, p) {
     var el = root.querySelector('#rp_backlinks'); if (!el) return;
@@ -150,6 +224,7 @@
   function fillReport(root, p, rank, cit, aeo, audit, examples) {
     rank = rank || {}; cit = cit || {}; aeo = aeo || {};
     renderHighlights(root, rank);
+    renderAiRecommend(root, p, cit, examples, aeo);
     renderFactors(root, audit, rDbId(p));
     renderEvidence(root, examples);
     /* renderBacklinks ปิดไว้ก่อน — ต้องสมัคร DataForSEO Backlinks API แยก */
@@ -226,9 +301,9 @@
       '<button class="btn btn-sm btn-primary" id="rpMeasure">🔄 วัดอันดับเดี๋ยวนี้</button></div>' +
       '<div id="rp_kpi" class="mb"><div class="hint">กำลังโหลดรายงาน…</div></div>' +
       '<div id="rp_hl" class="mb"></div>' +
+      '<div id="rp_airec" class="mb"></div>' +
       '<div id="rp_rank" class="mb"></div>' +
-      '<div class="grid mb" style="grid-template-columns:1fr 1fr;gap:16px"><div id="rp_aeo"></div><div id="rp_cite"></div></div>' +
-      '<div id="rp_evidence" class="mb"></div>' +
+      '<div id="rp_aeo" class="mb"></div>' +
       '<div id="rp_factors" class="mb"></div>';   /* การ์ด Backlink ปิดไว้ก่อน (ต้องสมัคร Backlinks API แยก) — เปิดคืนได้ที่ renderBacklinks */
     return { html: html, mount: function (root) {
       var mb = root.querySelector('#rpMeasure');
