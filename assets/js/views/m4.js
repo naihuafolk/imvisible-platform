@@ -45,7 +45,7 @@
         '</div>' +
         '<div class="hint">แนะนำเริ่มด้วย <b>Auto + Human Approve</b> — ปลอดภัยกว่าตามหน้าประเมินความเสี่ยง เพราะมีคนตรวจก่อนเผยแพร่จริง</div>' +
         (RP.isReal()
-          ? '<div class="hint">หมายเหตุ: การเลือกโหมดในหน้านี้ยังไม่ถูกบันทึกเข้าระบบหลังบ้านในเวอร์ชันนี้ — แจ้งทีมงานเพื่อตั้งค่าโหมดเผยแพร่จริง</div>'
+          ? '<div class="hint">เลือกโหมดแล้ว <b>บันทึกเข้าระบบทันที</b> · สลับเป็น <b>Full-Auto</b> จะเผยแพร่ร่างที่ผ่านเกณฑ์คุณภาพที่ค้างอยู่ให้เลย (สลับได้ที่นี่ หรือปุ่มโหมดมุมขวาบนทุกหน้า)</div>'
           : '');
     }
 
@@ -189,8 +189,11 @@
     return {
       html: html,
       mount: function (root) {
-        // 1) โหมดเผยแพร่ — interactive
+        // 1) โหมดเผยแพร่ — interactive + บันทึกจริง (บัญชีจริง)
         var modesWrap = root.querySelector('#rp-m4-modes');
+        function curProj() { return (RP.data.project.list || []).filter(function (x) { return x.id === RP.data.project.current; })[0]; }
+        function curDbId() { var c = curProj(); var m = c && /^db(\d+)$/.exec(String(c.id || '')); return m ? parseInt(m[1], 10) : null; }
+        if (RP.isReal()) { var c0 = curProj(); if (c0 && c0.mode) { RP.data.m4.mode = c0.mode; if (modesWrap) modesWrap.innerHTML = buildModes(); } }
 
         function wireModes() {
           var opts = modesWrap.querySelectorAll('.mode-opt');
@@ -202,9 +205,15 @@
               modesWrap.innerHTML = buildModes();
               wireModes();
               var label = m === 'auto' ? 'Full-Auto 100%' : 'Auto + Human Approve';
-              ui.toast(RP.isReal()
-                ? 'เลือก <b>' + esc(label) + '</b> ไว้ในหน้าจอแล้ว (ยังไม่บันทึกเข้าระบบหลังบ้าน)'
-                : 'เปลี่ยนโหมดเป็น <b>' + esc(label) + '</b>');
+              var pid = curDbId(), cur = curProj();
+              if (RP.isReal() && pid && RP.api && RP.api.enabled()) {
+                if (cur) cur.mode = m;
+                RP.api.setMode(pid, m).then(function (r) {
+                  ui.toast('บันทึกโหมด <b>' + esc(label) + '</b> แล้ว' + (r && r.auto_published ? ' · เผยแพร่ร่างค้าง ' + r.auto_published + ' บทความให้แล้ว' : ''));
+                }).catch(function (e) { ui.toast('บันทึกไม่ได้: ' + esc(e.message || String(e))); });
+              } else {
+                ui.toast('เปลี่ยนโหมดเป็น <b>' + esc(label) + '</b>');
+              }
             };
           });
         }

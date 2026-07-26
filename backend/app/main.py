@@ -25,7 +25,7 @@ if settings.sentry_dsn:
 from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
-    RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ChannelUpdate, DraftRequest,
+    RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ChannelUpdate, DraftRequest,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -858,6 +858,44 @@ async def set_publish_target(project_id: int, req: PublishTargetUpdate, user=Dep
             raise HTTPException(409, "โดเมนนี้ถูกใช้แล้ว")
         await s.refresh(p)
         result = _proj_dict(p)
+    return result
+
+
+@app.put("/api/projects/{project_id}/mode")
+async def set_project_mode(project_id: int, req: ProjectModeUpdate, user=Depends(get_current_user)):
+    """สลับโหมดเผยแพร่ของโปรเจ็ค: auto (Full-Auto เผยแพร่เอง) | approve (ร่างรออนุมัติก่อน)
+    สลับเป็น auto → เผยแพร่ 'ร่างที่ผ่านเกณฑ์คุณภาพ (AEO ถึงเกณฑ์)' ที่ค้างอยู่ให้เลย = เห็นผลทันที"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project, Article
+    from app.config import settings as _cfg
+    mode = (req.mode or "").strip().lower()
+    if mode not in ("auto", "approve"):
+        raise HTTPException(422, "mode ต้องเป็น auto | approve")
+    thr = int(getattr(_cfg, "min_publish_score", 82) or 82)
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        p.mode = mode
+        await s.commit()
+        drafts = []
+        if mode == "auto":                          # Full-Auto → เผยแพร่ร่างพรีเมียมที่ค้างในคิวให้เลย
+            drafts = (await s.execute(
+                select(Article.id).where(Article.project_id == project_id,
+                                         Article.status == "draft",
+                                         Article.aeo_score >= thr))).scalars().all()
+        await s.refresh(p)
+        result = _proj_dict(p)
+    published = 0
+    for aid in drafts:
+        try:
+            from app.worker.tasks import approve_article
+            approve_article.delay(aid); published += 1
+        except Exception:  # noqa: BLE001
+            pass
+    result["mode"] = mode
+    result["auto_published"] = published
     return result
 
 

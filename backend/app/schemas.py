@@ -135,6 +135,10 @@ class PublishTargetUpdate(BaseModel):
     custom_domain: str = ""
 
 
+class ProjectModeUpdate(BaseModel):
+    mode: str = "approve"            # auto (Full-Auto เผยแพร่เอง) | approve (ร่างรออนุมัติก่อนเผยแพร่)
+
+
 class ChannelUpdate(BaseModel):
     kind: str                        # line | facebook | telegram | x | linkedin | discord | mastodon | webhook
     ref: str = ""                    # facebook: page_id · line: userId/groupId (หรือ 'broadcast')

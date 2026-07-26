@@ -198,10 +198,22 @@
     if (mp) mp.onclick = function () {
       var cur = RP.data.project.list.filter(function (x) { return x.id === RP.data.project.current; })[0];
       if (!cur) { RP.ui.toast('เลือกโปรเจ็คก่อน'); return; }   // กัน null-deref เมื่อยังไม่มีโปรเจ็ค
-      cur.mode = cur.mode === 'auto' ? 'approve' : 'auto';
+      var next = cur.mode === 'auto' ? 'approve' : 'auto';
+      cur.mode = next;
       mp.outerHTML = modePill();
-      RP.ui.toast('โหมดเผยแพร่: <b>' + (cur.mode === 'auto' ? 'Full-Auto 100%' : 'Auto + Human Approve') + '</b>');
       wireTopbar();
+      var m = /^db(\d+)$/.exec(String(cur.id || ''));
+      var label = next === 'auto' ? 'Full-Auto 100%' : 'Auto + Human Approve';
+      if (m && RP.api && RP.api.enabled()) {          // บัญชีจริง → บันทึกโหมดเข้าระบบหลังบ้าน (persist)
+        RP.api.setMode(parseInt(m[1], 10), next).then(function (r) {
+          RP.ui.toast('บันทึกโหมด: <b>' + label + '</b>' + (r && r.auto_published ? ' · เผยแพร่ร่างค้าง ' + r.auto_published + ' บทความให้แล้ว' : ''));
+        }).catch(function (e) {
+          cur.mode = next === 'auto' ? 'approve' : 'auto';   // ย้อนกลับถ้าบันทึกไม่สำเร็จ
+          RP.ui.toast('บันทึกโหมดไม่ได้: ' + RP.esc(e.message || String(e)));
+        });
+      } else {
+        RP.ui.toast('โหมดเผยแพร่: <b>' + label + '</b>');
+      }
     };
     var tb = document.getElementById('themeBtn');
     if (tb) {
