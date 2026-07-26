@@ -24,7 +24,8 @@
     { section: 'รายงาน', items: [
       { id: 'report', code: '', ico: '📑', lbl: 'รายงานผลงาน' },
       { id: 'blog', code: '', ico: '🌐', lbl: 'บล็อก & การเข้าถึง' },
-      { id: 'writeblog', code: '', ico: '✍️', lbl: 'เขียนบล็อกเอง' }
+      { id: 'writeblog', code: '', ico: '✍️', lbl: 'เขียนบล็อกเอง' },
+      { id: 'leadmagnets', code: '', ico: '🎁', lbl: 'สื่อแจกฟรี' }
     ]},
     { section: 'Google Ads', items: [
       { id: 'ads', code: '', ico: '📣', lbl: 'Google Ads' }
@@ -47,6 +48,7 @@
     report: 'รายงานผลงาน',
     blog: 'บล็อก & การเข้าถึง',
     writeblog: 'เขียนบล็อกเอง',
+    leadmagnets: 'สื่อแจกฟรี (Lead Magnet)',
     ads: 'Google Ads',
     projects: 'จัดการโปรเจ็ค',
     settings: 'การตั้งค่า'
@@ -63,7 +65,7 @@
     var by = {};
     NAV.forEach(function (g) { g.items.forEach(function (it) { by[it.id] = it; }); });
     return [
-      { section: 'ภาพรวม', items: [by.dashboard, by.report, by.blog, by.writeblog, by.activity] },
+      { section: 'ภาพรวม', items: [by.dashboard, by.report, by.blog, by.writeblog, by.leadmagnets, by.activity] },
       { section: 'Google Ads', items: [by.ads] },
       { section: 'โปรเจ็ค', items: [by.projects] },
       { section: 'ระบบ', items: [by.settings] },

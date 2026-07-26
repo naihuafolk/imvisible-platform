@@ -145,6 +145,18 @@ class BacklinkOutreachRequest(BaseModel):
     kind: str = "mention"            # mention | resource | guest
 
 
+class LeadMagnetCreate(BaseModel):
+    kind: str = "guide"              # course | guide | checklist | template
+    topic: str = ""                  # หัวข้อสื่อที่อยากแจก
+    require_share: bool = False       # ต้องกดแชร์ก่อนปลดล็อก (เพิ่ม reach)
+
+
+class LeadUnlock(BaseModel):
+    email: str = ""
+    name: str = ""
+    shared: bool = False
+
+
 class ChannelUpdate(BaseModel):
     kind: str                        # line | facebook | telegram | x | linkedin | discord | mastodon | webhook
     ref: str = ""                    # facebook: page_id · line: userId/groupId (หรือ 'broadcast')

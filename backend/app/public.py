@@ -617,6 +617,107 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
     )
 
 
+_LM_CSS = """
+*{box-sizing:border-box}:root{--pp:#fff;--ink:#0f1830;--mut:#5a6a86;--bl:#1b3fd4;--ln:#e7ecf6;--wash:#f6f8fd}
+@media(prefers-color-scheme:dark){:root{--pp:#0b111f;--ink:#eef2fb;--mut:#93a3c2;--bl:#7d97ff;--ln:#233150;--wash:#111a2e}}
+body{margin:0;background:var(--wash);color:var(--ink);font-family:"Sarabun","Noto Sans Thai","Segoe UI",system-ui,sans-serif;line-height:1.72}
+.wrap{max-width:760px;margin:0 auto;padding:26px 20px 70px}
+.brand{font-weight:800;display:flex;align-items:center;gap:9px}
+.brand .mk{width:26px;height:26px;border-radius:7px;background:var(--bl);color:#fff;display:grid;place-items:center;font-size:14px}
+.kb{display:inline-block;background:var(--bl);color:#fff;font-size:12.5px;font-weight:800;padding:4px 13px;border-radius:999px;margin:16px 0 0}
+h1{font-size:clamp(25px,4.5vw,37px);line-height:1.16;letter-spacing:-.02em;margin:10px 0 6px;text-wrap:balance}
+.desc{color:var(--mut);font-size:16px;margin-bottom:20px}
+.cover{width:100%;border-radius:16px;aspect-ratio:16/9;object-fit:cover;margin-bottom:20px;display:block}
+.card{background:var(--pp,#fff);border:1px solid var(--ln);border-radius:18px;padding:22px 24px}
+.teaser h2{font-size:19px;margin:20px 0 8px}.teaser h3{font-size:16px;margin:14px 0 6px}.teaser p,.teaser li{font-size:15.5px}.teaser ul,.teaser ol{padding-left:1.35em}
+.gate{background:linear-gradient(135deg,#3d6bff,#5b4ff0);color:#fff;border-radius:18px;padding:26px 22px;margin:24px 0;text-align:center}
+.gate h3{font-size:21px;margin:0 0 4px}.gate p{opacity:.92;font-size:14.5px;margin:0 0 16px}
+.gate input{width:100%;max-width:380px;padding:13px 15px;border:0;border-radius:10px;font-size:15px;margin:6px auto;display:block;color:#0f1830}
+.gate .btn{background:#fff;color:#3d6bff;font-weight:800;border:0;padding:13px 32px;border-radius:999px;font-size:15px;cursor:pointer;margin-top:10px}
+.gate .btn:disabled{opacity:.7}
+.gate .share{background:transparent;border:1.5px solid rgba(255,255,255,.65);color:#fff;font-weight:700;padding:9px 22px;border-radius:999px;cursor:pointer;font-size:13px;margin-bottom:12px}
+.content{display:none}.content h2{font-size:22px;margin:26px 0 10px}.content h3{font-size:18px;margin:18px 0 8px}.content p,.content li{font-size:16.5px}.content ul,.content ol{padding-left:1.45em}.content strong{font-weight:700}
+.foot{color:var(--mut);font-size:12.5px;text-align:center;margin-top:34px;line-height:1.7}.foot a{color:var(--bl)}
+"""
+
+
+def render_lead_magnet_gate(magnet, proj) -> str:
+    """หน้า gate สื่อแจกฟรี — teaser สาธารณะ (ให้ติดอันดับ) + ฟอร์มกรอกอีเมลปลดล็อกเนื้อหาเต็ม · สองภาษาตามโปรเจ็ค"""
+    import json as _json
+    en = str(getattr(proj, "language", "") or "").lower().startswith("en")
+
+    def t(th, e):
+        return e if en else th
+
+    title = _esc(magnet.title or "")
+    desc = _esc(magnet.description or "")
+    teaser = magnet.teaser_html or ""
+    brand = _esc(proj.name or proj.domain)
+    cover = _esc(getattr(magnet, "cover_url", "") or "")
+    req_share = bool(getattr(magnet, "require_share", False))
+    kb = {"course": t("🎓 คอร์สเรียนฟรี", "🎓 Free course"), "guide": t("📕 คู่มือฟรี", "📕 Free guide"),
+          "checklist": t("✅ เช็คลิสต์ฟรี", "✅ Free checklist"), "template": t("📝 เทมเพลตฟรี", "📝 Free template")
+          }.get(magnet.kind, t("🎁 ของฟรี", "🎁 Free"))
+    share_lbl = t("📤 แชร์เพื่อปลดล็อก", "📤 Share to unlock") if req_share else t("📤 แชร์ให้เพื่อน (ไม่บังคับ)", "📤 Share with a friend (optional)")
+    cfg = _json.dumps({
+        "token": magnet.token or "", "reqshare": req_share,
+        "loading": t("กำลังปลดล็อก…", "Unlocking…"),
+        "unlock": t("รับเลย — ปลดล็อกฟรี", "Get it — unlock free"),
+        "bademail": t("กรุณากรอกอีเมลที่ถูกต้อง", "Please enter a valid email"),
+        "sharefirst": t("กดแชร์ก่อนเพื่อปลดล็อกนะครับ", "Please share first to unlock"),
+        "shared": t("✓ แชร์แล้ว", "✓ Shared"),
+        "err": t("เกิดข้อผิดพลาด ลองใหม่อีกครั้ง", "Something went wrong, please try again"),
+    }, ensure_ascii=False).replace("</", "<\\/")
+    js = ('<script>window.LM=%s;</script>'
+          '<script>(function(){var L=window.LM||{};var f=document.getElementById("lm-form"),'
+          'c=document.getElementById("lm-content"),g=document.getElementById("lm-gate"),'
+          'sh=document.getElementById("lm-share"),shared=false;'
+          'if(sh)sh.onclick=function(){shared=true;window.open("https://www.facebook.com/sharer/sharer.php?u="'
+          '+encodeURIComponent(location.href),"_blank","noopener");sh.textContent=L.shared;};'
+          'if(f)f.onsubmit=function(e){e.preventDefault();var em=(document.getElementById("lm-email").value||"").trim();'
+          'if(!em||em.indexOf("@")<1){alert(L.bademail);return;}if(L.reqshare&&!shared){alert(L.sharefirst);return;}'
+          'var b=document.getElementById("lm-btn");b.disabled=true;b.textContent=L.loading;'
+          'fetch("/api/lead/"+L.token+"/unlock",{method:"POST",headers:{"Content-Type":"application/json"},'
+          'body:JSON.stringify({email:em,name:(document.getElementById("lm-name")||{}).value||"",shared:shared})})'
+          '.then(function(r){return r.json();}).then(function(d){if(d&&d.content_html){c.innerHTML=d.content_html;'
+          'c.style.display="block";if(g)g.style.display="none";c.scrollIntoView({behavior:"smooth"});}'
+          'else{b.disabled=false;b.textContent=L.unlock;alert((d&&d.detail)||L.err);}})'
+          '.catch(function(){b.disabled=false;b.textContent=L.unlock;alert(L.err);});};})();</script>'
+          % cfg)
+    cover_html = ('<img class="cover" src="%s" alt="%s" loading="lazy">' % (cover, title)) if cover else ""
+    gate_html = (
+        '<div class="gate" id="lm-gate"><h3>%s</h3><p>%s</p>'
+        '<form id="lm-form">%s'
+        '<input id="lm-name" type="text" placeholder="%s" autocomplete="name">'
+        '<input id="lm-email" type="email" required placeholder="%s" autocomplete="email">'
+        '<button class="btn" id="lm-btn" type="submit">%s</button></form></div>'
+        % (t("กรอกอีเมลเพื่อรับฟรีทันที", "Enter your email to get it free"),
+           t("ส่งให้ทางอีเมล + ปลดล็อกอ่านได้เลยด้านล่าง", "Delivered to your inbox + unlocked below instantly"),
+           ('<button type="button" id="lm-share" class="share">%s</button><br>' % share_lbl),
+           t("ชื่อ (ไม่บังคับ)", "Name (optional)"),
+           t("อีเมลของคุณ", "Your email"),
+           t("รับเลย — ปลดล็อกฟรี", "Get it — unlock free")))
+    return (
+        '<!doctype html><html lang="%s"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>%s</title><meta name="description" content="%s">'
+        '<meta property="og:title" content="%s"><meta property="og:description" content="%s">'
+        '%s<link rel="icon" href="/favicon.svg"><style>%s</style></head><body><div class="wrap">'
+        '<div class="brand"><span class="mk">i</span>%s</div>'
+        '<span class="kb">%s</span><h1>%s</h1><div class="desc">%s</div>'
+        '%s'
+        '<div class="card teaser">%s</div>'
+        '%s'
+        '<div class="content" id="lm-content"></div>'
+        '<div class="foot">%s · %s</div>%s'
+        '</div></body></html>'
+        % ("en" if en else "th", title, desc, title, desc,
+           (('<meta property="og:image" content="%s">' % cover) if cover else ""),
+           _LM_CSS, brand, kb, title, desc, cover_html, teaser, gate_html,
+           t("แจกฟรีโดย", "Free from"), brand, js)
+    )
+
+
 def render_index_page(proj, arts) -> str:
     home = project_public_home(proj)
     lang = "en" if str(proj.language).lower().startswith("en") else "th"

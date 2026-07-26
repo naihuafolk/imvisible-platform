@@ -170,3 +170,34 @@ class DistributionEvent(Base):
     url: Mapped[str] = mapped_column(String(600), default="")
     detail: Mapped[str] = mapped_column(String(400), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LeadMagnet(Base):
+    """สื่อแจกฟรี (คอร์ส/คู่มือ/เช็คลิสต์/เทมเพลต) — gate หลังอีเมล/แชร์ เพื่อเก็บลีด
+    มีเวอร์ชันสาธารณะ (teaser) ให้ Google เก็บ+ติดอันดับ + เวอร์ชันเต็ม (content) ปลดล็อกด้วยอีเมล"""
+    __tablename__ = "lead_magnets"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(20), default="guide")      # course | guide | checklist | template
+    title: Mapped[str] = mapped_column(String(300), default="")
+    description: Mapped[str] = mapped_column(Text, default="")          # คำโปรยสั้น (โชว์บนหน้า gate + meta)
+    teaser_html: Mapped[str] = mapped_column(Text, default="")          # สารบัญ/เกริ่น โชว์ก่อนปลดล็อก (สาธารณะ ติดอันดับได้)
+    content_html: Mapped[str] = mapped_column(Text, default="")         # เนื้อหาเต็ม (โชว์หลังกรอกอีเมล)
+    cover_url: Mapped[str] = mapped_column(Text, default="")
+    token: Mapped[str] = mapped_column(String(64), default="", index=True)   # ลิงก์ gate สาธารณะ
+    require_share: Mapped[bool] = mapped_column(Boolean, default=False)      # ต้องกดแชร์ก่อนปลดล็อก (เพิ่ม reach)
+    leads_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Lead(Base):
+    """ลีดที่เก็บได้จากสื่อแจกฟรี — เอาไปตามขายบริการ (funnel เนียนขาย)"""
+    __tablename__ = "leads"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    magnet_id: Mapped[int | None] = mapped_column(ForeignKey("lead_magnets.id"), nullable=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), default="", index=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    shared: Mapped[bool] = mapped_column(Boolean, default=False)
+    source: Mapped[str] = mapped_column(String(160), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

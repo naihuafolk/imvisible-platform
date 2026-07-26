@@ -433,6 +433,47 @@ async def infographic_spec(article_text: str, topic: str, language: str = "ภ�
         return {}
 
 
+_LM_KINDS = {
+    "course": "มินิคอร์สออนไลน์ แบ่งเป็น 4-6 บทเรียน (Module/Lesson) เรียงจากพื้นฐานไปประยุกต์ แต่ละบทมีหัวข้อ เนื้อหาสอนจริง ตัวอย่าง และ 'สิ่งที่ต้องลงมือทำ' ท้ายบท",
+    "guide": "คู่มือ/ebook เชิงลึก มีสารบัญ บทนำ 5-8 หัวข้อหลัก (H2) พร้อมรายละเอียดที่ทำตามได้จริง ตัวอย่าง และสรุปท้าย",
+    "checklist": "เช็คลิสต์ลงมือทำ จัดเป็นหมวด (H2) แต่ละหมวดเป็นรายการ (<ul>) พร้อมคำอธิบายสั้นว่าทำไมข้อนั้นสำคัญ",
+    "template": "เทมเพลตพร้อมใช้ มีโครง/ช่องให้เติม + คำแนะนำวิธีใช้แต่ละส่วน + ตัวอย่างที่กรอกแล้ว 1 ชุด",
+}
+
+
+async def generate_lead_magnet(kind: str, topic: str, business_context: str = "",
+                               language: str = "ภาษาไทย") -> dict:
+    """สร้างสื่อการเรียนการสอน (lead magnet) คุณภาพสูงด้วยโมเดลเขียนดีสุด (Fable 5)
+    คืน title/description/teaser_html/content_html · teaser = สาธารณะ (ให้ติดอันดับ) · content = เต็ม (ปลดล็อกด้วยอีเมล)
+    ยึดหลักไม่ปั้นข้อมูล: ไม่รู้จริงใช้ [ต้องเติม: ...]"""
+    spec = _LM_KINDS.get(kind, _LM_KINDS["guide"])
+    system = ("คุณคือผู้เชี่ยวชาญออกแบบสื่อการเรียนการสอน + นักเขียนคอนเทนต์ระดับโลก "
+              "สร้าง 'สื่อแจกฟรี' ที่มีค่าจริงจนคนยอมแลกอีเมล/แชร์ — สอนได้จริง ทำตามได้ ไม่ใช่โฆษณา "
+              "ห้ามแต่งตัวเลข/สถิติ/เคสปลอม (ไม่รู้จริงใช้ [ต้องเติม: ...]) เขียนภาษา%s เจ้าของภาษา ไม่มีกลิ่นแปลเครื่อง" % language)
+    user = ("หัวข้อ: %s\nชนิดสื่อ: %s\nบริบทธุรกิจ (ให้เนื้อหาตรงกลุ่มลูกค้าจริง): %s\nปีปัจจุบัน: %s\n\n"
+            "ออกแบบและเขียน: %s\n\n"
+            "ส่งเป็น JSON valid เท่านั้น (ห้าม markdown fence):\n"
+            '{"title":"ชื่อสื่อที่ดึงดูด เน้นผลลัพธ์","description":"คำโปรย 1-2 ประโยคที่ทำให้อยากได้",'
+            '"teaser_html":"HTML เกริ่น+สารบัญ+ตัวอย่างสั้น (โชว์ก่อนปลดล็อก ให้คนอยากกรอกอีเมล) ~150-250 คำ",'
+            '"content_html":"HTML เนื้อหาเต็ม ใช้ <h2><h3><p><ul><ol><li><strong> เท่านั้น ห้าม H1 ห้าม inline style"}'
+            % (topic, spec, (business_context or "-")[:600], _this_year(), spec))
+    _prov, text = await _llm(system, user, tier="premium")
+    raw = _strip_fence(text).strip()
+    try:
+        data = json.loads(raw)
+    except Exception:  # noqa: BLE001
+        i, j = raw.find("{"), raw.rfind("}")
+        data = json.loads(raw[i:j + 1]) if (i >= 0 and j > i) else {}
+    if not isinstance(data, dict) or not str(data.get("content_html") or "").strip():
+        raise RuntimeError("สร้างสื่อไม่สำเร็จ (เนื้อหาว่าง)")
+    return {
+        "title": str(data.get("title") or topic).strip()[:280],
+        "description": str(data.get("description") or "").strip()[:500],
+        "teaser_html": _lint(str(data.get("teaser_html") or "")),
+        "content_html": _lint(str(data.get("content_html") or "")),
+    }
+
+
 # ============ optimize (feedback loop จาก AEO Score → เขียนซ่อมให้คะแนนขึ้น) ============
 
 _IMPROVE_SYSTEM = ("คุณคือบรรณาธิการ AEO/SEO ภาษาไทยระดับโลก งานนี้คือ 'ซ่อมบทความเดิม' ให้แข็งขึ้นตามจุดอ่อนที่ระบุ "

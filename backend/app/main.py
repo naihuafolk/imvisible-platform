@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest,
+    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -2008,6 +2008,111 @@ async def backlink_outreach(project_id: int, req: BacklinkOutreachRequest, user=
         return await discovery.draft_outreach(req.url, req.title, req.kind, brand, domain, lang)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, "ร่างข้อความไม่ได้ (ตรวจคีย์ LLM): " + str(e)[:150])
+
+
+@app.post("/api/projects/{project_id}/lead-magnets")
+async def create_lead_magnet(project_id: int, req: LeadMagnetCreate, user=Depends(get_current_user)):
+    """สร้างสื่อแจกฟรี (คอร์ส/คู่มือ/เช็คลิสต์/เทมเพลต) ด้วย AI → ได้ลิงก์ gate เก็บลีด"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import LeadMagnet
+    from app.connectors import content
+    topic = (req.topic or "").strip()
+    if not topic:
+        raise HTTPException(422, "กรุณาระบุหัวข้อสื่อ")
+    kind = req.kind if req.kind in ("course", "guide", "checklist", "template") else "guide"
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        biz = getattr(p, "business_context", "") or p.name
+        lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
+    try:
+        gen = await content.generate_lead_magnet(kind, topic, business_context=biz, language=lang)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "สร้างสื่อไม่สำเร็จ (ตรวจคีย์ LLM): " + str(e)[:150])
+    async with db.session() as s:
+        m = LeadMagnet(project_id=project_id, kind=kind, title=gen["title"],
+                       description=gen["description"], teaser_html=gen["teaser_html"],
+                       content_html=gen["content_html"], token=secrets.token_urlsafe(12),
+                       require_share=bool(req.require_share))
+        s.add(m); await s.commit(); await s.refresh(m)
+        out = {"id": m.id, "kind": m.kind, "title": m.title, "token": m.token,
+               "require_share": m.require_share, "path": "/api/lead/%s" % m.token}
+    return out
+
+
+@app.get("/api/projects/{project_id}/lead-magnets")
+async def list_lead_magnets(project_id: int, user=Depends(get_current_user)):
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import LeadMagnet
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+        rows = (await s.execute(select(LeadMagnet).where(LeadMagnet.project_id == project_id)
+                .order_by(LeadMagnet.id.desc()))).scalars().all()
+    return {"magnets": [{"id": m.id, "kind": m.kind, "title": m.title, "token": m.token,
+                         "require_share": m.require_share, "leads_count": m.leads_count,
+                         "path": "/api/lead/%s" % m.token} for m in rows]}
+
+
+@app.get("/api/projects/{project_id}/leads")
+async def list_leads(project_id: int, user=Depends(get_current_user)):
+    """รายชื่อลีดที่เก็บได้จากสื่อแจกฟรี — เอาไปตามขายบริการ"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Lead
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+        rows = (await s.execute(select(Lead).where(Lead.project_id == project_id)
+                .order_by(Lead.id.desc()).limit(500))).scalars().all()
+    return {"leads": [{"email": r.email, "name": r.name, "shared": r.shared, "source": r.source,
+                       "at": r.created_at.isoformat() if r.created_at else ""} for r in rows],
+            "count": len(rows)}
+
+
+@app.get("/api/lead/{token}")
+async def public_lead_gate(token: str):
+    """หน้า gate สื่อแจกฟรี (สาธารณะ ไม่ต้องล็อกอิน) — teaser ติดอันดับได้ + ฟอร์มปลดล็อก"""
+    from fastapi.responses import HTMLResponse
+    from app.db.models import Project, LeadMagnet
+    from app import public as _public
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    async with db.session() as s:
+        m = (await s.execute(select(LeadMagnet).where(
+            LeadMagnet.token == (token or "").strip()).limit(1))).scalars().first()
+        if not m:
+            raise HTTPException(404, "ไม่พบสื่อนี้ / not found")
+        proj = await s.get(Project, m.project_id)
+    if not proj:
+        raise HTTPException(404, "not found")
+    return HTMLResponse(_public.render_lead_magnet_gate(m, proj),
+                        headers={"Cache-Control": "public, max-age=120"})
+
+
+@app.post("/api/lead/{token}/unlock")
+async def public_lead_unlock(token: str, req: LeadUnlock):
+    """ปลดล็อกสื่อ: เก็บอีเมล (ลีด) → คืนเนื้อหาเต็ม · ไม่ต้องล็อกอิน · กันอีเมลซ้ำต่อสื่อ"""
+    from app.db.models import LeadMagnet, Lead
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    email = (req.email or "").strip().lower()
+    if "@" not in email or len(email) < 5:
+        raise HTTPException(422, "อีเมลไม่ถูกต้อง / invalid email")
+    async with db.session() as s:
+        m = (await s.execute(select(LeadMagnet).where(
+            LeadMagnet.token == (token or "").strip()).limit(1))).scalars().first()
+        if not m:
+            raise HTTPException(404, "not found")
+        dup = (await s.execute(select(Lead.id).where(
+            Lead.magnet_id == m.id, Lead.email == email).limit(1))).scalar()
+        if not dup:
+            s.add(Lead(project_id=m.project_id, magnet_id=m.id, email=email,
+                       name=(req.name or "").strip()[:200], shared=bool(req.shared),
+                       source=("lead-magnet: " + (m.title or ""))[:160]))
+            m.leads_count = (m.leads_count or 0) + 1
+            await s.commit()
+        content_html = m.content_html or ""
+    return {"content_html": content_html}
 
 
 @app.get("/api/tls/check")
