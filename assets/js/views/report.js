@@ -25,6 +25,17 @@
     var bg = lb === 'ง่าย' ? 'var(--green-50,#f0fdf4)' : (lb === 'ยาก' ? 'var(--red-50,#fef2f2)' : 'var(--amber-50,#fffbeb)');
     return ' <span title="ความยากในการติดอันดับ (ประเมินจากหน้า SERP จริง)" style="font-size:10px;padding:1px 7px;border-radius:999px;white-space:nowrap;color:' + c + ';background:' + bg + '">' + esc(lb) + '</span>';
   }
+  /* สถานะที่ระบบทำถึงไหนต่อคีย์ — ทำให้เห็นว่า "คีย์ที่ยังไม่ติด" กำลังถูกทำอยู่ ไม่ได้นิ่ง */
+  var STAGE_UI = {
+    published: ['✍️ เผยแพร่แล้ว', 'var(--green-700,#15803d)', 'var(--green-50,#f0fdf4)'],
+    scheduled: ['📅 ตั้งเวลา', 'var(--brand-700,#4338ca)', 'var(--brand-50,#eef2ff)'],
+    drafting: ['📝 กำลังเขียน', 'var(--amber-700,#b45309)', 'var(--amber-50,#fffbeb)'],
+    queued: ['🕒 รอคิวเขียน', 'var(--text-soft,#64748b)', 'var(--surface-2,#f1f5f9)']
+  };
+  function stageChip(k) {
+    var u = STAGE_UI[k && k.stage] || STAGE_UI.queued;
+    return '<span title="สถานะการทำงานของระบบต่อคีย์นี้" style="font-size:11px;padding:2px 9px;border-radius:999px;white-space:nowrap;font-weight:600;color:' + u[1] + ';background:' + u[2] + '">' + u[0] + '</span>';
+  }
   function moveCell(k) {
     var cur = k.rank, prev = k.prev_rank;
     if (cur == null && prev != null) return '<span style="color:var(--red-600)">▼ หลุด</span>';
@@ -270,12 +281,18 @@
           var rl = k.pending ? '<span class="soft">กำลังติดตาม</span>' : rankLabel(k.rank);
           return '<tr' + (striking ? ' style="background:var(--amber-50,#fffbeb)"' : '') + '>' +
             '<td><span class="t">' + esc(k.keyword) + '</span> ' + badge + diffChip(k) + '</td>' +
+            '<td>' + stageChip(k) + '</td>' +
             '<td class="num bb">' + rl + '</td>' +
             '<td class="num soft">' + (k.best_rank != null ? ('#' + k.best_rank) : '—') + '</td>' +
             '<td class="num">' + (k.pending ? '<span class="soft">รอวัด</span>' : moveCell(k)) + '</td></tr>';
         }).join('');
-        rk.innerHTML = ui.card({ title: 'อันดับ Google (ต่อคีย์เวิร์ด)', sub: 'อันดับจริงจาก SERP · แถวเหลือง = จ่อหน้า 1 (กำลังดัน) · ป้าย ง่าย/ปานกลาง/ยาก = ความยากในการติด (ระบบตีตัวง่ายก่อน)', flush: true,
-          body: '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>คีย์เวิร์ด</th><th class="right">อันดับ</th><th class="right">ดีสุด</th><th class="right">เปลี่ยนแปลง</th></tr></thead><tbody>' + rows + '</tbody></table></div>' });
+        var pl = rank.pipeline || {};
+        var writing = (pl.drafting || 0) + (pl.scheduled || 0);
+        var plBanner = '<div class="hint" style="margin-bottom:12px">🚀 <b>ระบบกำลังไล่ทำครบทุกคีย์:</b> ' +
+          '✍️ เผยแพร่แล้ว <b>' + (pl.published || 0) + '</b> · 📝 กำลังเขียน/รออนุมัติ <b>' + writing + '</b> · 🕒 รอคิวเขียน <b>' + (pl.queued || 0) + '</b>' +
+          ' — คีย์ที่ยัง "ไม่ติด" ส่วนใหญ่คือ<b>เขียน+เผยแพร่แล้ว กำลังรอ Google จัดอันดับ</b> หรืออยู่ในคิวเขียนรอบถัดไป</div>';
+        rk.innerHTML = ui.card({ title: 'อันดับ Google (ต่อคีย์เวิร์ด)', sub: 'อันดับจริงจาก SERP · คอลัมน์ "สถานะระบบ" = ระบบทำถึงไหนต่อคีย์ · แถวเหลือง = จ่อหน้า 1 (กำลังดัน)', flush: true,
+          body: plBanner + '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>คีย์เวิร์ด</th><th>สถานะระบบ</th><th class="right">อันดับ</th><th class="right">ดีสุด</th><th class="right">เปลี่ยนแปลง</th></tr></thead><tbody>' + rows + '</tbody></table></div>' });
       }
     }
     var av = root.querySelector('#rp_aeo');

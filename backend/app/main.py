@@ -1324,13 +1324,17 @@ async def project_rank_history(project_id: int, user=Depends(get_current_user)):
     ไม่มีข้อมูล = ว่างจริง (บัญชีจริงต้องรอเก็บ 1-7 วัน หรือกดตรวจสด)"""
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
-    from app.db.models import RankSnapshot
+    from app.db.models import RankSnapshot, Article
+    from app import public as _public
     async with db.session() as s:
         proj = await _read_project(s, project_id, user)
         plan_raw = getattr(proj, "topic_plan", "") or ""
         rows = (await s.execute(
             select(RankSnapshot).where(RankSnapshot.project_id == project_id)
             .order_by(RankSnapshot.checked_at))).scalars().all()
+        arts = (await s.execute(select(Article.title, Article.status)
+                .where(Article.project_id == project_id))).all()
+    status_map = _public.article_status_map(arts)   # หัวข้อบทความ(=คีย์) → สถานะ (published/draft/…)
 
     latest: dict[str, dict] = {}          # อันดับล่าสุดต่อคีย์เวิร์ด (rows เรียง asc → ตัวหลังทับ = ใหม่สุด)
     series: dict[str, list] = {}          # keyword → ลำดับอันดับตามเวลา (ไว้คิด best/prev)
@@ -1383,6 +1387,14 @@ async def project_rank_history(project_id: int, user=Depends(get_current_user)):
             kws.append(entry)
     except Exception:  # noqa: BLE001
         pass
+    # 🔎 สถานะไปป์ไลน์ต่อคีย์ — ให้เห็นว่า "คีย์ที่ยังไม่ติด" ระบบทำถึงไหนแล้ว (เขียน/รอคิว/เผยแพร่)
+    pipeline = {"published": 0, "scheduled": 0, "drafting": 0, "queued": 0}
+    for k in kws:
+        stage, label = _public.keyword_stage(
+            status_map.get(str(k.get("keyword") or "").strip().lower(), ""))
+        k["stage"] = stage
+        k["stage_label"] = label
+        pipeline[stage] = pipeline.get(stage, 0) + 1
     ranked = [k["rank"] for k in kws if k["rank"] is not None]
     page1 = sum(1 for k in kws if k["on_page1"])
     top3 = sum(1 for k in kws if k["rank"] is not None and k["rank"] <= 3)
@@ -1393,6 +1405,7 @@ async def project_rank_history(project_id: int, user=Depends(get_current_user)):
         "keywords_tracked": len(latest),
         "keywords_total": len(have_kw),          # คีย์ที่ติดตามทั้งหมด (วัดแล้ว + รอวัด) — ตรงกับที่ลูกค้าเพิ่ม
         "page1": page1, "top3": top3, "avg_position": avg_position,
+        "pipeline": pipeline,                    # ระบบทำถึงไหน: เผยแพร่แล้ว/ตั้งเวลา/กำลังเขียน/รอคิว
         "keywords": kws[:50],
         "page1_trend": [t["page1"] for t in trend],
         "trend": trend,

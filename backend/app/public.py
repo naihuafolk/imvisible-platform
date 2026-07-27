@@ -439,6 +439,43 @@ def render_article_page(proj, art, related=None) -> str:
 _REPORT_ENGINES = {"openai": "ChatGPT", "gemini": "Gemini", "perplexity": "Perplexity", "anthropic": "Claude"}
 
 
+# ── สถานะไปป์ไลน์ต่อคีย์เวิร์ด (ทำให้เห็นว่า "คีย์ที่ยังไม่ติด" ระบบกำลังทำอะไรอยู่) ──
+# บทความถูกสร้างด้วย title = หัวข้อ (topic) ตรงตัว → จับคู่คีย์↔บทความด้วยชื่อได้
+_STAGE_LABELS = {
+    "published": ("✍️ เขียน+เผยแพร่แล้ว", "✍️ Published"),
+    "scheduled": ("📅 ตั้งเวลาเผยแพร่", "📅 Scheduled"),
+    "drafting":  ("📝 กำลังเขียน/รออนุมัติ", "📝 Writing / review"),
+    "queued":    ("🕒 อยู่ในคิวเขียน", "🕒 In write queue"),
+}
+_STATUS_PRIORITY = {"published": 5, "scheduled": 4, "ready": 3, "factcheck": 2, "draft": 1}
+
+
+def article_status_map(rows) -> dict:
+    """rows = [(title, status)] → {title_lower: best_status} (เลือกสถานะที่ 'ก้าวหน้าที่สุด' ถ้าซ้ำ)"""
+    m: dict = {}
+    for title, status in rows:
+        key = (title or "").strip().lower()
+        if not key:
+            continue
+        if key not in m or _STATUS_PRIORITY.get(status, 0) > _STATUS_PRIORITY.get(m[key], 0):
+            m[key] = status
+    return m
+
+
+def keyword_stage(status: str, en: bool = False) -> tuple:
+    """สถานะบทความ (ว่าง=ยังไม่มีบทความ) → (stage, label) สำหรับโชว์ในรายงาน"""
+    if not status:
+        stage = "queued"
+    elif status == "published":
+        stage = "published"
+    elif status == "scheduled":
+        stage = "scheduled"
+    else:                                    # draft | factcheck | ready
+        stage = "drafting"
+    th, e = _STAGE_LABELS[stage]
+    return stage, (e if en else th)
+
+
 async def report_data(project_id: int, days: int) -> dict | None:
     """รวมข้อมูลรายงานของโปรเจ็ค (อันดับ · AEO · AI citation · บทความ) — สำหรับหน้ารายงานสาธารณะ (ไม่ต้องล็อกอิน)"""
     from datetime import datetime, timezone, timedelta
@@ -454,6 +491,8 @@ async def report_data(project_id: int, days: int) -> dict | None:
                 .order_by(RankSnapshot.checked_at))).scalars().all()
         arts = (await s.execute(select(Article).where(Article.project_id == project_id,
                 Article.status == "published").order_by(Article.id.desc()))).scalars().all()
+        all_art_rows = (await s.execute(select(Article.title, Article.status)
+                .where(Article.project_id == project_id))).all()
         csnaps = (await s.execute(select(CitationSnapshot).where(CitationSnapshot.project_id == project_id)
                 .order_by(CitationSnapshot.sampled_at))).scalars().all()
         cexs = (await s.execute(select(CitationExample).where(CitationExample.project_id == project_id)
@@ -467,6 +506,27 @@ async def report_data(project_id: int, days: int) -> dict | None:
         info["best"] = min(seq) if seq else None
         info["prev"] = series[kw][-2] if len(series[kw]) >= 2 else None
     kws = sorted(latest.values(), key=lambda k: (k["rank"] is None, k["rank"] if k["rank"] is not None else 999))
+    # เพิ่มคีย์จากแผน (topic_plan) ที่ยังไม่ถูกวัด → ลูกค้าเห็นครบ + สถานะที่ระบบทำถึงไหน
+    import json as _json
+    have_kw = {str(k.get("keyword") or "").strip().lower() for k in kws}
+    try:
+        for it in (_json.loads(getattr(proj, "topic_plan", "") or "") if (getattr(proj, "topic_plan", "") or "").strip() else []):
+            topic = ((it.get("topic") if isinstance(it, dict) else str(it)) or "").strip()
+            if not topic or topic.lower() in have_kw:
+                continue
+            have_kw.add(topic.lower())
+            kws.append({"keyword": topic, "rank": None, "on_page1": False, "best": None, "prev": None, "pending": True})
+    except Exception:  # noqa: BLE001
+        pass
+    kws = sorted(kws, key=lambda k: (k["rank"] is None, k["rank"] if k["rank"] is not None else 999))
+    status_map = article_status_map(all_art_rows)
+    _en = str(getattr(proj, "language", "") or "").lower().startswith("en")
+    pipeline = {"published": 0, "scheduled": 0, "drafting": 0, "queued": 0}
+    for k in kws:
+        stage, label = keyword_stage(status_map.get(str(k.get("keyword") or "").strip().lower(), ""), _en)
+        k["stage"] = stage
+        k["stage_label"] = label
+        pipeline[stage] = pipeline.get(stage, 0) + 1
     ranked = [k["rank"] for k in kws if k["rank"] is not None]
     scored = [a.aeo_score for a in arts if getattr(a, "aeo_score", 0)]
 
@@ -481,7 +541,7 @@ async def report_data(project_id: int, days: int) -> dict | None:
     per_engine = runs[-1] if runs else {}
     sov_vals = [v for v in per_engine.values() if v is not None]
     return {
-        "proj": proj, "kws": kws[:30],
+        "proj": proj, "kws": kws[:50], "pipeline": pipeline,
         "page1": sum(1 for k in kws if k["on_page1"]),
         "top3": sum(1 for k in kws if k["rank"] is not None and k["rank"] <= 3),
         "avg": round(sum(ranked) / len(ranked), 1) if ranked else None,
@@ -515,7 +575,9 @@ th{font-size:12px;color:var(--mut);font-weight:700}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .center{text-align:center}.muted{color:var(--mut)}.pending{color:var(--mut);font-size:13px}
 .up{color:var(--grn);font-weight:700}.down{color:var(--rd);font-weight:700}
-.pill{font-size:11px;padding:1px 8px;border-radius:999px;font-weight:700}.pill.green{background:rgba(10,115,80,.12);color:var(--grn)}
+.pill{font-size:11px;padding:1px 8px;border-radius:999px;font-weight:700;white-space:nowrap}.pill.green{background:rgba(10,115,80,.12);color:var(--grn)}
+.pill.blue{background:rgba(27,63,212,.12);color:var(--bl)}.pill.amber{background:rgba(180,83,9,.14);color:#b45309}.pill.slate{background:rgba(90,106,134,.14);color:var(--mut)}
+.plsum{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px;font-size:13px;color:var(--mut)}
 .engs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .eng{text-align:center;border:1px solid var(--ln);border-radius:12px;padding:14px 8px}
 .eng .en{font-weight:800}.eng .ev{font-size:22px;font-weight:800;margin:5px 0 2px}.eng .es{font-size:12.5px;color:var(--mut)}
@@ -555,12 +617,29 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
         d = prev - cur
         return ('<span class="up">▲ %d</span>' % d) if d > 0 else (('<span class="down">▼ %d</span>' % (-d)) if d < 0 else '<span class="muted">—</span>')
 
+    _stage_tone = {"published": "green", "scheduled": "blue", "drafting": "amber", "queued": "slate"}
+
+    def stage_pill(k):
+        return '<span class="pill %s">%s</span>' % (_stage_tone.get(k.get("stage"), "slate"), _esc(k.get("stage_label") or ""))
+
     rank_rows = "".join(
-        '<tr><td>%s%s</td><td class="n">%s</td><td class="n">%s</td><td class="n">%s</td></tr>'
+        '<tr><td>%s%s</td><td>%s</td><td class="n">%s</td><td class="n">%s</td><td class="n">%s</td></tr>'
         % (_esc(k["keyword"]), (' <span class="pill green">%s</span>' % t("หน้า 1", "Page 1")) if k["on_page1"] else '',
+           stage_pill(k),
            ('#%d' % k["rank"]) if k["rank"] is not None else ('<span class="pending">%s</span>' % t("รอวัด", "Pending")),
            ('#%d' % k["best"]) if k["best"] is not None else '—', mv(k))
-        for k in data["kws"]) or ('<tr><td colspan="4" class="center muted">%s</td></tr>' % t("ยังไม่มีข้อมูลอันดับ", "No ranking data yet"))
+        for k in data["kws"]) or ('<tr><td colspan="5" class="center muted">%s</td></tr>' % t("ยังไม่มีข้อมูลอันดับ", "No ranking data yet"))
+
+    _pl = data.get("pipeline", {}) or {}
+    _writing = _pl.get("drafting", 0) + _pl.get("scheduled", 0)
+    pl_html = ('<div class="plsum">🚀 %s '
+               '<span class="pill green">✍️ %s %d</span>'
+               '<span class="pill amber">📝 %s %d</span>'
+               '<span class="pill slate">🕒 %s %d</span></div>'
+               % (t("ระบบกำลังไล่ทำครบทุกคีย์:", "Working through every keyword:"),
+                  t("เผยแพร่แล้ว", "Published"), _pl.get("published", 0),
+                  t("กำลังเขียน", "Writing"), _writing,
+                  t("รอคิว", "Queued"), _pl.get("queued", 0)))
 
     engs = "".join(
         '<div class="eng"><div class="en">%s</div><div class="ev">%s</div><div class="es">%s</div></div>'
@@ -600,16 +679,16 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
         '<div class="brand"><span class="mk">i</span>ImVisible<span>%s</span></div>'
         '<h1>%s</h1><div class="sub">%s</div>'
         '<div class="card"><div class="kpis">%s</div></div>'
-        '<h2>%s</h2><div class="card" style="overflow-x:auto">'
-        '<table><thead><tr><th>%s</th><th class="n">%s</th><th class="n">%s</th><th class="n">%s</th></tr></thead>'
+        '<h2>%s</h2><div class="card" style="overflow-x:auto">%s'
+        '<table><thead><tr><th>%s</th><th>%s</th><th class="n">%s</th><th class="n">%s</th><th class="n">%s</th></tr></thead>'
         '<tbody>%s</tbody></table></div>'
         '<h2>%s</h2><div class="card"><div class="engs">%s</div><div class="note">%s</div></div>'
         '%s%s<div class="foot">%s</div>'
         '</div></body></html>'
         % ("en" if en else "th", t("รายงานผลงาน", "Performance Report"), name, _REPORT_CSS,
            t(" · รายงานผลงาน", " · Performance Report"), name, sub, kpi_html,
-           t("อันดับ Google (ต่อคีย์เวิร์ด)", "Google Rankings (by keyword)"),
-           t("คีย์เวิร์ด", "Keyword"), t("อันดับ", "Rank"), t("ดีสุด", "Best"), t("เปลี่ยนแปลง", "Change"),
+           t("อันดับ Google (ต่อคีย์เวิร์ด)", "Google Rankings (by keyword)"), pl_html,
+           t("คีย์เวิร์ด", "Keyword"), t("สถานะ", "Stage"), t("อันดับ", "Rank"), t("ดีสุด", "Best"), t("เปลี่ยนแปลง", "Change"),
            rank_rows, t("🤖 AI แนะนำเราหรือยัง", "🤖 Is AI recommending you?"), engs,
            t("วัดจริงโดยถาม ChatGPT / Gemini / Perplexity แล้วเช็คว่าคำตอบอ้างอิงแบรนด์/เว็บของคุณ (Share of Voice)",
              "Measured by actually querying ChatGPT / Gemini / Perplexity and checking whether the answer cites your brand/site (Share of Voice)"),
