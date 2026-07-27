@@ -2333,7 +2333,7 @@ async def public_lead_unlock(token: str, req: LeadUnlock):
 
 @app.post("/api/contact")
 async def contact_form(req: ContactForm, _rl=Depends(rate_limit_auth)):
-    """ฟอร์มติดต่อจากหน้าแรก (สาธารณะ) → เก็บลีด + แจ้งแอดมินทาง LINE ทันที · rate-limit กันสแปม"""
+    """ฟอร์มติดต่อจากหน้าแรก (สาธารณะ) → เก็บลีด + แจ้งแอดมินทาง SMS และ/หรือ LINE ทันที · rate-limit กันสแปม"""
     name = (req.name or "").strip()[:200]
     phone = (req.phone or "").strip()[:60]
     if not (name and phone):
@@ -2346,8 +2346,15 @@ async def contact_form(req: ContactForm, _rl=Depends(rate_limit_auth)):
         async with db.session() as s:
             s.add(ContactLead(name=name, phone=phone, business=business, keywords=kw_txt))
             await s.commit()
-    try:                                              # แจ้ง LINE บอทให้แอดมินติดต่อกลับ (crash-safe: ล้มก็ยังเก็บลีดไว้)
-        from app.connectors import notify
+    from app.connectors import notify
+    try:                                              # 📱 SMS เข้ามือถือแอดมินทันที (ตั้ง CONTACT_SMS_TO) — crash-safe
+        if settings.contact_sms_to:
+            sms = ("ลีดใหม่ imvisible.tech | ชื่อ: %s | เบอร์: %s | ธุรกิจ: %s | คีย์: %s"
+                   % (name, phone, business or "-", kw_txt or "-"))
+            await notify.send_sms(settings.contact_sms_to, sms)
+    except Exception:  # noqa: BLE001
+        pass
+    try:                                              # แจ้ง LINE ด้วย (ถ้าตั้งไว้) — ล้มก็ยังเก็บลีด+ส่ง SMS ไปแล้ว
         msg = ("\U0001F514 มีคนสนใจบริการ (จากหน้าเว็บ imvisible.tech)\n"
                "\U0001F464 ชื่อ: %s\n\U0001F4DE เบอร์: %s\n\U0001F3E2 ธุรกิจ: %s\n\U0001F3AF คีย์เวิร์ด: %s"
                % (name, phone, business or "-", kw_txt or "-"))
@@ -2368,6 +2375,39 @@ async def list_contacts(user=Depends(get_current_user)):
     return {"contacts": [{"name": r.name, "phone": r.phone, "business": r.business,
                           "keywords": r.keywords, "at": r.created_at.isoformat() if r.created_at else ""}
                          for r in rows], "count": len(rows)}
+
+
+@app.post("/api/line/webhook")
+async def line_webhook(request: Request):
+    """Webhook LINE — ตัวช่วย 'คว้า ID' ของ group/user เพื่อไปตั้ง LINE_DEFAULT_TO
+    วิธีใช้: เพิ่มบอทเข้ากลุ่ม แล้วพิมพ์อะไรก็ได้ → บอทตอบ ID ของกลุ่มกลับมาในแชท ก็อปไปใส่ .env"""
+    raw = await request.body()
+    if settings.line_channel_secret:                 # ยืนยันว่ามาจาก LINE จริง (ถ้าตั้ง secret)
+        import hmac, hashlib, base64
+        expect = base64.b64encode(hmac.new(settings.line_channel_secret.encode(), raw, hashlib.sha256).digest()).decode()
+        if request.headers.get("x-line-signature", "") != expect:
+            return {"ok": True}
+    import json as _json
+    try:
+        body = _json.loads(raw or b"{}")
+    except Exception:  # noqa: BLE001
+        return {"ok": True}
+    from app.connectors import notify
+    for ev in (body.get("events") or []):
+        src = ev.get("source") or {}
+        sid = src.get("groupId") or src.get("roomId") or src.get("userId") or ""
+        stype = src.get("type") or ""
+        if not sid:
+            continue
+        print("[LINE webhook] source=%s id=%s type=%s" % (stype, sid, ev.get("type")))   # โผล่ใน docker logs ด้วย
+        rt = ev.get("replyToken")
+        if rt:
+            label = {"group": "กลุ่มนี้", "room": "ห้องนี้", "user": "แชทนี้"}.get(stype, stype)
+            try:
+                await notify.reply_line(rt, "✅ ID ของ%s:\n%s\n\nนำไปวางใน LINE_DEFAULT_TO ใน .env แล้วรีสตาร์ต เพื่อให้แจ้งเตือนเด้งที่นี่" % (label, sid))
+            except Exception:  # noqa: BLE001
+                pass
+    return {"ok": True}
 
 
 @app.get("/api/tls/check")

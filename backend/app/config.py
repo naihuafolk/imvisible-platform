@@ -56,7 +56,8 @@ class Settings(BaseSettings):
 
     # 8) LINE
     line_channel_access_token: str = ""
-    line_default_to: str = ""
+    line_default_to: str = ""              # ปลายทางแจ้งเตือน: userId (U...) หรือ groupId (C...) · ว่าง = broadcast
+    line_channel_secret: str = ""          # (ทางเลือก) ไว้ยืนยันว่า webhook มาจาก LINE จริง
 
     # 8b) Twilio SMS — แจ้งเตือนอันดับต่อโปรเจ็ค (คีย์ติด/ขยับขึ้น)
     #     ต้องมี Account SID (AC...) + วิธียืนยันตัวตน 1 อย่าง (API Key SK+Secret แนะนำ · หรือ Auth Token)
@@ -67,6 +68,7 @@ class Settings(BaseSettings):
     twilio_api_key_secret: str = ""         # ความลับของ API Key (โชว์ครั้งเดียวตอนสร้าง)
     twilio_from: str = ""                   # เบอร์ต้นทาง Twilio เช่น +12025550123
     twilio_messaging_service_sid: str = ""  # (ทางเลือกแทน From) MG...
+    contact_sms_to: str = ""                # เบอร์รับ SMS เมื่อมีคนกรอกฟอร์มติดต่อหน้าเว็บ (เช่น 0987893988)
 
     # 9) ModelArk (BytePlus) — Seedream (รูป) + Seedance (วิดีโอ)
     ark_api_key: str = ""

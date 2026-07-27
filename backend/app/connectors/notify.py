@@ -89,6 +89,18 @@ async def send_sms(to: str, text: str) -> bool:
         return r.status_code in (200, 201)
 
 
+async def reply_line(reply_token: str, text: str) -> bool:
+    """ตอบกลับข้อความ LINE ด้วย reply token (ใช้ตอบ group/user ID กลับไปในแชท เพื่อไปตั้ง LINE_DEFAULT_TO)"""
+    token = settings.line_channel_access_token
+    if not (token and reply_token):
+        return False
+    async with httpx.AsyncClient(timeout=15) as c:
+        r = await c.post("https://api.line.me/v2/bot/message/reply",
+                         headers={"Authorization": "Bearer " + token},
+                         json={"replyToken": reply_token, "messages": [{"type": "text", "text": text[:1900]}]})
+        return r.status_code == 200
+
+
 async def send_line(text: str, to: str = "") -> bool:
     """ส่งข้อความ LINE ผ่านโทเคนกลาง (broadcast หรือ push หา userId ที่ระบุ)"""
     token = settings.line_channel_access_token
