@@ -53,6 +53,7 @@
       '<button class="btn btn-sm add-kw" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">＋ คีย์เวิร์ด</button>' +
       '<button class="btn btn-sm chg-pack" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">🎟 แพ็ก</button>' +
       '<button class="btn btn-sm aeo-q" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">🎯 คำถาม AEO</button>' +
+      '<button class="btn btn-sm sms-alert" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">🔔 SMS</button>' +
       '<button class="btn btn-sm cfg-proj" data-id="' + esc(p.id) + '">⚙️ ตั้งค่า</button>' +
       '<button class="btn btn-sm del-proj" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '" style="margin-left:auto;color:var(--red-600,#dc2626)">🗑 ลบ</button>' +
       '</div></div>';
@@ -212,6 +213,41 @@
       '</div>';
   }
 
+  /* แจ้งเตือน SMS อันดับต่อโปรเจ็ค (คีย์ติด/ขยับขึ้น) — Twilio */
+  function smsAlertModal(id, name) {
+    var pid = String(id).replace(/^db/, '');
+    ui.modal({ title: '🔔 แจ้งเตือน SMS อันดับ', sub: esc(name), width: 480, body:
+      '<div class="hint mb">ส่ง SMS หา "เบอร์นี้" เมื่อมี<b>ข่าวดี</b>ของโปรเจ็ค — คีย์<b>เริ่มติดอันดับ</b> · <b>ขยับขึ้น</b> · หรือ<b>ติดหน้า 1</b> (ระบบเช็กให้อัตโนมัติ ไม่แจ้งตอนอันดับตก/ยิงรัว)</div>' +
+      '<div id="sms_status" class="soft small mb">กำลังโหลด…</div>' +
+      '<label class="row gap-s" style="cursor:pointer;margin-bottom:10px"><input type="checkbox" id="sms_on"> <span>เปิดแจ้งเตือน SMS สำหรับโปรเจ็คนี้</span></label>' +
+      field('เบอร์รับแจ้งเตือน', '<input class="input" id="sms_to" placeholder="เช่น 0987893988" style="width:100%">') +
+      '<div class="row between" style="margin-top:14px"><button class="btn btn-sm" id="sms_cancel">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="sms_save">บันทึก</button></div>' });
+    var st = document.getElementById('sms_status'), on = document.getElementById('sms_on'),
+        to = document.getElementById('sms_to'), go = document.getElementById('sms_save'), cc = document.getElementById('sms_cancel');
+    if (cc) cc.onclick = function () { ui.closeModal(); };
+    if (RP.api.reachable()) {
+      RP.api.getSms(pid).then(function (d) {
+        if (on) on.checked = !!d.enabled;
+        if (to) to.value = d.to || '';
+        if (st) st.innerHTML = d.twilio_ready
+          ? '✅ ระบบ Twilio พร้อมส่ง SMS แล้ว'
+          : '⚠️ ยังไม่ได้ตั้งค่า Twilio ในเซิร์ฟเวอร์ — บันทึกเบอร์ไว้ได้ก่อน แต่ SMS จะยังไม่ส่งจนกว่าจะตั้งคีย์';
+      }).catch(function () { if (st) st.textContent = ''; });
+    } else if (st) { st.textContent = ''; }
+    if (go) go.onclick = function () {
+      var enabled = on && on.checked, num = (to ? to.value : '').trim();
+      if (enabled && !num) { ui.toast('กรอกเบอร์รับแจ้งเตือนก่อน'); return; }
+      if (!RP.api.reachable()) { ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'); return; }
+      go.disabled = true; go.textContent = 'กำลังบันทึก…';
+      RP.api.setSms(pid, enabled, num).then(function (r) {
+        ui.closeModal();
+        ui.toast(enabled ? ('เปิดแจ้งเตือน SMS แล้ว ✓ → ' + esc(r.to || num)) : 'ปิดแจ้งเตือน SMS แล้ว');
+        if (enabled && r && !r.twilio_ready) ui.toast('⚠️ ตั้ง Twilio ในเซิร์ฟเวอร์ก่อน SMS จึงจะส่งจริง');
+      }).catch(function (e) { go.disabled = false; go.textContent = 'บันทึก'; ui.toast('บันทึกไม่ได้: ' + esc(e.message || String(e))); });
+    };
+  }
+
   /* ---- Wizard: สร้างโปรเจ็คใหม่ (วางลิงก์ → AI คิดคีย์เวิร์ด → ติ๊กเลือก → สร้าง) ---- */
   function uniq(arr) { var s = {}, o = []; arr.forEach(function (x) { x = (x || '').trim(); if (x && !s[x.toLowerCase()]) { s[x.toLowerCase()] = 1; o.push(x); } }); return o; }
   function curLang() { var s = document.getElementById('np_country'); return (s && /อังกฤษ|en/i.test(s.value)) ? 'en' : 'th'; }
@@ -369,6 +405,9 @@
         });
         Array.prototype.forEach.call(root.querySelectorAll('.chg-pack'), function (b) {
           b.onclick = function () { changePackModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
+        });
+        Array.prototype.forEach.call(root.querySelectorAll('.sms-alert'), function (b) {
+          b.onclick = function () { smsAlertModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
         });
         Array.prototype.forEach.call(root.querySelectorAll('.aeo-q'), function (b) {
           b.onclick = function () { aeoQuestionsModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };

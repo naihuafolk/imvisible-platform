@@ -100,6 +100,11 @@ class KeywordPackUpdate(BaseModel):
     pack: int = 50                   # ตั้งแพ็กคีย์เวิร์ดของโปรเจ็ค (10/30/50) — เฉพาะแอดมิน
 
 
+class SmsAlertUpdate(BaseModel):
+    enabled: bool = False            # เปิดแจ้งเตือน SMS อันดับ (คีย์ติด/ขยับขึ้น) ของโปรเจ็คนี้
+    to: str = ""                     # เบอร์ปลายทาง (0xxxxxxxxx หรือ +66... — ระบบแปลงเป็น E.164 ให้)
+
+
 class KeywordSuggestRequest(BaseModel):
     url: str = ""                    # ลูกค้าวางลิงก์ → AI ช่วยคิดคีย์เวิร์ดจากเว็บ (ไม่ต้องคิดเอง)
     domain: str = ""

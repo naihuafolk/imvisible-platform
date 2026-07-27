@@ -58,6 +58,16 @@ class Settings(BaseSettings):
     line_channel_access_token: str = ""
     line_default_to: str = ""
 
+    # 8b) Twilio SMS — แจ้งเตือนอันดับต่อโปรเจ็ค (คีย์ติด/ขยับขึ้น)
+    #     ต้องมี Account SID (AC...) + วิธียืนยันตัวตน 1 อย่าง (API Key SK+Secret แนะนำ · หรือ Auth Token)
+    #     + ต้นทาง 1 อย่าง (From เบอร์ Twilio · หรือ Messaging Service SID MG...)
+    twilio_account_sid: str = ""            # AC...
+    twilio_auth_token: str = ""             # (ทางเลือก) ยืนยันด้วย Account Auth Token
+    twilio_api_key_sid: str = ""            # (แนะนำ) SK...
+    twilio_api_key_secret: str = ""         # ความลับของ API Key (โชว์ครั้งเดียวตอนสร้าง)
+    twilio_from: str = ""                   # เบอร์ต้นทาง Twilio เช่น +12025550123
+    twilio_messaging_service_sid: str = ""  # (ทางเลือกแทน From) MG...
+
     # 9) ModelArk (BytePlus) — Seedream (รูป) + Seedance (วิดีโอ)
     ark_api_key: str = ""
     ark_base_url: str = "https://ark.ap-southeast.bytepluses.com/api/v3"

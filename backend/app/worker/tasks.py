@@ -2026,8 +2026,45 @@ async def _learning_loop() -> str:
 
 
 async def _save_rank(project_id: int, res: dict):
-    from app.db.models import RankSnapshot
+    from app.db.models import RankSnapshot, Project
+    kw = res.get("keyword", "")
+    cur = res.get("our_rank")
+    on_p1 = bool(res.get("on_page1"))
     async with db.session() as s:
-        s.add(RankSnapshot(project_id=project_id, keyword=res.get("keyword", ""),
-                           rank=res.get("our_rank"), on_page1=bool(res.get("on_page1"))))
+        # อ่านสแนปช็อตล่าสุด 'ก่อนหน้า' ของคีย์นี้ ไว้เทียบว่าขยับขึ้น/เพิ่งติด (ก่อนบันทึกอันใหม่)
+        prev = (await s.execute(
+            select(RankSnapshot.rank, RankSnapshot.on_page1)
+            .where(RankSnapshot.project_id == project_id, RankSnapshot.keyword == kw)
+            .order_by(RankSnapshot.checked_at.desc()).limit(1))).first()
+        s.add(RankSnapshot(project_id=project_id, keyword=kw, rank=cur, on_page1=on_p1))
         await s.commit()
+        proj = await s.get(Project, project_id)
+    try:
+        await _maybe_alert_rank(proj, kw, prev, cur, on_p1)
+    except Exception:  # noqa: BLE001 — แจ้งเตือนล้มต้องไม่กระทบการบันทึกอันดับ
+        pass
+
+
+async def _maybe_alert_rank(proj, kw: str, prev, cur, on_p1: bool):
+    """ส่ง SMS แจ้ง 'ข่าวดี' ต่อโปรเจ็ค: ติดหน้า 1 / เพิ่งเริ่มติด / ขยับขึ้น
+    เงื่อนไขกันสแปม: ครั้งแรกที่วัด (ไม่มีประวัติ) = ตั้ง baseline เฉย ๆ ไม่แจ้ง · แจ้งเฉพาะที่อยู่ในระยะแข่งได้"""
+    if not proj or not getattr(proj, "sms_enabled", False):
+        return
+    to = (getattr(proj, "sms_to", "") or "").strip()
+    if not to or cur is None:                       # ไม่ติดอันดับ = ไม่ใช่ข่าวดี = ไม่แจ้ง
+        return
+    if prev is None:                                # ครั้งแรกของคีย์นี้ = baseline · ไม่แจ้ง (กันยิงรัวตอนวัดรอบแรก)
+        return
+    prev_rank, prev_p1 = prev[0], bool(prev[1])
+    name = (proj.name or proj.domain or "").strip()
+    msg = None
+    if on_p1 and not prev_p1:                        # ก้าวข้ามเข้า Top 10
+        msg = '🎉 %s: คีย์ "%s" ติดหน้า 1 แล้ว! อันดับ #%d' % (name, kw, cur)
+    elif prev_rank is None and cur <= 30:            # ก่อนหน้าไม่ติด → ตอนนี้ติด (ในระยะแข่งได้)
+        msg = '📈 %s: คีย์ "%s" เริ่มติดอันดับที่ #%d' % (name, kw, cur)
+    elif prev_rank is not None and cur < prev_rank and cur <= 20:   # ขยับขึ้น + อยู่ Top 20
+        msg = '⬆️ %s: คีย์ "%s" ขยับขึ้น #%d → #%d' % (name, kw, prev_rank, cur)
+    if not msg:
+        return
+    from app.connectors import notify
+    await notify.send_sms(to, msg)

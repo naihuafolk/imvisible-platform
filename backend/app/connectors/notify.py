@@ -43,6 +43,52 @@ async def send_email(to: str, subject: str, html: str) -> bool:
     return True
 
 
+def sms_ready() -> bool:
+    """เซิร์ฟเวอร์พร้อมส่ง SMS ไหม (ต้องมี Account SID + วิธียืนยันตัวตน + ต้นทาง)"""
+    has_auth = bool((settings.twilio_api_key_sid and settings.twilio_api_key_secret)
+                    or settings.twilio_auth_token)
+    has_from = bool(settings.twilio_from or settings.twilio_messaging_service_sid)
+    return bool(settings.twilio_account_sid and has_auth and has_from)
+
+
+def normalize_phone(raw: str, default_cc: str = "66") -> str:
+    """แปลงเบอร์ไทยเป็นรูปแบบสากล E.164 (+66...) — 0987893988 → +66987893988
+    ถ้าใส่ +.. มาแล้วคงเดิม · ไม่รู้จักรูปแบบ = คืนค่าที่ล้างช่องว่างแล้ว"""
+    s = "".join(ch for ch in (raw or "") if ch.isdigit() or ch == "+").strip()
+    if not s:
+        return ""
+    if s.startswith("+"):
+        return s
+    if s.startswith("00"):
+        return "+" + s[2:]
+    if s.startswith("0"):                      # เบอร์ในประเทศ → เติมรหัสประเทศ
+        return "+" + default_cc + s[1:]
+    if s.startswith(default_cc):
+        return "+" + s
+    return "+" + s
+
+
+async def send_sms(to: str, text: str) -> bool:
+    """ส่ง SMS ผ่าน Twilio — คืน True ถ้าส่งสำเร็จ · ยืนยันตัวตนด้วย API Key (SK+secret) ก่อน ไม่งั้น Auth Token"""
+    acct = settings.twilio_account_sid
+    to = normalize_phone(to)
+    if not (acct and to and sms_ready()):
+        return False
+    if settings.twilio_api_key_sid and settings.twilio_api_key_secret:
+        auth = (settings.twilio_api_key_sid, settings.twilio_api_key_secret)
+    else:
+        auth = (acct, settings.twilio_auth_token)
+    data = {"To": to, "Body": text[:1500]}
+    if settings.twilio_messaging_service_sid:
+        data["MessagingServiceSid"] = settings.twilio_messaging_service_sid
+    else:
+        data["From"] = settings.twilio_from
+    url = "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json" % acct
+    async with httpx.AsyncClient(timeout=20) as c:
+        r = await c.post(url, data=data, auth=auth)
+        return r.status_code in (200, 201)
+
+
 async def send_line(text: str, to: str = "") -> bool:
     """ส่งข้อความ LINE ผ่านโทเคนกลาง (broadcast หรือ push หา userId ที่ระบุ)"""
     token = settings.line_channel_access_token

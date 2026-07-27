@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm, KeywordPackUpdate,
+    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm, KeywordPackUpdate, SmsAlertUpdate,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -724,6 +724,42 @@ async def set_project_pack(project_id: int, req: KeywordPackUpdate, user=Depends
         await s.commit()
         used = _topic_count(p)
     return {"ok": True, "keyword_pack": pack, "keywords_used": used, "over_quota": used > pack}
+
+
+@app.get("/api/projects/{project_id}/sms")
+async def get_sms_alert(project_id: int, user=Depends(get_current_user)):
+    """ตั้งค่าแจ้งเตือน SMS ของโปรเจ็ค + สถานะว่าเซิร์ฟเวอร์ตั้ง Twilio พร้อมส่งไหม"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project
+    from app.connectors import notify
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        enabled = bool(getattr(p, "sms_enabled", False))
+        to = getattr(p, "sms_to", "") or ""
+    return {"enabled": enabled, "to": to, "twilio_ready": notify.sms_ready()}
+
+
+@app.put("/api/projects/{project_id}/sms")
+async def set_sms_alert(project_id: int, req: SmsAlertUpdate, user=Depends(get_current_user)):
+    """เปิด/ปิด + ตั้งเบอร์แจ้งเตือน SMS อันดับของโปรเจ็ค (คีย์ติด/ขยับขึ้น) — ระบบแปลงเบอร์เป็น E.164 ให้"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project
+    from app.connectors import notify
+    to = notify.normalize_phone(req.to or "")
+    if req.enabled and not to:
+        raise HTTPException(422, "กรุณากรอกเบอร์ปลายทางให้ถูกต้อง (เช่น 0987893988)")
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        p.sms_enabled = bool(req.enabled)
+        p.sms_to = to
+        await s.commit()
+    return {"ok": True, "enabled": bool(req.enabled), "to": to, "twilio_ready": notify.sms_ready()}
 
 
 @app.get("/api/projects/{project_id}/aeo-questions")

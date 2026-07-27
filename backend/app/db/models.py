@@ -60,6 +60,8 @@ class Project(Base):
     mode: Mapped[str] = mapped_column(String(20), default="approve")   # approve | auto
     freshness_days: Mapped[int] = mapped_column(Integer, default=120)
     keyword_pack: Mapped[int] = mapped_column(Integer, default=50)      # โควตาคีย์เวิร์ดของลูกค้ารายนี้ (10/30/50) — แอดมินตั้ง
+    sms_enabled: Mapped[bool] = mapped_column(Boolean, default=False)   # แจ้งเตือน SMS เมื่อคีย์ติด/ขยับขึ้น
+    sms_to: Mapped[str] = mapped_column(String(40), default="")         # เบอร์ปลายทาง SMS (E.164 เช่น +66...)
     # --- ปลายทางเผยแพร่ (Phase 1: Managed Hosting) ---
     # ความ unique ของ slug + custom_domain บังคับด้วย unique index ใน migrate.py
     # (สร้างหลัง backfill — กัน hijack/ชน + กัน MultipleResultsFound)
