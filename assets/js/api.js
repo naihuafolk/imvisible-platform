@@ -85,6 +85,7 @@
     createLeadMagnet: function (pid, o) { return api._post('/api/projects/' + pid + '/lead-magnets', o); },
     leadMagnets: function (pid) { return api._get('/api/projects/' + pid + '/lead-magnets'); },
     retryLeadMagnet: function (mid) { return api._post('/api/lead-magnets/' + mid + '/retry', {}); },
+    leadMagnetToArticles: function (mid) { return api._post('/api/lead-magnets/' + mid + '/to-articles', {}); },
     leads: function (pid) { return api._get('/api/projects/' + pid + '/leads'); },
     // ---- AI Citation ต่อโปรเจ็ค (บันทึกผล → สะสมเป็นแนวโน้ม) ----
     citationForProject: function (pid, questions) { return api._post('/api/projects/' + pid + '/citation/sample', { questions: questions || [] }); },

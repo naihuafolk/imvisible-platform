@@ -550,6 +550,26 @@ def _topic_count(p) -> int:
         return 0
 
 
+def _html_plain(html: str) -> str:
+    import re as _re
+    return _re.sub(r"\s+", " ", _re.sub(r"<[^>]+>", " ", html or "")).strip()
+
+
+def _split_html_sections(html: str) -> list:
+    """แตก HTML ตามหัวข้อ <h2> → [{title, html}] (ใช้แตกคอร์ส/คู่มือเป็นบทความทีละบท)"""
+    import re as _re
+    out = []
+    for part in _re.split(r"(?=<h2\b)", html or "", flags=_re.I):
+        mm = _re.search(r"<h2\b[^>]*>(.*?)</h2>", part, flags=_re.I | _re.S)
+        if not mm:
+            continue
+        title = _re.sub(r"<[^>]+>", "", mm.group(1)).strip()
+        if not title or len(part.strip()) < 60:      # ข้ามส่วนหัว/บทที่สั้นเกินเป็นบทความ
+            continue
+        out.append({"title": title[:480], "html": part.strip()})
+    return out
+
+
 def _proj_dict(p):
     from app import plans
     pack = plans.normalize_pack(getattr(p, "keyword_pack", plans.DEFAULT_PACK))
@@ -2071,14 +2091,29 @@ async def backlink_opportunities(project_id: int, user=Depends(get_current_user)
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import Project, Article
     from app.connectors import discovery
+    import json as _json
     async with db.session() as s:
         p = await _own_project(s, project_id, user)
         name, domain = p.name, p.domain
         lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
         brand_terms = [t.strip() for t in (getattr(p, "brand_terms", "") or "").split(",") if t.strip()]
-        titles = (await s.execute(select(Article.title).where(
-            Article.project_id == project_id).order_by(Article.id.desc()).limit(3))).scalars().all()
-    kws = [name] + [t for t in titles if t]
+        plan_raw = getattr(p, "topic_plan", "") or ""
+    # คีย์สำหรับค้นโอกาส = ตัวแทน 'แต่ละคลัสเตอร์' ใน topic_plan (ครอบหลายกลุ่ม ไม่ใช่คีย์เดียว)
+    reps, seen_cl = [], set()
+    try:
+        for it in (_json.loads(plan_raw) if plan_raw.strip() else []):
+            topic = ((it.get("topic") if isinstance(it, dict) else str(it)) or "").strip()
+            if not topic:
+                continue
+            cl = ((it.get("cluster") if isinstance(it, dict) else "") or "").strip().lower()
+            if cl and cl in seen_cl:
+                continue
+            if cl:
+                seen_cl.add(cl)
+            reps.append(topic)
+    except Exception:  # noqa: BLE001
+        reps = []
+    kws = reps[:3] or [name]
     try:
         return await discovery.find_link_opportunities(name, domain, brand_terms, kws, lang)
     except Exception as e:  # noqa: BLE001
@@ -2090,14 +2125,29 @@ async def backlink_outreach(project_id: int, req: BacklinkOutreachRequest, user=
     """ร่างข้อความติดต่อขอแบ็กลิงก์ (คนเอาไปตรวจ+ส่งเอง · ไม่ auto-ยิง = white-hat)"""
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
-    from app.db.models import Project
+    from app.db.models import Project, LeadMagnet
     from app.connectors import discovery
+    from app.config import settings
     async with db.session() as s:
         p = await _own_project(s, project_id, user)
         brand, domain = p.name, p.domain
         lang = "English" if str(p.language).lower().startswith("en") else "ภาษาไทย"
+        # ชูโรงด้วย 'สื่อฟรี' ล่าสุดที่พร้อม (คอร์ส/คู่มือมาก่อน) → outreach แบบเสนอของมีค่า
+        mag = (await s.execute(select(LeadMagnet).where(LeadMagnet.project_id == project_id)
+               .order_by(LeadMagnet.id.desc()))).scalars().all()
+    res_title, res_url = "", ""
+    for m in mag:
+        if not (m.content_html or "").strip():
+            continue
+        if m.kind in ("course", "guide") or not res_title:   # คอร์ส/คู่มือมาก่อน; ไม่งั้นใช้ชิ้นล่าสุดที่มีเนื้อหา
+            res_title = m.title or ""
+            base = (settings.app_base_url or "").rstrip("/")
+            res_url = "%s/api/lead/%s" % (base, m.token) if (base and m.token) else ""
+            if m.kind in ("course", "guide"):
+                break
     try:
-        return await discovery.draft_outreach(req.url, req.title, req.kind, brand, domain, lang)
+        return await discovery.draft_outreach(req.url, req.title, req.kind, brand, domain, lang,
+                                              res_title, res_url)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, "ร่างข้อความไม่ได้ (ตรวจคีย์ LLM): " + str(e)[:150])
 
@@ -2172,6 +2222,50 @@ async def retry_lead_magnet(magnet_id: int, user=Depends(get_current_user)):
     except Exception:  # noqa: BLE001
         raise HTTPException(503, "คิวงานไม่พร้อม (worker/redis)")
     return {"ok": True, "building": True}
+
+
+@app.post("/api/lead-magnets/{magnet_id}/to-articles")
+async def lead_magnet_to_articles(magnet_id: int, user=Depends(get_current_user)):
+    """✂️ แตก 'คอร์ส/คู่มือ' เป็นบทความ SEO ทีละบท (เก็บเป็นร่าง) — 1 บท (H2) = 1 หน้าที่ติดอันดับได้
+    คูณคอนเทนต์ฟรี ๆ · เก็บเป็น draft ให้ตรวจ/อนุมัติก่อนเผยแพร่ (กันเนื้อหาซ้ำ/บาง)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import LeadMagnet, Article
+    from app.connectors import aeo_score
+    async with db.session() as s:
+        m = await s.get(LeadMagnet, magnet_id)
+        if not m:
+            raise HTTPException(404, "not found")
+        await _own_project(s, m.project_id, user)          # กันแตกของโปรเจ็คคนอื่น
+        pid, mtitle, html = m.project_id, (m.title or ""), (m.content_html or "")
+    sections = _split_html_sections(html)
+    if not sections:
+        raise HTTPException(422, "ยังไม่มีเนื้อหาให้แตก (สื่ออาจกำลังสร้าง/ล้ม หรือไม่มีหัวข้อ H2)")
+    async with db.session() as s:                          # กันซ้ำ: ข้ามหัวข้อที่มีบทความชื่อเดียวกันแล้ว
+        existing = set(t.strip().lower() for t in (await s.execute(
+            select(Article.title).where(Article.project_id == pid))).scalars().all() if t)
+    created = []
+    for sec in sections:
+        if sec["title"].strip().lower() in existing:
+            continue
+        body = sec["html"]
+        desc = _html_plain(body)[:155]
+        try:
+            aeo = int(aeo_score.score(body, title=sec["title"], description=desc,
+                                      keyword=sec["title"], target_words=700).get("score", 0))
+        except Exception:  # noqa: BLE001
+            aeo = 0
+        async with db.session() as s:
+            art = Article(project_id=pid, title=sec["title"][:480], html=body, description=desc,
+                          cluster=("จากคอร์ส: " + mtitle)[:200], aeo_score=aeo,
+                          words=len(_html_plain(body).split()), fmt="บทความยาว", status="draft")
+            s.add(art); await s.commit(); await s.refresh(art)
+            art.slug = urls.article_slug(sec["title"], art.id)
+            await s.commit()
+        created.append({"id": art.id, "title": sec["title"]})
+        existing.add(sec["title"].strip().lower())
+    return {"ok": True, "created": len(created), "sections": len(sections),
+            "articles": created, "note": "เก็บเป็นร่าง — ตรวจ/อนุมัติก่อนเผยแพร่ที่หน้าคิวรออนุมัติ"}
 
 
 @app.get("/api/projects/{project_id}/leads")

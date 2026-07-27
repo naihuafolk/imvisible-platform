@@ -37,8 +37,9 @@
         '<div><label class="soft small">ชนิดสื่อ</label><select class="input" id="lmKind" style="width:100%">' +
           '<option value="guide">📕 คู่มือ / ebook</option><option value="course">🎓 มินิคอร์ส</option>' +
           '<option value="checklist">✅ เช็คลิสต์</option><option value="template">📝 เทมเพลต</option></select></div>' +
-        '<div><label class="soft small">ต้องแชร์ก่อนปลดล็อก?</label>' +
-          '<label class="row" style="gap:8px;align-items:center;margin-top:9px;cursor:pointer"><input type="checkbox" id="lmShare"> <span class="small">บังคับกดแชร์ (เพิ่ม reach)</span></label></div>' +
+        '<div><label class="soft small">การปลดล็อก</label>' +
+          '<label class="row" style="gap:8px;align-items:center;margin-top:9px;cursor:pointer"><input type="checkbox" id="lmShare"> <span class="small">บังคับกดแชร์ก่อน <span class="soft">(ไม่แนะนำ)</span></span></label>' +
+          '<div class="soft" style="font-size:11px;margin-top:4px">ค่าเริ่มต้น = <b>กรอกอีเมลอย่างเดียว</b> (ได้ลีดเยอะกว่า · การแชร์เป็นของแถม nofollow ไม่ช่วยอันดับ)</div></div>' +
       '</div>' +
       '<div><label class="soft small">ภาษาของสื่อ</label><select class="input" id="lmLang" style="width:100%">' +
         '<option value="">ตามภาษาโปรเจ็ค</option><option value="th">🇹🇭 ไทย</option><option value="en">🇬🇧 English</option><option value="both">🇹🇭+🇬🇧 ทั้งไทย &amp; อังกฤษ</option></select></div>' +
@@ -66,7 +67,8 @@
               : m.building
               ? '<span class="soft small">⏳ กำลังสร้าง (เขียน+ใส่รูป)…</span>'
               : '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="btn btn-sm">เปิด ↗</a> ' +
-                '<button class="btn btn-sm lm-copy" data-u="' + esc(url) + '">คัดลอกลิงก์</button>';
+                '<button class="btn btn-sm lm-copy" data-u="' + esc(url) + '">คัดลอกลิงก์</button> ' +
+                '<button class="btn btn-sm lm-split" data-id="' + m.id + '" title="แตกแต่ละบทเป็นบทความ SEO (ร่าง)">✂️ แตกเป็นบทความ</button>';
             return '<div class="list-row"><div class="grow"><div class="t">' + esc(m.title) + '</div>' +
               '<div class="soft small">' + esc(m.kind) + ' · ' + (m.language === 'en' ? '🇬🇧 EN' : '🇹🇭 TH') + ' · ลีด ' + (m.leads_count || 0) + (m.require_share ? ' · ต้องแชร์' : '') + '</div></div>' + right + '</div>';
           }).join('');
@@ -80,6 +82,16 @@
               RP.api.retryLeadMagnet(b.getAttribute('data-id')).then(function () {
                 ui.toast('สั่งสร้างใหม่แล้ว — สักครู่'); setTimeout(loadMagnets, 1200);
               }).catch(function () { b.disabled = false; b.textContent = 'ลองใหม่'; ui.toast('สั่งไม่สำเร็จ'); });
+            };
+          });
+          Array.prototype.forEach.call(box.querySelectorAll('.lm-split'), function (b) {
+            b.onclick = function () {
+              b.disabled = true; b.textContent = 'กำลังแตก…';
+              RP.api.leadMagnetToArticles(b.getAttribute('data-id')).then(function (r) {
+                b.disabled = false; b.textContent = '✂️ แตกเป็นบทความ';
+                var n = (r && r.created) || 0;
+                ui.toast(n ? ('แตกเป็น <b>' + n + '</b> บทความ (ร่าง) แล้ว ✓ — ไปตรวจ/อนุมัติที่คิวรออนุมัติ') : 'ไม่มีบทใหม่ให้แตก (อาจแตกไปแล้ว)');
+              }).catch(function (e) { b.disabled = false; b.textContent = '✂️ แตกเป็นบทความ'; ui.toast('แตกไม่สำเร็จ: ' + esc(e.message || String(e))); });
             };
           });
         }).catch(function () {});

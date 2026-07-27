@@ -53,7 +53,7 @@ async def find_link_opportunities(name: str, domain: str, brand_terms=None, keyw
     คืนรายการโอกาส — คนเอาไปติดต่อเอง (ระบบไม่ยิงลิงก์ให้)"""
     brand = (name or domain or "").strip()
     terms = [t for t in (brand_terms or []) if t][:2] or [brand]
-    kw = ([k for k in (keywords or []) if k] or [brand])[0]
+    kws = [k for k in (keywords or []) if k][:3] or [brand]   # ค้นหลายคีย์/หลายกลุ่ม (ไม่ใช่แค่คีย์แรก)
     own = (domain or "").lower().replace("www.", "").split("/")[0]
     th = str(language).startswith("ภาษาไทย")
 
@@ -65,11 +65,14 @@ async def find_link_opportunities(name: str, domain: str, brand_terms=None, keyw
 
     mention_q = " OR ".join('"%s"' % t for t in terms)
     mentions = await _safe(serp.search("%s -site:%s" % (mention_q, own or "example.com"), n=10))
-    resources = await _safe(serp.search(
-        ("%s (แนะนำ OR รวม OR \"ที่ไหนดี\" OR เจ้าไหนดี)" % kw) if th
-        else ("%s (best OR top OR recommended OR roundup)" % kw), n=8))
-    guest = await _safe(serp.search(
-        "%s (\"บทความรับเชิญ\" OR \"เขียนให้เรา\" OR \"write for us\" OR \"guest post\")" % kw, n=6))
+    # resource + guest: ยิงต่อ 'ทุกคีย์หลัก' แล้วรวม → ได้เว็บเป้าหมายที่ตรงคีย์ครบทุกกลุ่ม
+    resources, guest = [], []
+    for kw in kws:
+        resources += await _safe(serp.search(
+            ("%s (แนะนำ OR รวม OR \"ที่ไหนดี\" OR เจ้าไหนดี)" % kw) if th
+            else ("%s (best OR top OR recommended OR roundup)" % kw), n=5))
+        guest += await _safe(serp.search(
+            "%s (\"บทความรับเชิญ\" OR \"เขียนให้เรา\" OR \"write for us\" OR \"guest post\")" % kw, n=4))
 
     def _clean(rows, kind):
         out = []
@@ -86,27 +89,35 @@ async def find_link_opportunities(name: str, domain: str, brand_terms=None, keyw
         for o in _clean(rows, kind):
             if o["url"] and o["url"] not in seen:
                 seen.add(o["url"]); opps.append(o)
-    return {"brand": brand, "opportunities": opps[:24],
+    return {"brand": brand, "opportunities": opps[:24], "keywords_used": kws,
             "note": "โอกาสจริงจาก SERP · white-hat (ติดต่อขอลิงก์เอง ไม่ซื้อ ไม่สแปม) — ระบบร่างข้อความให้ได้"}
 
 
 async def draft_outreach(url: str, title: str, kind: str, brand: str, domain: str,
-                         language: str = "ภาษาไทย") -> dict:
-    """ร่างข้อความติดต่อขอแบ็กลิงก์แบบสุภาพ จริงใจ (คนเอาไปตรวจ+ส่งเอง) — ปรับตามชนิดโอกาส · ไม่เสนอเงินแลกลิงก์"""
+                         language: str = "ภาษาไทย", resource_title: str = "", resource_url: str = "") -> dict:
+    """ร่างข้อความติดต่อขอแบ็กลิงก์แบบสุภาพ จริงใจ (คนเอาไปตรวจ+ส่งเอง) — ปรับตามชนิดโอกาส · ไม่เสนอเงินแลกลิงก์
+    ถ้ามี 'สื่อฟรี' (คอร์ส/คู่มือ) ให้ชูเป็นตัวเสนอ = resource-based outreach (ตอบรับสูงกว่าขอลิงก์เปล่า)"""
     goal = {
         "mention": "เว็บนี้พูดถึงแบรนด์เราแล้วแต่น่าจะยังไม่ได้ลิงก์ → ขอให้เพิ่มลิงก์กลับมาที่เว็บเราอย่างสุภาพ",
         "resource": "เว็บนี้มีหน้ารวม/แนะนำใน niche → ขอให้พิจารณาเพิ่มเราเข้าลิสต์ พร้อมเหตุผลว่ามีประโยชน์ต่อผู้อ่านเขา",
         "guest": "เว็บนี้เปิดรับบทความรับเชิญ → เสนอหัวข้อบทความคุณภาพที่เราเขียนให้ พร้อมลิงก์กลับ 1 จุดที่เกี่ยวข้อง",
     }.get(kind, "ติดต่อขอความร่วมมือแบบสุภาพ มืออาชีพ")
+    resource_note = ""
+    if resource_title:
+        resource_note = ("\n\n*** ตัวชูโรง (สำคัญ): เรามีสื่อฟรีคุณภาพ '%s'%s "
+                         "→ ให้เสนอสื่อฟรีชิ้นนี้ว่า 'มีประโยชน์ต่อผู้อ่านของเขาจริง ๆ' เป็นเหตุผลหลักในการลิงก์ "
+                         "(ไม่ใช่แค่ขอลิงก์เปล่า) · ห้ามพูดทำนอง 'ลิงก์แลกของ' — เสนอเพราะมันมีค่ากับผู้อ่านเขา ***"
+                         % (resource_title, (" (ลิงก์: %s)" % resource_url) if resource_url else ""))
     system = ("คุณคือผู้เชี่ยวชาญ outreach/PR สาย white-hat เขียนข้อความติดต่อที่สุภาพ จริงใจ สั้น กระชับ "
               "เน้นประโยชน์ต่อผู้รับและผู้อ่านของเขา ไม่ตื๊อ ไม่สแปม 'ห้ามเสนอเงินแลกลิงก์' (ผิดกฎ Google) "
               "เขียนเป็น%s" % language)
-    user = ("แบรนด์เรา: %s (เว็บ %s)\nเว็บเป้าหมาย: %s (%s)\nเป้าหมาย: %s\n\n"
+    user = ("แบรนด์เรา: %s (เว็บ %s)\nเว็บเป้าหมาย: %s (%s)\nเป้าหมาย: %s%s\n\n"
             "ส่ง 2 ส่วนตามลำดับ: บรรทัดแรก 'หัวข้อ:' (subject สั้น) แล้วเว้นบรรทัด ตามด้วยเนื้อความ 80–130 คำ "
             "เป็นกันเองแต่มืออาชีพ ระบุเหตุผลเฉพาะเจาะจงว่าทำไมจึงมีประโยชน์ต่อผู้อ่านของเขาจริง ๆ"
-            % (brand, domain, title or url, url, goal))
+            % (brand, domain, title or url, url, goal, resource_note))
     prov, text = await content._llm(system, user, tier="fast")
-    return {"provider": prov, "text": text.strip(), "kind": kind, "url": url}
+    return {"provider": prov, "text": text.strip(), "kind": kind, "url": url,
+            "resource_used": resource_title or ""}
 
 
 async def draft_reply(question: str, snippet: str, blog_url: str, brand: str,
