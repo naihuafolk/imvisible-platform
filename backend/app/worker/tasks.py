@@ -65,11 +65,11 @@ async def _gen_cover(topic: str) -> str:
     try:
         if not media.enabled():
             return ""
-        prompt = ("Editorial cover illustration for a premium Thai business magazine article titled: %s. "
-                  "Sophisticated conceptual illustration, flat vector shapes with subtle paper-grain texture, "
-                  "generous negative space, cool cobalt-blue and clean white palette with one soft accent tone, "
-                  "crisp geometric composition, layered depth, gentle studio lighting, calm and premium mood. "
-                  "Award-winning editorial art direction, magazine-quality, ultra-detailed. "
+        prompt = ("Professional editorial hero image for an article about: %s. "
+                  "Photorealistic high-end magazine photography (or a polished premium 3D render if more fitting), "
+                  "a real-world relevant scene/subject, natural cinematic lighting, shallow depth of field, "
+                  "modern and tasteful, crisp 4K, rich fine detail, beautiful color grading, elegant composition. "
+                  "Award-winning, magazine-quality. "
                   "Absolutely no text, no letters, no words, no numbers, no logos, no watermark, no signature, no UI." % topic)
         return await media.generate_image(prompt) or ""
     except Exception:  # noqa: BLE001
@@ -83,11 +83,10 @@ async def _gen_magnet_cover(topic: str, kind: str = "guide") -> str:
             return ""
         label = {"course": "online course", "guide": "guide / ebook",
                  "checklist": "checklist", "template": "template"}.get(kind, "guide / ebook")
-        prompt = ("Eye-catching promotional cover for a free %s about: %s. "
-                  "Bold modern marketing design, vibrant cobalt-blue and clean white with one energetic accent color, "
-                  "dynamic geometric composition, premium ebook/course-cover aesthetic, strong depth and studio lighting, "
-                  "conveys value and expertise, high contrast, scroll-stopping and share-worthy. "
-                  "Award-winning art direction, magazine-quality, ultra-detailed. "
+        prompt = ("Striking, share-worthy promotional cover for a free %s about: %s. "
+                  "Premium modern design — photorealistic hero photography or a polished 3D render, a strong focal subject, "
+                  "cinematic lighting, rich depth, vibrant yet tasteful, high contrast, scroll-stopping, magazine-quality 4K. "
+                  "Award-winning art direction, ultra-detailed. "
                   "Absolutely no text, no letters, no words, no numbers, no logos, no watermark, no signature, no UI." % (label, topic))
         return await media.generate_image(prompt) or ""
     except Exception:  # noqa: BLE001
@@ -122,9 +121,10 @@ async def _enrich_media(html: str, topic: str) -> str:
             h2text = _re.sub(r"<[^>]+>", "", html[start:ms[i].end()] if start >= 0 else "").strip()[:120] or topic
             try:
                 url = await media.generate_image(
-                    "Premium editorial illustration for the section '" + h2text + "' of an article about '" + topic +
-                    "'. Modern, clean, minimalist, meaningful abstract concept, blue and white palette, "
-                    "soft depth, high detail, professional magazine style, no text, no letters, no watermark.")
+                    "Photorealistic professional photo illustrating '" + h2text + "' from an article about '" + topic +
+                    "'. A real-world relevant scene/subject, high-end editorial photography or clean 3D render, "
+                    "natural lighting, shallow depth of field, modern, beautiful, ultra-detailed 4K. "
+                    "No text, no letters, no words, no logos, no watermark, no UI.")
             except Exception:  # noqa: BLE001
                 url = ""
             if not url:
@@ -1327,13 +1327,14 @@ async def _backfill_schema(project_id: int, cap: int) -> str:
 
 
 @celery_app.task(name="app.worker.tasks.backfill_covers")
-def backfill_covers(project_id: int = 0, cap: int = 40) -> str:
-    """⚡ เติมรูปปก + รูปในเนื้อ + ภาพสรุป (อินโฟกราฟิก) ให้บทความเก่าที่ยังขาด → หน้าบทความมีภาพครบ ดูพรีเมียม
-    รูปใช้ fal.ai/ModelArk · ภาพสรุปมาจากเนื้อบทความจริง (ไม่ปั้นเลข) · crash-safe + จำกัด cap คุมต้นทุน"""
-    return _run(_backfill_covers(project_id, cap))
+def backfill_covers(project_id: int = 0, cap: int = 40, force: bool = False) -> str:
+    """⚡ เติมรูปปก + รูปในเนื้อ + ภาพสรุป ให้บทความ → หน้าบทความมีภาพครบ ดูพรีเมียม
+    force=True → 'สร้างภาพใหม่ทับของเดิมทุกชิ้น' (ใช้ตอนอัปเกรดคุณภาพภาพ) · crash-safe + จำกัด cap คุมต้นทุน"""
+    return _run(_backfill_covers(project_id, cap, force))
 
 
-async def _backfill_covers(project_id: int, cap: int) -> str:
+async def _backfill_covers(project_id: int, cap: int, force: bool = False) -> str:
+    import re as _re
     from sqlalchemy import or_, func as _func
     from app.db.models import Project, Article
     if not db.enabled():
@@ -1347,26 +1348,29 @@ async def _backfill_covers(project_id: int, cap: int) -> str:
     for pid in ids:
         if fixed >= cap:
             break
-        async with db.session() as s:                      # หาบทความที่ขาด ปก / รูปในเนื้อ / ภาพสรุป / กราฟเทรนด์
+        async with db.session() as s:                      # force → ทุกบทความ · ไม่ force → เฉพาะที่ขาด ปก/รูป/ภาพสรุป
             proj = await s.get(Project, pid)
             lang = "English" if (proj and str(proj.language).lower().startswith("en")) else "ภาษาไทย"
-            conds = [_func.coalesce(Article.cover_url, "") == "",
-                     Article.html.notlike("%inline-img%"),
-                     Article.html.notlike('%class="infographic"%')]
-            if trend_on:
-                conds.append(Article.html.notlike('%class="trend-chart"%'))
+            base = [Article.project_id == pid, Article.status == "published"]
+            if not force:
+                conds = [_func.coalesce(Article.cover_url, "") == "",
+                         Article.html.notlike("%inline-img%"),
+                         Article.html.notlike('%class="infographic"%')]
+                if trend_on:
+                    conds.append(Article.html.notlike('%class="trend-chart"%'))
+                base.append(or_(*conds))
             arts = (await s.execute(
-                select(Article).where(
-                    Article.project_id == pid, Article.status == "published", or_(*conds))
-                .order_by(Article.id).limit(cap))).scalars().all()
+                select(Article).where(*base).order_by(Article.id).limit(cap))).scalars().all()
         dfs = await creds.get_creds(pid, "dataforseo") if trend_on else None
         for a in arts:
             if fixed >= cap:
                 break
             cur = a.html or ""
+            if force and can_img:                          # อัปเกรดภาพ: ลบรูปในเนื้อเก่าออกก่อน แล้วสร้างใหม่
+                cur = _re.sub(r'<figure class="inline-img">.*?</figure>', '', cur, flags=_re.S)
             cover_new = (await _gen_cover(a.title or "")) \
-                if (can_img and not (getattr(a, "cover_url", "") or "").strip()) else ""
-            if can_img and "inline-img" not in cur:        # เติมรูปในเนื้อ
+                if (can_img and (force or not (getattr(a, "cover_url", "") or "").strip())) else ""
+            if can_img and (force or "inline-img" not in cur):   # เติม/สร้างรูปในเนื้อใหม่
                 h2 = await _enrich_media(cur, a.title or "")
                 if h2 and "inline-img" in h2:
                     cur = h2
