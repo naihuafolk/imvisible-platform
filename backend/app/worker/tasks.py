@@ -60,17 +60,32 @@ async def _apply_internal_links(project_id: int, self_title: str, html: str) -> 
         return html
 
 
+async def _visual_concept(topic: str, section: str = "") -> str:
+    """แปลงหัวข้อ (อาจเป็นไทย) → คำบรรยาย 'ฉากภาพจริง' สั้น ๆ เป็นภาษาอังกฤษ ที่สื่อถึงเนื้อหา
+    → ป้อนให้ fal.ai (เข้าใจอังกฤษดีกว่าไทย) ได้ภาพที่ 'ตรงเรื่อง' ไม่ใช่นามธรรมมั่ว · crash-safe"""
+    try:
+        sysmsg = ("You are an art director. Turn an article topic into ONE short vivid ENGLISH description of a "
+                  "concrete, photorealistic scene that visually communicates that topic to a reader "
+                  "(real people, objects, setting, action, mood). The image must contain NO text or words. "
+                  "Reply with ONLY the scene description — one sentence, no quotes, no preface.")
+        usermsg = ("Article topic: %s%s\nBest single photo scene that conveys this topic:"
+                   % (topic, (" · specific section: " + section) if section else ""))
+        _p, txt = await content._llm(sysmsg, usermsg, tier="fast")
+        return (txt or "").strip().strip('"').replace("\n", " ")[:320]
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 async def _gen_cover(topic: str) -> str:
-    """สร้างรูปปกด้วย Seedream (ModelArk) — crash-safe: ล้ม = คืน '' (บทความยังผลิตได้ปกติ ไม่มีรูปเฉยๆ)"""
+    """สร้างรูปปกที่ 'สื่อถึงเนื้อหา' — แปลงหัวข้อเป็นฉากอังกฤษก่อน แล้วเจนภาพสมจริง · crash-safe (ล้ม='')"""
     try:
         if not media.enabled():
             return ""
-        prompt = ("Professional editorial hero image for an article about: %s. "
-                  "Photorealistic high-end magazine photography (or a polished premium 3D render if more fitting), "
-                  "a real-world relevant scene/subject, natural cinematic lighting, shallow depth of field, "
+        scene = (await _visual_concept(topic)) or ("a scene that represents: " + topic)
+        prompt = ("Professional editorial hero photo. Scene: %s. "
+                  "Photorealistic, high-end magazine photography, natural cinematic lighting, shallow depth of field, "
                   "modern and tasteful, crisp 4K, rich fine detail, beautiful color grading, elegant composition. "
-                  "Award-winning, magazine-quality. "
-                  "Absolutely no text, no letters, no words, no numbers, no logos, no watermark, no signature, no UI." % topic)
+                  "Absolutely no text, no letters, no words, no numbers, no logos, no watermark, no signature, no UI." % scene)
         return await media.generate_image(prompt) or ""
     except Exception:  # noqa: BLE001
         return ""
@@ -83,11 +98,12 @@ async def _gen_magnet_cover(topic: str, kind: str = "guide") -> str:
             return ""
         label = {"course": "online course", "guide": "guide / ebook",
                  "checklist": "checklist", "template": "template"}.get(kind, "guide / ebook")
-        prompt = ("Striking, share-worthy promotional cover for a free %s about: %s. "
+        scene = (await _visual_concept(topic)) or ("a scene representing: " + topic)
+        prompt = ("Striking, share-worthy cover for a free %s. Scene: %s. "
                   "Premium modern design — photorealistic hero photography or a polished 3D render, a strong focal subject, "
                   "cinematic lighting, rich depth, vibrant yet tasteful, high contrast, scroll-stopping, magazine-quality 4K. "
                   "Award-winning art direction, ultra-detailed. "
-                  "Absolutely no text, no letters, no words, no numbers, no logos, no watermark, no signature, no UI." % (label, topic))
+                  "Absolutely no text, no letters, no words, no numbers, no logos, no watermark, no signature, no UI." % (label, scene))
         return await media.generate_image(prompt) or ""
     except Exception:  # noqa: BLE001
         return ""
@@ -120,9 +136,10 @@ async def _enrich_media(html: str, topic: str) -> str:
             start = html.rfind("<h2", 0, ms[i].start())
             h2text = _re.sub(r"<[^>]+>", "", html[start:ms[i].end()] if start >= 0 else "").strip()[:120] or topic
             try:
+                _scene = (await _visual_concept(topic, h2text)) or (h2text + " — related to " + topic)
                 url = await media.generate_image(
-                    "Photorealistic professional photo illustrating '" + h2text + "' from an article about '" + topic +
-                    "'. A real-world relevant scene/subject, high-end editorial photography or clean 3D render, "
+                    "Photorealistic professional photo. Scene: " + _scene +
+                    ". Real-world relevant, high-end editorial photography or clean 3D render, "
                     "natural lighting, shallow depth of field, modern, beautiful, ultra-detailed 4K. "
                     "No text, no letters, no words, no logos, no watermark, no UI.")
             except Exception:  # noqa: BLE001
