@@ -188,6 +188,18 @@ class LeadMagnet(Base):
     token: Mapped[str] = mapped_column(String(64), default="", index=True)   # ลิงก์ gate สาธารณะ
     require_share: Mapped[bool] = mapped_column(Boolean, default=False)      # ต้องกดแชร์ก่อนปลดล็อก (เพิ่ม reach)
     leads_count: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str] = mapped_column(String(300), default="")              # ว่าง=กำลังสร้าง/สำเร็จ · มีค่า=สร้างล้ม (กันค้าง building ตลอดกาล)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ContactLead(Base):
+    """ลีดจากฟอร์มติดต่อบนหน้าแรก (ผู้สนใจกรอกเอง) → แจ้งแอดมินทาง LINE ทันที"""
+    __tablename__ = "contact_leads"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    phone: Mapped[str] = mapped_column(String(60), default="")
+    business: Mapped[str] = mapped_column(String(300), default="")
+    keywords: Mapped[str] = mapped_column(Text, default="")            # คีย์เวิร์ดที่คาดหวัง (คั่นด้วย ,)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

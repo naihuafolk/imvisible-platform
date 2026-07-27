@@ -158,6 +158,13 @@ class LeadUnlock(BaseModel):
     shared: bool = False
 
 
+class ContactForm(BaseModel):
+    name: str = ""
+    phone: str = ""
+    business: str = ""
+    keywords: list[str] = []          # คีย์เวิร์ดที่คาดหวัง (สูงสุด 3)
+
+
 class ChannelUpdate(BaseModel):
     kind: str                        # line | facebook | telegram | x | linkedin | discord | mastodon | webhook
     ref: str = ""                    # facebook: page_id · line: userId/groupId (หรือ 'broadcast')

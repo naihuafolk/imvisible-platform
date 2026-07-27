@@ -1089,8 +1089,16 @@ async def _build_lead_magnet(magnet_id: int, topic: str) -> dict:
         lang = "English" if str(lang_code).lower().startswith("en") else "ภาษาไทย"
     try:
         gen = await content.generate_lead_magnet(kind, topic, business_context=biz, language=lang)
-    except Exception as e:  # noqa: BLE001
-        return {"error": ("generate failed: " + str(e))[:180]}
+    except Exception as e:  # noqa: BLE001 — บันทึก error ลง DB ไม่งั้นหน้า gate จะค้าง 'กำลังสร้าง' ตลอดกาล
+        emsg = ("generate failed: " + str(e))[:280]
+        try:
+            async with db.session() as s:
+                m = await s.get(LeadMagnet, magnet_id)
+                if m:
+                    m.error = emsg; await s.commit()
+        except Exception:  # noqa: BLE001
+            pass
+        return {"error": emsg}
     import asyncio as _aio
     content_html, cover = await _aio.gather(
         _enrich_media(gen["content_html"], topic),      # แทรกรูปประกอบในเนื้อตามหัวข้อ (fal.ai · crash-safe)
@@ -1103,6 +1111,7 @@ async def _build_lead_magnet(magnet_id: int, topic: str) -> dict:
             m.teaser_html = gen["teaser_html"]
             m.content_html = content_html or gen["content_html"]
             m.cover_url = cover or ""
+            m.error = ""                                # เคลียร์ (กรณี retry สำเร็จ)
             await s.commit()
     return {"magnet_id": magnet_id, "built": True, "images": bool(cover)}
 

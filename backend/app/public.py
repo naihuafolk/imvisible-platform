@@ -656,7 +656,24 @@ def render_lead_magnet_gate(magnet, proj) -> str:
     brand = _esc(proj.name or proj.domain)
     cover = _esc(getattr(magnet, "cover_url", "") or "")
     req_share = bool(getattr(magnet, "require_share", False))
-    if not str(getattr(magnet, "content_html", "") or "").strip():   # กำลังสร้างเบื้องหลัง → หน้ารอ (auto-refresh)
+    _no_content = not str(getattr(magnet, "content_html", "") or "").strip()
+    _failed = _no_content and bool(str(getattr(magnet, "error", "") or "").strip())
+    if _failed:                                                      # สร้างล้ม → หน้าขอโทษ (ไม่ auto-refresh · ไม่ค้าง)
+        return (
+            '<!doctype html><html lang="%s"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>%s</title><link rel="icon" href="/favicon.svg"><style>%s</style></head>'
+            '<body><div class="wrap" style="text-align:center;padding-top:72px">'
+            '<div class="brand" style="justify-content:center"><span class="mk">i</span>%s</div>'
+            '<div style="font-size:52px;margin:26px 0 6px">🛠️</div>'
+            '<h1>%s</h1>'
+            '<div class="card" style="max-width:440px;margin:18px auto 0"><p style="margin:0">%s</p></div>'
+            '</div></body></html>'
+            % ("en" if en else "th", (title or brand), _LM_CSS, brand,
+               t("สื่อนี้ยังไม่พร้อม", "This resource isn't ready yet"),
+               t("ขออภัย เรากำลังจัดเตรียมใหม่ — ลองกลับมาดูใหม่อีกครั้งภายหลัง",
+                 "Sorry — we're preparing it again. Please check back a little later.")))
+    if _no_content:                                                  # กำลังสร้างเบื้องหลัง → หน้ารอ (auto-refresh)
         return (
             '<!doctype html><html lang="%s"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'

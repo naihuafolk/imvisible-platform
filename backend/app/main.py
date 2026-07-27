@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock,
+    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -638,9 +638,10 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
         new_id = p.id
     # "ใส่แค่ลิงก์" → อ่านเว็บลูกค้าเอง + 'เริ่มเขียนบทความแรกให้เลย' (เบื้องหลัง · ล้มก็ไม่กระทบการสร้างโปรเจ็ค)
     try:
-        from app.worker.tasks import analyze_project, produce_for_project
-        analyze_project.delay(new_id)                                 # อ่านเว็บจริง → บริบท/แบรนด์
-        produce_for_project.apply_async((new_id, 1), countdown=90)    # ⚡ เริ่มเขียนบทความแรกเลย (หน่วง 90 วิ ให้ analyze เติมบริบทก่อน)
+        from app.worker.tasks import analyze_project
+        # analyze_project (then_produce=True) อ่านเว็บจริงเสร็จแล้ว 'สั่งผลิตบทความแรกเองใน finally' เสมอ
+        # (แม้ analyze ล่ม) → ไม่ต้อง enqueue produce ซ้ำที่นี่ กันบทความแรกซ้ำหัวข้อจาก 2 รอบชนกัน
+        analyze_project.delay(new_id)
         result["analyzing"] = True
         result["producing"] = True
     except Exception:  # noqa: BLE001
@@ -2055,8 +2056,31 @@ async def list_lead_magnets(project_id: int, user=Depends(get_current_user)):
     return {"magnets": [{"id": m.id, "kind": m.kind, "title": m.title, "token": m.token,
                          "language": getattr(m, "language", "th"),
                          "require_share": m.require_share, "leads_count": m.leads_count,
-                         "building": not (m.content_html or "").strip(),
+                         "building": not (m.content_html or "").strip() and not (getattr(m, "error", "") or ""),
+                         "failed": bool(getattr(m, "error", "") or "") and not (m.content_html or "").strip(),
+                         "error": getattr(m, "error", "") or "",
                          "path": "/api/lead/%s" % m.token} for m in rows]}
+
+
+@app.post("/api/lead-magnets/{magnet_id}/retry")
+async def retry_lead_magnet(magnet_id: int, user=Depends(get_current_user)):
+    """ลองสร้างสื่อแจกฟรีใหม่ (กรณีสร้างล้มค้าง) — เคลียร์ error แล้ว enqueue ใหม่"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import LeadMagnet
+    async with db.session() as s:
+        m = await s.get(LeadMagnet, magnet_id)
+        if not m:
+            raise HTTPException(404, "not found")
+        await _own_project(s, m.project_id, user)
+        topic = m.title or ""
+        m.error = ""; await s.commit()
+    try:
+        from app.worker.tasks import build_lead_magnet
+        build_lead_magnet.delay(magnet_id, topic)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(503, "คิวงานไม่พร้อม (worker/redis)")
+    return {"ok": True, "building": True}
 
 
 @app.get("/api/projects/{project_id}/leads")
@@ -2108,6 +2132,8 @@ async def public_lead_unlock(token: str, req: LeadUnlock):
             LeadMagnet.token == (token or "").strip()).limit(1))).scalars().first()
         if not m:
             raise HTTPException(404, "not found")
+        if not (m.content_html or "").strip():        # ยังสร้างไม่เสร็จ/ล้ม → อย่าเพิ่งเก็บอีเมล+เพิ่มยอด (จะได้ลีดผีของสื่อที่ไม่มีจริง)
+            raise HTTPException(409, "สื่อกำลังจัดเตรียม กรุณาลองใหม่อีกครู่ / resource is still being prepared")
         dup = (await s.execute(select(Lead.id).where(
             Lead.magnet_id == m.id, Lead.email == email).limit(1))).scalar()
         if not dup:
@@ -2118,6 +2144,45 @@ async def public_lead_unlock(token: str, req: LeadUnlock):
             await s.commit()
         content_html = m.content_html or ""
     return {"content_html": content_html}
+
+
+@app.post("/api/contact")
+async def contact_form(req: ContactForm, _rl=Depends(rate_limit_auth)):
+    """ฟอร์มติดต่อจากหน้าแรก (สาธารณะ) → เก็บลีด + แจ้งแอดมินทาง LINE ทันที · rate-limit กันสแปม"""
+    name = (req.name or "").strip()[:200]
+    phone = (req.phone or "").strip()[:60]
+    if not (name and phone):
+        raise HTTPException(422, "กรุณากรอกชื่อและเบอร์ติดต่อ")
+    business = (req.business or "").strip()[:300]
+    kws = [str(k).strip() for k in (req.keywords or []) if str(k).strip()][:5]
+    kw_txt = ", ".join(kws)
+    if db.enabled():
+        from app.db.models import ContactLead
+        async with db.session() as s:
+            s.add(ContactLead(name=name, phone=phone, business=business, keywords=kw_txt))
+            await s.commit()
+    try:                                              # แจ้ง LINE บอทให้แอดมินติดต่อกลับ (crash-safe: ล้มก็ยังเก็บลีดไว้)
+        from app.connectors import notify
+        msg = ("\U0001F514 มีคนสนใจบริการ (จากหน้าเว็บ imvisible.tech)\n"
+               "\U0001F464 ชื่อ: %s\n\U0001F4DE เบอร์: %s\n\U0001F3E2 ธุรกิจ: %s\n\U0001F3AF คีย์เวิร์ด: %s"
+               % (name, phone, business or "-", kw_txt or "-"))
+        await notify.send_line(msg)
+    except Exception:  # noqa: BLE001
+        pass
+    return {"ok": True}
+
+
+@app.get("/api/contacts")
+async def list_contacts(user=Depends(get_current_user)):
+    """รายชื่อลีดจากฟอร์มติดต่อหน้าแรก (แอดมินดูย้อนหลัง เผื่อ LINE พลาด)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import ContactLead
+    async with db.session() as s:
+        rows = (await s.execute(select(ContactLead).order_by(ContactLead.id.desc()).limit(300))).scalars().all()
+    return {"contacts": [{"name": r.name, "phone": r.phone, "business": r.business,
+                          "keywords": r.keywords, "at": r.created_at.isoformat() if r.created_at else ""}
+                         for r in rows], "count": len(rows)}
 
 
 @app.get("/api/tls/check")

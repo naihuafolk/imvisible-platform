@@ -383,7 +383,8 @@
       <a href="#how" class="iv-link" data-en="How it works">วิธีการทำงาน</a>
       <a href="#why" class="iv-link" data-en="Why us">ทำไมต้องเรา</a>
       <a href="#dash" class="iv-link" data-en="Dashboard">แดชบอร์ด</a>
-      <a href="#price" class="iv-link" data-en="Pricing">ราคา</a>
+      <a href="#price" class="iv-link" data-en="Packages">แพ็กเกจ</a>
+      <a href="#contact" class="iv-link" data-en="Contact">ติดต่อ</a>
       <div class="langtoggle" role="group" aria-label="เปลี่ยนภาษา / Language">
         <button type="button" data-l="th" class="on">TH</button>
         <button type="button" data-l="en">EN</button>
@@ -675,11 +676,56 @@
     </div>
   </section>
 
+  <!-- contact form -->
+  <section class="wrap" id="contact" style="padding:clamp(48px,7vw,90px) 0">
+    <style>
+      .lead-form input{padding:13px 15px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:1rem;width:100%;background:#fff;color:var(--ink)}
+      .lead-form input:focus{outline:2px solid var(--blue);outline-offset:1px;border-color:var(--blue)}
+      .lead-form input::placeholder{color:var(--muted)}
+    </style>
+    <div class="sec-head">
+      <span class="no">07</span>
+      <h2 data-en="Interested? Let's talk">สนใจบริการ? ทักมาเลย</h2>
+      <p data-en="Fill in your details — our team will get back to you fast.">กรอกข้อมูลสั้น ๆ เดี๋ยวทีมงานติดต่อกลับไวที่สุด (หรือทัก LINE @imaiofficial · โทร 098-789-3988)</p>
+    </div>
+    <form class="lead-form" id="lead-form" style="max-width:580px;display:flex;flex-direction:column;gap:14px">
+      <input name="name" required placeholder="ชื่อ" data-en-ph="Name">
+      <input name="phone" required placeholder="เบอร์ติดต่อ" data-en-ph="Phone">
+      <input name="business" placeholder="ธุรกิจของคุณ" data-en-ph="Your business">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <input name="kw1" placeholder="คีย์เวิร์ดที่อยากติด 1" data-en-ph="Target keyword 1">
+        <input name="kw2" placeholder="คีย์เวิร์ด 2" data-en-ph="Keyword 2">
+        <input name="kw3" placeholder="คีย์เวิร์ด 3" data-en-ph="Keyword 3">
+      </div>
+      <button class="btn btn-primary" type="submit" style="align-self:flex-start" data-en="Send">ส่งข้อมูล</button>
+      <div id="lead-msg" style="font-size:.92rem;min-height:20px"></div>
+    </form>
+  </section>
+  <script>
+  (function(){
+    var f=document.getElementById('lead-form'); if(!f) return;
+    f.addEventListener('submit',function(e){
+      e.preventDefault();
+      function g(n){var el=f.querySelector('[name="'+n+'"]');return el?(el.value||'').trim():'';}
+      var name=g('name'),phone=g('phone'),msg=document.getElementById('lead-msg');
+      if(!name||!phone){msg.textContent='กรุณากรอกชื่อและเบอร์ติดต่อ';msg.style.color='#dc2626';return;}
+      var btn=f.querySelector('button'),ot=btn.textContent;btn.disabled=true;btn.textContent='กำลังส่ง…';
+      fetch('https://app.imvisible.tech/api/contact',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name:name,phone:phone,business:g('business'),keywords:[g('kw1'),g('kw2'),g('kw3')].filter(Boolean)})})
+      .then(function(r){return r.json();}).then(function(d){
+        btn.disabled=false;btn.textContent=ot;
+        if(d&&d.ok){f.reset();msg.textContent='ส่งแล้ว ✓ ทีมงานจะติดต่อกลับไวที่สุด ขอบคุณครับ';msg.style.color='#0a7350';}
+        else{msg.textContent=(d&&d.detail)||'ส่งไม่สำเร็จ ลองใหม่ หรือทัก LINE @imaiofficial';msg.style.color='#dc2626';}
+      }).catch(function(){btn.disabled=false;btn.textContent=ot;msg.textContent='ส่งไม่สำเร็จ ลองใหม่ หรือทัก LINE @imaiofficial';msg.style.color='#dc2626';});
+    });
+  })();
+  </script>
+
   <!-- faq (AEO / FAQPage) -->
   <section class="faq" id="faq">
     <div class="wrap">
       <div class="sec-head">
-        <span class="no">07</span>
+        <span class="no">08</span>
         <h2 data-en="Frequently asked questions">คำถามที่พบบ่อย</h2>
         <p data-en="Straight answers — the way AI likes to quote them.">คำตอบตรงไปตรงมา — แบบที่ AI ชอบหยิบไปตอบ</p>
       </div>

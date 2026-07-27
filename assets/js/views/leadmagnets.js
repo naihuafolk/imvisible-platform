@@ -60,7 +60,10 @@
           if (!ms.length) { box.innerHTML = ui.card({ title: 'สื่อของคุณ', body: RP.noData('ยังไม่มีสื่อ', 'สร้างชิ้นแรกด้านบนได้เลย') }); return; }
           var rows = ms.map(function (m) {
             var url = location.origin + m.path;
-            var right = m.building
+            var right = m.failed
+              ? '<span class="soft small" style="color:#c0392b">⚠️ สร้างไม่สำเร็จ</span> ' +
+                '<button class="btn btn-sm lm-retry" data-id="' + m.id + '">ลองใหม่</button>'
+              : m.building
               ? '<span class="soft small">⏳ กำลังสร้าง (เขียน+ใส่รูป)…</span>'
               : '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="btn btn-sm">เปิด ↗</a> ' +
                 '<button class="btn btn-sm lm-copy" data-u="' + esc(url) + '">คัดลอกลิงก์</button>';
@@ -70,6 +73,14 @@
           box.innerHTML = ui.card({ title: 'สื่อของคุณ', sub: ms.length + ' ชิ้น', flush: true, body: rows });
           Array.prototype.forEach.call(box.querySelectorAll('.lm-copy'), function (b) {
             b.onclick = function () { try { navigator.clipboard.writeText(b.getAttribute('data-u')); } catch (e) {} b.textContent = '✓ คัดลอกแล้ว'; setTimeout(function () { b.textContent = 'คัดลอกลิงก์'; }, 1500); };
+          });
+          Array.prototype.forEach.call(box.querySelectorAll('.lm-retry'), function (b) {
+            b.onclick = function () {
+              b.disabled = true; b.textContent = 'กำลังสั่ง…';
+              RP.api.retryLeadMagnet(b.getAttribute('data-id')).then(function () {
+                ui.toast('สั่งสร้างใหม่แล้ว — สักครู่'); setTimeout(loadMagnets, 1200);
+              }).catch(function () { b.disabled = false; b.textContent = 'ลองใหม่'; ui.toast('สั่งไม่สำเร็จ'); });
+            };
           });
         }).catch(function () {});
       }
