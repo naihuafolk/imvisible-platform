@@ -5,6 +5,9 @@
 (function (RP) {
   'use strict';
   var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
+  var PACKS = [10, 30, 50];   // แพ็กคีย์เวิร์ดต่อลูกค้า (ต้องตรงกับ plans.KEYWORD_PACKS ฝั่ง backend)
+  var packMap = {};           // pid -> {pack, used} เติมจาก /api/projects/overview
+  function normPack(n) { n = parseInt(n, 10) || 50; for (var i = 0; i < PACKS.length; i++) { if (n <= PACKS[i]) return PACKS[i]; } return PACKS[PACKS.length - 1]; }
 
   function healthDots(h) {
     var items = [['GSC', h.gsc], ['SERP', h.serp], ['AI Citation', h.ai], ['เผยแพร่', h.publish]];
@@ -37,8 +40,10 @@
       '<div style="min-width:0"><div class="bb" style="font-size:16px">' + esc(p.name) + '</div>' +
       '<div class="soft small" style="margin-top:2px">🌐 ' + esc(p.domain) + ' · ' + esc(p.country) +
       ' · ' + (p.mode === 'auto' ? 'Full-Auto' : 'Human Approve') + ' · Freshness ' + esc(p.freshnessDays) + ' วัน</div></div>' +
+      '<div class="row gap-s wrap" style="justify-content:flex-end;gap:6px">' +
+      '<span class="proj-pack" data-pid="' + esc(numId) + '"></span>' +
       '<span class="proj-status" data-pid="' + esc(numId) + '">' + (real ? '<span class="soft small">…</span>' : (p.plan ? ui.badge('แพ็กเกจ ' + p.plan, 'purple') : '')) + '</span>' +
-      '</div>' +
+      '</div></div>' +
       (!real && setup ? '<div class="hint" style="margin-top:10px">⚠️ ตั้งค่ายังไม่ครบ (' + connected + '/4) — เชื่อม AI Citation + ปลายทางเผยแพร่ให้ครบก่อนเริ่มวัดผล</div>' : '') +
       (real ? '' : healthRow(p.health)) +
       '<div class="soft small proj-nums" data-pid="' + esc(numId) + '" style="margin:12px 0">' + (real ? 'กำลังโหลดข้อมูล…' : '') + '</div>' +
@@ -46,6 +51,7 @@
       '<div class="row gap-s wrap" style="align-items:center">' +
       '<button class="btn btn-primary btn-sm open-dash" data-id="' + esc(p.id) + '">📊 เปิดรายงาน</button>' +
       '<button class="btn btn-sm add-kw" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">＋ คีย์เวิร์ด</button>' +
+      '<button class="btn btn-sm chg-pack" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">🎟 แพ็ก</button>' +
       '<button class="btn btn-sm aeo-q" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">🎯 คำถาม AEO</button>' +
       '<button class="btn btn-sm cfg-proj" data-id="' + esc(p.id) + '">⚙️ ตั้งค่า</button>' +
       '<button class="btn btn-sm del-proj" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '" style="margin-left:auto;color:var(--red-600,#dc2626)">🗑 ลบ</button>' +
@@ -73,29 +79,71 @@
     };
   }
 
-  /* เพิ่มคีย์เวิร์ดให้โปรเจ็คที่กำลังทำงาน (ต่อท้าย ไม่กระทบงานที่ผลิตอยู่ · รวมสูงสุด 50) */
-  function splitLines(s) {
-    return (s || '').split(/[,\n]+/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 50);
+  /* เพิ่มคีย์เวิร์ดให้โปรเจ็คที่กำลังทำงาน (ต่อท้าย ไม่กระทบงานที่ผลิตอยู่ · เพดาน = แพ็กของลูกค้า) */
+  function splitLines(s, cap) {
+    return (s || '').split(/[,\n]+/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, cap || 50);
   }
-  function addKeywordsModal(id, name) {
+  function addKeywordsModal(id, name, pack) {
     var pid = String(id).replace(/^db/, '');
-    ui.modal({ title: '＋ เพิ่มคีย์เวิร์ด', sub: esc(name) + ' · เพิ่มได้ระหว่างระบบทำงาน ไม่กระทบงานที่ผลิตอยู่', width: 520, body:
-      '<div class="hint mb">พิมพ์คีย์เวิร์ด/หัวข้อ — คั่นด้วย <b>,</b> หรือ <b>ขึ้นบรรทัดใหม่</b> · ระบบจะทยอยเขียนบทความให้ในรอบถัดไป (รวมสูงสุด 50 หัวข้อ)</div>' +
+    var info = packMap[pid] || {}; pack = normPack(pack || info.pack || 50);
+    var used = info.used || 0, room = Math.max(0, pack - used);
+    ui.modal({ title: '＋ เพิ่มคีย์เวิร์ด', sub: esc(name) + ' · แพ็ก ' + pack + ' คีย์ · ใช้ไปแล้ว ' + used + '/' + pack, width: 520, body:
+      '<div class="hint mb">พิมพ์คีย์เวิร์ด/หัวข้อ — คั่นด้วย <b>,</b> หรือ <b>ขึ้นบรรทัดใหม่</b> · ระบบจะทยอยเขียนบทความให้ในรอบถัดไป (แพ็กนี้รวมได้สูงสุด <b>' + pack + '</b> หัวข้อ · เพิ่มได้อีก <b>' + room + '</b>)</div>' +
       '<textarea class="input" id="ak_txt" rows="6" placeholder="รับทำ seo สายเทา ราคา&#10;จ้างทำ seo คลินิก กี่บาท&#10;seo กับ google ads ต่างกันยังไง" style="width:100%;resize:vertical"></textarea>' +
       '<div class="row between" style="margin-top:8px;align-items:center"><span class="soft small" id="ak_count">0 คีย์เวิร์ด</span>' +
       '<button class="btn btn-primary" id="ak_save">เพิ่มคีย์เวิร์ด</button></div>' });
     var txt = document.getElementById('ak_txt'), cnt = document.getElementById('ak_count'), go = document.getElementById('ak_save');
-    function upd() { if (cnt) { var n = splitLines(txt.value).length; cnt.textContent = n + ' คีย์เวิร์ด' + (n >= 50 ? ' (สูงสุด)' : ''); } }
+    function upd() { if (cnt) { var n = splitLines(txt.value, room).length; cnt.textContent = n + ' คีย์เวิร์ด' + (n >= room ? ' (เต็มโควตาแพ็ก)' : ''); } }
     if (txt) { txt.oninput = upd; setTimeout(function () { txt.focus(); }, 50); }
     if (go) go.onclick = function () {
-      var kws = splitLines(txt ? txt.value : '');
-      if (!kws.length) { ui.toast('พิมพ์คีย์เวิร์ดก่อน'); return; }
+      var kws = splitLines(txt ? txt.value : '', room);
+      if (!kws.length) { ui.toast(room ? 'พิมพ์คีย์เวิร์ดก่อน' : 'แพ็กนี้เต็มโควตาแล้ว — เปลี่ยนแพ็กเพื่อเพิ่ม'); return; }
       if (!RP.api.reachable()) { ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'); return; }
       go.disabled = true; go.textContent = 'กำลังเพิ่ม…';
       RP.api.addKeywords(pid, kws).then(function (d) {
         ui.closeModal();
-        ui.toast('เพิ่ม <b>' + (d.added || 0) + '</b> คีย์เวิร์ดแล้ว ✓ (รวม ' + (d.total || 0) + '/' + (d.cap || 50) + ') — ระบบจะทยอยเขียนให้');
+        if (packMap[pid]) packMap[pid].used = d.total || 0;
+        ui.toast('เพิ่ม <b>' + (d.added || 0) + '</b> คีย์เวิร์ดแล้ว ✓ (รวม ' + (d.total || 0) + '/' + (d.cap || pack) + ') — ระบบจะทยอยเขียนให้');
+        if ((d.total || 0) > (d.cap || pack)) ui.toast('⚠️ คีย์เกินโควตาแพ็ก — บางคีย์จะยังไม่ถูกวัด/ดันจนกว่าจะขยายแพ็ก');
       }).catch(function (e) { go.disabled = false; go.textContent = 'เพิ่มคีย์เวิร์ด'; ui.toast('เพิ่มไม่ได้: ' + esc(e.message || String(e))); });
+    };
+  }
+
+  /* เปลี่ยนแพ็กคีย์เวิร์ดของลูกค้า (แอดมิน) — 10 / 30 / 50 */
+  function changePackModal(id, name, current) {
+    var pid = String(id).replace(/^db/, '');
+    var info = packMap[pid] || {}; current = normPack(current || info.pack || 50);
+    var used = info.used || 0;
+    var opts = PACKS.map(function (pk) {
+      var on = pk === current, over = used > pk;
+      return '<label class="row gap-s" style="cursor:pointer;padding:10px 12px;border:1px solid ' + (on ? 'var(--brand-500,#6366f1)' : 'var(--border,#e5e7eb)') +
+        ';border-radius:10px;margin-bottom:8px;background:' + (on ? 'var(--brand-50,#eef2ff)' : 'var(--card,#fff)') + '">' +
+        '<input type="radio" name="pk_sel" value="' + pk + '"' + (on ? ' checked' : '') + '> ' +
+        '<span class="grow"><b>แพ็ก ' + pk + ' คีย์</b>' + (on ? ' <span class="soft small">(ปัจจุบัน)</span>' : '') + '</span>' +
+        (over ? '<span class="soft small" style="color:#c0392b">ใช้ไป ' + used + ' เกินแพ็กนี้</span>' : '') + '</label>';
+    }).join('');
+    ui.modal({ title: '🎟 เปลี่ยนแพ็กคีย์เวิร์ด', sub: esc(name) + ' · ใช้ไปแล้ว ' + used + ' คีย์', width: 460, body:
+      '<div class="hint mb">โควตาจำนวนคีย์เวิร์ดที่ระบบ <b>ติดตาม + ดัน + วัดผล</b> ให้ลูกค้ารายนี้ · ไม่ลบคีย์เดิม (ถ้าลดแพ็กแล้วเกิน คีย์ส่วนเกินจะพักไว้จนขยายแพ็ก)</div>' +
+      opts +
+      '<div class="row between" style="margin-top:8px"><button class="btn btn-sm" id="pk_cancel">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="pk_save">บันทึกแพ็ก</button></div>' });
+    var cc = document.getElementById('pk_cancel'), go = document.getElementById('pk_save');
+    if (cc) cc.onclick = function () { ui.closeModal(); };
+    if (go) go.onclick = function () {
+      var sel = document.querySelector('input[name="pk_sel"]:checked');
+      var pk = sel ? parseInt(sel.value, 10) : current;
+      if (!RP.api.reachable()) { ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'); return; }
+      go.disabled = true; go.textContent = 'กำลังบันทึก…';
+      RP.api.setPack(pid, pk).then(function (r) {
+        ui.closeModal();
+        packMap[pid] = { pack: r.keyword_pack || pk, used: r.keywords_used || used };
+        ui.toast('ตั้งแพ็กเป็น <b>' + (r.keyword_pack || pk) + ' คีย์</b> แล้ว ✓' + (r.over_quota ? ' · มีคีย์เกินโควตา (พักไว้)' : ''));
+        mountNow();
+      }).catch(function (e) {
+        go.disabled = false; go.textContent = 'บันทึกแพ็ก';
+        var m = e.message || String(e);
+        ui.toast(/403/.test(m) ? 'ตั้งแพ็กได้เฉพาะแอดมิน (อีเมลต้องอยู่ใน ADMIN_EMAILS)' : 'ตั้งแพ็กไม่ได้: ' + esc(m));
+      });
     };
   }
 
@@ -205,6 +253,10 @@
       '<span class="soft small" style="align-self:center">ไม่ต้องคิดเอง — AI ดูจากเว็บให้</span></div>' +
       '<div id="np_kwchips" class="mb"></div>' +
       field('หรือพิมพ์คีย์เวิร์ดเองเพิ่ม (1 คีย์ต่อบรรทัด หรือคั่นด้วย , — ไม่ใส่ก็ได้)', '<textarea class="input" id="np_kw" rows="4" placeholder="เลเซอร์หน้าใส&#10;ฟิลเลอร์&#10;ร้อยไหมละลาย&#10;โบท็อกซ์ ราคา" style="width:100%;resize:vertical"></textarea>') +
+      '<div style="margin:2px 0 14px"><div class="soft small" style="margin-bottom:6px">🎟 แพ็กคีย์เวิร์ดของลูกค้ารายนี้ <span class="soft">(โควตาที่ระบบติดตาม+ดัน+วัดผล · เปลี่ยนภายหลังได้)</span></div>' +
+        '<div class="row gap-s wrap">' + PACKS.map(function (pk) {
+          return '<label class="row gap-s" style="cursor:pointer;padding:8px 16px;border:1px solid var(--border,#e5e7eb);border-radius:999px"><input type="radio" name="np_pack" value="' + pk + '"' + (pk === 50 ? ' checked' : '') + '> <span><b>' + pk + '</b> คีย์</span></label>';
+        }).join('') + '</div></div>' +
       '<details style="margin:8px 0"><summary class="soft small" style="cursor:pointer">ตัวเลือกเพิ่มเติม (ชื่อโปรเจ็ค · ภาษา · โหมดเผยแพร่)</summary><div style="padding-top:12px">' +
         field('ชื่อโปรเจ็ค (เว้นว่าง = ใช้ชื่อโดเมน)', '<input class="input" id="np_name" placeholder="เช่น คลินิกความงาม XYZ" style="width:100%">') +
         field('ภาษาเนื้อหา', '<select class="select" id="np_country" style="width:100%"><option value="th">ไทย</option><option value="en">อังกฤษ</option></select>') +
@@ -241,10 +293,13 @@
       var name = (document.getElementById('np_name') && document.getElementById('np_name').value || '').trim();
       var modeEl = document.querySelector('input[name="np_mode"]:checked');
       var mode = modeEl ? modeEl.value : 'approve';
+      var packEl = document.querySelector('input[name="np_pack"]:checked');
+      var pack = normPack(packEl ? packEl.value : 50);
       var keywords = uniq(collectSelected().concat(splitc(document.getElementById('np_kw') ? document.getElementById('np_kw').value : '')));
+      if (keywords.length > pack) { ui.toast('เลือก ' + keywords.length + ' คีย์ เกินแพ็ก ' + pack + ' — จะใช้ ' + pack + ' คีย์แรก'); keywords = keywords.slice(0, pack); }
       if (!(RP.api && RP.api.reachable())) { ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — <b>ยังไม่ได้สร้างโปรเจ็ค</b>'); return; }
       btn.disabled = true; btn.textContent = 'กำลังสร้าง…';
-      RP.api.createProject({ url: url, name: name, mode: mode, country: 'ไทย', language: curLang(), publish_mode: 'managed', keywords: keywords })
+      RP.api.createProject({ url: url, name: name, mode: mode, country: 'ไทย', language: curLang(), publish_mode: 'managed', keywords: keywords, keyword_pack: pack })
         .then(function (p) {
           var home = p.public_home || '', dom = p.domain || url;
           ui.closeModal();
@@ -312,6 +367,9 @@
         Array.prototype.forEach.call(root.querySelectorAll('.add-kw'), function (b) {
           b.onclick = function () { addKeywordsModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
         });
+        Array.prototype.forEach.call(root.querySelectorAll('.chg-pack'), function (b) {
+          b.onclick = function () { changePackModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
+        });
         Array.prototype.forEach.call(root.querySelectorAll('.aeo-q'), function (b) {
           b.onclick = function () { aeoQuestionsModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
         });
@@ -331,6 +389,14 @@
               var x = m[parseInt(el.getAttribute('data-pid'), 10)]; if (!x) return;
               el.textContent = 'บทความ ' + (x.articles || 0) + ' · เผยแพร่ ' + (x.published || 0) +
                 ' · ติดหน้า 1 ' + (x.page1 || 0) + (x.avg_aeo != null ? ' · AEO ' + x.avg_aeo : '');
+            });
+            (d.projects || []).forEach(function (x) {
+              if (x.keyword_pack) packMap[String(x.id)] = { pack: x.keyword_pack, used: x.keywords_used || 0 };
+            });
+            Array.prototype.forEach.call(root.querySelectorAll('.proj-pack'), function (el) {
+              var x = m[parseInt(el.getAttribute('data-pid'), 10)]; if (!x || !x.keyword_pack) return;
+              var used = x.keywords_used || 0, pk = x.keyword_pack;
+              el.innerHTML = ui.badge('🎟 ' + used + '/' + pk + ' คีย์', used > pk ? 'amber' : 'purple');
             });
           }).catch(function () {});
         }

@@ -15,6 +15,25 @@ PLANS: dict = {
 }
 DEFAULT_PLAN = "free"
 
+# ── แพ็กคีย์เวิร์ด (ต่อ 'โปรเจ็ค/ลูกค้า 1 ราย') — โควตาจำนวนคีย์เวิร์ดที่ระบบติดตาม+ดัน ───
+# ตอนนี้แอดมินตั้งให้แต่ละลูกค้าเอง · โครงสร้างพร้อมเปิดให้ลูกค้าเลือกเองภายหลัง (ผูกบิลลิ่ง)
+KEYWORD_PACKS: list[int] = [10, 30, 50]
+DEFAULT_PACK = 50                       # โปรเจ็คเดิม/ค่าเริ่มต้น = 50 (ตรงกับที่เคยขาย "สูงสุด 50")
+
+
+def normalize_pack(n, default: int = DEFAULT_PACK) -> int:
+    """แปลงค่าแพ็กที่รับเข้ามา → เลขแพ็กที่ถูกต้อง (10/30/50) · ค่าอื่นปัดขึ้นแพ็กที่ใกล้สุด"""
+    try:
+        v = int(n)
+    except (TypeError, ValueError):
+        return default
+    if v in KEYWORD_PACKS:
+        return v
+    for pk in KEYWORD_PACKS:             # ปัดขึ้นแพ็กที่ครอบคลุมจำนวนที่ขอ
+        if v <= pk:
+            return pk
+    return KEYWORD_PACKS[-1]             # เกิน 50 → 50
+
 
 def normalize(plan: str | None) -> str:
     """map ค่าที่เก็บใน User.plan → คีย์แพ็กเกจที่รู้จัก (ค่าเก่า/ไม่รู้จัก → free)"""

@@ -93,6 +93,11 @@ class ProjectCreate(BaseModel):
     publish_mode: str = "managed"    # managed (เราโฮสต์ให้) | wordpress | none
     custom_domain: str = ""          # เช่น blog.abccoffee.com (ตั้ง CNAME มาที่เรา)
     keywords: list[str] = []         # คีย์เวิร์ด/หัวข้อเริ่มต้นที่ลูกค้าเลือก (AI ช่วยคิด) → ใช้ผลิตบทความแรกจริง
+    keyword_pack: int = 50           # แพ็กคีย์เวิร์ดของลูกค้ารายนี้ (10/30/50) — โควตารวมที่ระบบติดตาม+ดัน
+
+
+class KeywordPackUpdate(BaseModel):
+    pack: int = 50                   # ตั้งแพ็กคีย์เวิร์ดของโปรเจ็ค (10/30/50) — เฉพาะแอดมิน
 
 
 class KeywordSuggestRequest(BaseModel):

@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm,
+    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm, KeywordPackUpdate,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -260,6 +260,7 @@ async def projects_overview(user=Depends(get_current_user)):
             return ("slow", "ช้าลง", "amber")
         return ("stalled", "ไม่เคลื่อนไหว", "red")
 
+    from app import plans
     out = []
     for p in projs:
         c, pub, last = stat.get(p.id, (0, 0, None))
@@ -268,6 +269,8 @@ async def projects_overview(user=Depends(get_current_user)):
                     "public_home": project_public_home(p), "mode": p.mode,
                     "articles": int(c), "published": int(pub),
                     "avg_aeo": aeoavg.get(p.id), "page1": page1.get(p.id, 0),
+                    "keyword_pack": plans.normalize_pack(getattr(p, "keyword_pack", plans.DEFAULT_PACK)),
+                    "keywords_used": _topic_count(p),
                     "last_at": last.isoformat() if last else "",
                     "status": skey, "status_label": slabel, "status_tone": stone})
     return {"projects": out}
@@ -535,11 +538,26 @@ async def me(user=Depends(get_current_user)):
 
 
 # ---------- Projects (เชื่อม DB จริง) ----------
+def _topic_count(p) -> int:
+    """จำนวนคีย์เวิร์ด/หัวข้อในแผน (topic_plan) ของโปรเจ็ค — ใช้เทียบโควตาแพ็ก"""
+    import json as _json
+    raw = getattr(p, "topic_plan", "") or ""
+    if not raw.strip():
+        return 0
+    try:
+        return len(_json.loads(raw) or [])
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 def _proj_dict(p):
+    from app import plans
+    pack = plans.normalize_pack(getattr(p, "keyword_pack", plans.DEFAULT_PACK))
     return {"id": p.id, "name": p.name, "domain": p.domain, "country": p.country,
             "language": p.language, "mode": p.mode, "freshness_days": p.freshness_days,
             "slug": p.slug, "publish_mode": p.publish_mode, "custom_domain": p.custom_domain,
             "public_home": project_public_home(p),
+            "keyword_pack": pack, "keywords_used": _topic_count(p),   # โควตาแพ็ก + ที่ใช้ไปแล้ว
             # Site Intelligence (สิ่งที่ระบบอ่านได้จากเว็บลูกค้า)
             "analyzed": bool(getattr(p, "analyzed_at", None)),
             "business_context": getattr(p, "business_context", "") or "",
@@ -606,6 +624,7 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
     base_slug = project_slug_from_domain(domain)
     custom = _clean_custom_domain(req.custom_domain)
     pmode = _norm_publish_mode(req.publish_mode or "managed")
+    pack = plans.normalize_pack(getattr(req, "keyword_pack", plans.DEFAULT_PACK))   # แพ็กคีย์ของลูกค้ารายนี้
     async with db.session() as s:
         if custom:                                   # กันโดเมนซ้ำกับโปรเจ็คอื่น (backstop = unique index)
             dup = (await s.execute(select(Project.id).where(Project.custom_domain == custom))).first()
@@ -616,7 +635,7 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
         for _ in range(6):                           # slug unique index จับการชน (รวม race) → retry
             cand = Project(user_id=user["id"], name=name, domain=domain, country=req.country,
                            language=req.language or "th", mode=req.mode,
-                           publish_mode=pmode, custom_domain=custom, slug=slug)
+                           publish_mode=pmode, custom_domain=custom, slug=slug, keyword_pack=pack)
             s.add(cand)
             try:
                 await s.commit()
@@ -627,8 +646,8 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
                 slug = "%s-%s" % (base_slug, secrets.token_hex(3))
         if p is None:
             raise HTTPException(409, "สร้างโปรเจ็คไม่สำเร็จ (โดเมน/slug ชนกัน) ลองใหม่อีกครั้ง")
-        # คีย์เวิร์ดที่ลูกค้าเลือก (AI ช่วยคิด) → บันทึกเป็นแผนหัวข้อตั้งต้น เพื่อให้ระบบผลิตบทความจากคีย์เหล่านี้จริง
-        seeds = [str(k).strip() for k in (req.keywords or []) if str(k).strip()][:50]
+        # คีย์เวิร์ดที่ลูกค้าเลือก (AI ช่วยคิด) → บันทึกเป็นแผนหัวข้อตั้งต้น (ไม่เกินโควตาแพ็ก)
+        seeds = [str(k).strip() for k in (req.keywords or []) if str(k).strip()][:pack]
         if seeds:
             import json as _json
             p.topic_plan = _json.dumps([{"topic": k, "cluster": ""} for k in seeds], ensure_ascii=False)
@@ -658,11 +677,13 @@ async def add_keywords(project_id: int, req: KeywordsAddRequest, user=Depends(ge
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     import json as _json
     from app.db.models import Project
+    from app import plans
     kws = [str(k).strip() for k in (req.keywords or []) if str(k).strip()]
     async with db.session() as s:
         p = await s.get(Project, project_id)
         if not p or p.user_id != user["id"]:
             raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        cap = plans.normalize_pack(getattr(p, "keyword_pack", plans.DEFAULT_PACK))   # เพดาน = แพ็กของลูกค้า
         try:
             plan = _json.loads(p.topic_plan) if (p.topic_plan or "").strip() else []
         except Exception:  # noqa: BLE001
@@ -673,7 +694,7 @@ async def add_keywords(project_id: int, req: KeywordsAddRequest, user=Depends(ge
             have.add(t.strip().lower())
         added = 0
         for k in kws:
-            if len(plan) >= 50:                      # เพดานรวม 50 หัวข้อ
+            if len(plan) >= cap:                     # เพดานรวม = แพ็ก (10/30/50)
                 break
             if k.lower() not in have:
                 plan.append({"topic": k, "cluster": "เพิ่มเอง"})
@@ -681,7 +702,28 @@ async def add_keywords(project_id: int, req: KeywordsAddRequest, user=Depends(ge
         p.topic_plan = _json.dumps(plan, ensure_ascii=False)
         await s.commit()
         total = len(plan)
-    return {"added": added, "total": total, "cap": 50}
+    return {"added": added, "total": total, "cap": cap}
+
+
+@app.put("/api/projects/{project_id}/pack")
+async def set_project_pack(project_id: int, req: KeywordPackUpdate, user=Depends(get_current_user)):
+    """ตั้งแพ็กคีย์เวิร์ดของโปรเจ็ค/ลูกค้า (10/30/50) — เฉพาะแอดมิน
+    โครงสร้างพร้อมเปิดให้ลูกค้าเลือกเอง (ผูกบิลลิ่ง) ภายหลัง · ไม่ลบคีย์เดิม (กันข้อมูลหาย)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import usage, plans
+    from app.db.models import Project
+    if (await usage.user_plan(user["id"])) != "admin":
+        raise HTTPException(403, "การตั้งแพ็กสงวนไว้สำหรับแอดมินเท่านั้น")
+    pack = plans.normalize_pack(req.pack)
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        p.keyword_pack = pack
+        await s.commit()
+        used = _topic_count(p)
+    return {"ok": True, "keyword_pack": pack, "keywords_used": used, "over_quota": used > pack}
 
 
 @app.get("/api/projects/{project_id}/aeo-questions")

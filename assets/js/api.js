@@ -76,6 +76,7 @@
     setCta: function (pid, o) { return api._put('/api/projects/' + pid + '/cta', o); },
     setPublishTarget: function (pid, o) { return api._put('/api/projects/' + pid + '/publish', o); },
     setMode: function (pid, mode) { return api._put('/api/projects/' + pid + '/mode', { mode: mode }); },
+    setPack: function (pid, pack) { return api._put('/api/projects/' + pid + '/pack', { pack: pack }); },
     reportLink: function (pid) { return api._post('/api/projects/' + pid + '/report-link', {}); },
     backlinkOpportunities: function (pid) { return api._post('/api/projects/' + pid + '/backlink-opportunities', {}); },
     backlinkOutreach: function (pid, o) { return api._post('/api/projects/' + pid + '/backlink-outreach', o); },

@@ -16,11 +16,16 @@ from sqlalchemy.exc import IntegrityError
 from app.worker.celery_app import celery_app
 from app.connectors import mining, content, serp, citation, publish, social, media, interlink, aeo_score
 from app.db import session as db
-from app import urls, crypto, creds
+from app import urls, crypto, creds, plans
 
 
 def _run(coro):
     return asyncio.run(coro)
+
+
+def _pack_cap(p) -> int:
+    """เพดานคีย์เวิร์ดของโปรเจ็ค = แพ็กของลูกค้า (10/30/50) · ค่าเริ่มต้น 50 (โปรเจ็คเดิม)"""
+    return plans.normalize_pack(getattr(p, "keyword_pack", plans.DEFAULT_PACK))
 
 
 def _wordcount(html: str) -> int:
@@ -1168,8 +1173,9 @@ async def _gsc_opportunities(per_project: int) -> str:
                     plan = []
                 have = set(((it.get("topic") if isinstance(it, dict) else str(it)) or "").strip().lower() for it in plan)
                 pa = 0
+                gcap = _pack_cap(proj)
                 for t in new_topics[:per_project]:
-                    if len(plan) >= 50:                   # เพดานรวม 50 คีย์/โปรเจ็ค
+                    if len(plan) >= gcap:                 # เพดานรวม = แพ็กของลูกค้า (10/30/50)
                         break
                     if t.lower() not in have:
                         plan.append({"topic": t, "cluster": "GSC opportunity"})
@@ -1509,7 +1515,10 @@ async def _competitor_gap_scan(per_project: int, add_max: int) -> str:
             except Exception:  # noqa: BLE001
                 plan = []
             have = {(it.get("topic") if isinstance(it, dict) else str(it)) for it in plan}
+            gcap = _pack_cap(proj)
             for t in gap_topics:
+                if len(plan) >= gcap:                     # ไม่เกินโควตาแพ็กของลูกค้า
+                    break
                 if t not in have:
                     plan.append({"topic": t, "cluster": "competitor-gap"})
                     added += 1
@@ -1595,7 +1604,7 @@ async def _measure_all_ranks() -> str:
             titles = (await s.execute(
                 select(Article.title).where(Article.project_id == p.id,
                                             Article.status == "published"))).scalars().all()
-        for kw in _tracked_keywords(p, titles, 50):    # คีย์ลูกค้า (topic_plan) + หัวข้อบทความ · สูงสุด 50
+        for kw in _tracked_keywords(p, titles, _pack_cap(p)):   # คีย์ลูกค้า (topic_plan) + หัวข้อบทความ · สูงสุด = แพ็ก
             measure_rank.delay(kw, p.domain, p.id)
             n += 1
     return "queued %d rank checks across %d projects" % (n, len(projs))

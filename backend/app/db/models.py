@@ -59,6 +59,7 @@ class Project(Base):
     language: Mapped[str] = mapped_column(String(50), default="th")
     mode: Mapped[str] = mapped_column(String(20), default="approve")   # approve | auto
     freshness_days: Mapped[int] = mapped_column(Integer, default=120)
+    keyword_pack: Mapped[int] = mapped_column(Integer, default=50)      # โควตาคีย์เวิร์ดของลูกค้ารายนี้ (10/30/50) — แอดมินตั้ง
     # --- ปลายทางเผยแพร่ (Phase 1: Managed Hosting) ---
     # ความ unique ของ slug + custom_domain บังคับด้วย unique index ใน migrate.py
     # (สร้างหลัง backfill — กัน hijack/ชน + กัน MultipleResultsFound)
