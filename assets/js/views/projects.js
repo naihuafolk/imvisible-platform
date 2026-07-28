@@ -258,21 +258,25 @@
       'background:' + (on ? 'var(--brand-50,#eef2ff)' : 'var(--card,#fff)') + ';color:' + (on ? 'var(--brand-700,#4338ca)' : 'inherit');
     el.innerHTML = (on ? '✓ ' : '＋ ') + esc(el.getAttribute('data-kw'));
   }
-  function renderChips(container, ks, source) {
-    var head = '<div class="row between wrap" style="margin-bottom:8px;gap:8px"><div class="soft small">' +
-      (source === 'site' ? '🤖 AI อ่านเว็บแล้วแนะนำ — ' : (source === 'ai' ? '🤖 AI แนะนำ — ' : '')) + 'ติ๊กเลือกหัวข้อที่อยากให้เขียน (เลือกได้หลายอัน)</div>' +
-      '<button type="button" class="btn btn-sm" id="kwAll">เลือกทั้งหมด</button></div>';
+  function renderChips(container, ks, source, preselect, onChange) {
+    var warn = (source && source !== 'site')       // อ่านเว็บไม่ได้ → คีย์เป็นการเดา = ไม่ตรง (บอกตามตรง)
+      ? '<div class="hint" style="margin-bottom:8px;color:var(--amber-700,#b45309)">⚠️ AI อ่านเว็บไม่ได้ — คีย์ที่แนะนำเป็น "การเดา" จากชื่อ/โดเมน · พิมพ์เองด้านล่างจะตรงกว่า</div>'
+      : '';
+    var head = warn + '<div class="row between wrap" style="margin-bottom:8px;gap:8px"><div class="soft small">' +
+      (source === 'site' ? '🤖 AI อ่านเว็บแล้วแนะนำ — ' : '🤖 AI แนะนำ — ') + 'ติ๊ก ＋ เพื่อเพิ่มเข้าลิสต์ (เลือกได้หลายอัน)</div>' +
+      '<button type="button" class="btn btn-sm" id="kwAll">เลือกให้เต็มแพ็ก</button></div>';
+    var pre = Math.max(0, preselect || 0);
     var body = ks.map(function (k, i) {
-      return '<span class="kw-chip" data-kw="' + esc(k.kw) + '" data-on="' + (i < 5 ? '1' : '0') + '"' + (k.why ? ' title="' + esc(k.why) + '"' : '') + '></span>';
+      return '<span class="kw-chip" data-kw="' + esc(k.kw) + '" data-on="' + (i < pre ? '1' : '0') + '"' + (k.why ? ' title="' + esc(k.why) + '"' : '') + '></span>';
     }).join('');
     container.innerHTML = head + '<div>' + body + '</div>' +
-      '<div class="soft" style="font-size:11px;margin-top:6px">เลือกไว้ก่อน 5 หัวข้อแรก — ปรับได้ตามใจ · ระบบจะเขียนบทความจากหัวข้อที่เลือกจริง</div>';
+      '<div class="soft" style="font-size:11px;margin-top:6px">ระบบจะเขียนบทความจากคีย์ที่เลือกจริง · เลือกได้ไม่เกินแพ็ก</div>';
     Array.prototype.forEach.call(container.querySelectorAll('.kw-chip'), function (el) {
       styleChip(el);
-      el.onclick = function () { el.setAttribute('data-on', el.getAttribute('data-on') === '1' ? '0' : '1'); styleChip(el); };
+      el.onclick = function () { el.setAttribute('data-on', el.getAttribute('data-on') === '1' ? '0' : '1'); styleChip(el); if (onChange) onChange(); };
     });
     var all = container.querySelector('#kwAll');
-    if (all) all.onclick = function () { Array.prototype.forEach.call(container.querySelectorAll('.kw-chip'), function (el) { el.setAttribute('data-on', '1'); styleChip(el); }); };
+    if (all) all.onclick = function () { Array.prototype.forEach.call(container.querySelectorAll('.kw-chip'), function (el) { el.setAttribute('data-on', '1'); styleChip(el); }); if (onChange) onChange(); };
   }
   function collectSelected() {
     var c = document.getElementById('np_kwchips'); if (!c) return [];
@@ -283,16 +287,18 @@
 
   function openWizard() {
     var body =
-      '<div class="hint mb">ใส่แค่ลิงก์เว็บลูกค้า แล้วกดให้ AI ช่วยคิดคีย์เวิร์ด — ที่เหลือระบบเขียน/เผยแพร่/วัดผลให้เองอัตโนมัติ</div>' +
+      '<div class="hint mb">ใส่ลิงก์เว็บลูกค้า → <b>เลือกแพ็ก</b> → เลือกคีย์เวิร์ด (ไม่เกินแพ็ก) → สร้าง · ที่เหลือระบบเขียน/เผยแพร่/วัดผลให้เอง</div>' +
       field('ลิงก์เว็บไซต์ลูกค้า', '<input class="input" id="np_url" placeholder="เช่น abccoffee.com หรือ https://abccoffee.com" style="width:100%">') +
-      '<div class="row wrap" style="gap:8px;margin:2px 0 14px"><button type="button" class="btn btn-primary btn-sm" id="np_suggest">🤖 ให้ AI ช่วยคิดคีย์เวิร์ด</button>' +
-      '<span class="soft small" style="align-self:center">ไม่ต้องคิดเอง — AI ดูจากเว็บให้</span></div>' +
-      '<div id="np_kwchips" class="mb"></div>' +
-      field('หรือพิมพ์คีย์เวิร์ดเองเพิ่ม (1 คีย์ต่อบรรทัด หรือคั่นด้วย , — ไม่ใส่ก็ได้)', '<textarea class="input" id="np_kw" rows="4" placeholder="เลเซอร์หน้าใส&#10;ฟิลเลอร์&#10;ร้อยไหมละลาย&#10;โบท็อกซ์ ราคา" style="width:100%;resize:vertical"></textarea>') +
-      '<div style="margin:2px 0 14px"><div class="soft small" style="margin-bottom:6px">🎟 แพ็กคีย์เวิร์ดของลูกค้ารายนี้ <span class="soft">(โควตาที่ระบบติดตาม+ดัน+วัดผล · เปลี่ยนภายหลังได้)</span></div>' +
+      '<div style="margin:8px 0 18px"><div class="soft small" style="margin-bottom:8px"><b>1 · เลือกแพ็กคีย์เวิร์ดของลูกค้ารายนี้</b> <span class="soft">(โควตาที่ระบบติดตาม+ดัน+วัดผล · เปลี่ยนภายหลังได้)</span></div>' +
         '<div class="row gap-s wrap">' + PACKS.map(function (pk) {
-          return '<label class="row gap-s" style="cursor:pointer;padding:8px 16px;border:1px solid var(--border,#e5e7eb);border-radius:999px"><input type="radio" name="np_pack" value="' + pk + '"' + (pk === 50 ? ' checked' : '') + '> <span><b>' + pk + '</b> คีย์</span></label>';
+          return '<label class="row gap-s" style="cursor:pointer;padding:10px 20px;border:1px solid var(--border,#e5e7eb);border-radius:999px"><input type="radio" name="np_pack" value="' + pk + '"' + (pk === 10 ? ' checked' : '') + '> <span><b>' + pk + '</b> คีย์</span></label>';
         }).join('') + '</div></div>' +
+      '<div class="soft small" style="margin-bottom:6px"><b>2 · เลือกคีย์เวิร์ด</b> — ให้ AI ช่วยคิดจากเว็บ หรือพิมพ์เอง (ไม่เกินแพ็กที่เลือก)</div>' +
+      '<div class="row wrap" style="gap:8px;margin:2px 0 10px"><button type="button" class="btn btn-primary btn-sm" id="np_suggest">🤖 ให้ AI ช่วยคิดคีย์เวิร์ด</button>' +
+      '<span class="soft small" style="align-self:center">AI อ่านเว็บให้ — ติ๊ก ＋ เพื่อเพิ่มเข้าลิสต์</span></div>' +
+      '<div id="np_kwchips" class="mb"></div>' +
+      field('พิมพ์คีย์เวิร์ดเองเพิ่ม (1 คีย์ต่อบรรทัด หรือคั่นด้วย ,)', '<textarea class="input" id="np_kw" rows="3" placeholder="เลเซอร์หน้าใส&#10;ฟิลเลอร์&#10;ร้อยไหมละลาย" style="width:100%;resize:vertical"></textarea>') +
+      '<div id="np_count" style="margin:2px 0 14px;font-weight:700;font-size:.95rem"></div>' +
       '<details style="margin:8px 0"><summary class="soft small" style="cursor:pointer">ตัวเลือกเพิ่มเติม (ชื่อโปรเจ็ค · ภาษา · โหมดเผยแพร่)</summary><div style="padding-top:12px">' +
         field('ชื่อโปรเจ็ค (เว้นว่าง = ใช้ชื่อโดเมน)', '<input class="input" id="np_name" placeholder="เช่น คลินิกความงาม XYZ" style="width:100%">') +
         field('ภาษาเนื้อหา', '<select class="select" id="np_country" style="width:100%"><option value="th">ไทย</option><option value="en">อังกฤษ</option></select>') +
@@ -302,7 +308,31 @@
       '</div></details>' +
       '<div class="row between" style="margin-top:16px"><span class="soft small">ปรับแต่งเพิ่มได้ภายหลังที่ การตั้งค่า</span>' +
       '<button class="btn btn-primary" id="np_create">สร้างโปรเจ็ค &amp; เริ่มให้เลย</button></div>';
-    ui.modal({ title: 'สร้างโปรเจ็คใหม่', sub: 'วางลิงก์ → AI คิดคีย์เวิร์ดให้ → ติ๊กเลือก → สร้าง', width: 640, body: body });
+    ui.modal({ title: 'สร้างโปรเจ็คใหม่', sub: 'เลือกแพ็ก → เลือกคีย์เวิร์ด (ไม่เกินแพ็ก) → สร้าง', width: 640, body: body });
+
+    function getPack() { var e = document.querySelector('input[name="np_pack"]:checked'); return normPack(e ? e.value : 10); }
+    function manualList() { return splitc(document.getElementById('np_kw') ? document.getElementById('np_kw').value : ''); }
+    function totalSelected() { return uniq(collectSelected().concat(manualList())); }
+    function updateCount() {
+      var pack = getPack(), tot = totalSelected().length, el = document.getElementById('np_count');
+      if (!el) return;
+      var over = tot > pack, col = over ? '#dc2626' : (tot ? 'var(--brand-700,#4338ca)' : 'var(--text-soft,#94a3b8)');
+      el.innerHTML = '📋 เลือกแล้ว <b style="color:' + col + '">' + tot + ' / ' + pack + '</b> คีย์' +
+        (over ? ' <span style="color:#dc2626;font-weight:400">— เกินแพ็ก จะใช้ ' + pack + ' คีย์แรก</span>'
+              : (tot >= pack && tot ? ' <span class="soft" style="font-weight:400">(เต็มแพ็ก)</span>' : ''));
+    }
+    function syncSelection() {   // บังคับ 'คีย์ที่เลือก ≤ แพ็ก' — ถ้าเกิน ปลดชิปท้าย ๆ ออกให้พอดี
+      var pack = getPack(), c = document.getElementById('np_kwchips'), manual = manualList().length, onChips = [];
+      if (c) {
+        Array.prototype.forEach.call(c.querySelectorAll('.kw-chip'), function (el) { if (el.getAttribute('data-on') === '1') onChips.push(el); });
+        var allow = Math.max(0, pack - manual);
+        while (onChips.length > allow) { var el = onChips.pop(); el.setAttribute('data-on', '0'); styleChip(el); }
+      }
+      updateCount();
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="np_pack"]'), function (r) { r.onchange = syncSelection; });
+    var kwTa = document.getElementById('np_kw'); if (kwTa) kwTa.oninput = updateCount;
+    updateCount();
 
     var sg = document.getElementById('np_suggest');
     if (sg) sg.onclick = function () {
@@ -315,8 +345,8 @@
       chips.innerHTML = '<div class="soft small">AI กำลังวิเคราะห์เว็บและคิดคีย์เวิร์ด… (สักครู่)</div>';
       RP.api.suggestKeywords({ url: url, name: nm, language: curLang() }).then(function (d) {
         var ks = (d && d.keywords) || [];
-        if (!ks.length) { chips.innerHTML = '<div class="soft small">ยังคิดไม่ได้ ลองใหม่ หรือพิมพ์คีย์เวิร์ดเองด้านล่าง</div>'; }
-        else renderChips(chips, ks, d.source);
+        if (!ks.length) { chips.innerHTML = '<div class="soft small">ยังคิดไม่ได้ ลองใหม่ หรือพิมพ์คีย์เวิร์ดเองด้านล่าง</div>'; updateCount(); }
+        else { renderChips(chips, ks, d.source, Math.min(5, getPack()), syncSelection); syncSelection(); }
       }).catch(function (e) {
         chips.innerHTML = '<div class="soft small">คิดคีย์เวิร์ดไม่ได้: ' + esc(e.message || '') + ' — พิมพ์เองด้านล่างได้</div>';
       }).then(function () { sg.disabled = false; sg.textContent = '🤖 ให้ AI ช่วยคิดคีย์เวิร์ดอีกครั้ง'; });
