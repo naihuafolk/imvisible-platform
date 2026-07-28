@@ -193,6 +193,23 @@
         }).join('') + '</div>';
     }
 
+    var comps = cit.competitors || [];                 // 🥊 คู่แข่งที่ AI แนะนำแทนเรา
+    var compHtml = '';
+    if (comps.length) {
+      var maxM = Math.max(1, Math.max.apply(null, comps.map(function (c) { return c.mentions || 1; })));
+      compHtml = '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">' +
+        '<div class="soft small" style="margin-bottom:10px">🥊 คู่แข่งที่ AI แนะนำในหมวดคุณ <span class="soft">— รู้ว่าต้องแซงใคร</span></div>' +
+        comps.slice(0, 6).map(function (c, i) {
+          var w = Math.round((c.mentions || 1) / maxM * 100);
+          return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
+            '<span class="soft small" style="width:15px;text-align:right;font-weight:800">' + (i + 1) + '</span>' +
+            '<span class="t" style="width:130px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(c.name) + '</span>' +
+            '<span style="flex:1;height:9px;border-radius:999px;background:var(--surface-2,#f1f5f9);overflow:hidden"><span style="display:block;height:100%;width:' + w + '%;background:var(--amber-500,#f59e0b)"></span></span>' +
+            '<span class="soft small" style="width:52px;text-align:right">' + (c.mentions || 1) + ' ครั้ง</span></div>';
+        }).join('') +
+        '<div class="hint" style="margin-top:9px">AI แนะนำแบรนด์พวกนี้เวลามีคนถามในหมวดคุณ — เป้าหมาย AEO คือทำให้ AI หยิบ<b>ชื่อคุณ</b>ขึ้นมาแทน/ร่วมด้วย</div></div>';
+    }
+
     var aeoNote = '';
     if (aeo.avg_score != null) {
       aeoNote = '<div class="hint" style="margin-top:14px">บทความคุณคะแนน AEO เฉลี่ย <b>' + aeo.avg_score + '</b> — ยิ่งคะแนนสูง (ตอบตรง+FAQ+Schema) AI ยิ่งหยิบไปแนะนำง่าย · ' +
@@ -202,7 +219,7 @@
     el.innerHTML = ui.card({ title: '🤖 AI แนะนำเราหรือยัง',
       sub: 'ถาม ChatGPT / Gemini / Perplexity จริง แล้วเช็คว่าหยิบเราไปตอบมั้ย — เห็นความเคลื่อนไหวทุกสัปดาห์',
       action: '<button class="btn btn-sm btn-primary" id="rpAiNow">🤖 วัด AI เดี๋ยวนี้</button>',
-      body: head + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">' + cards + '</div>' + mov + proof + aeoNote });
+      body: head + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">' + cards + '</div>' + mov + proof + compHtml + aeoNote });
     var q = el.querySelector('#airecQ');
     if (q) q.onclick = function (ev) { ev.preventDefault(); if (RP.openAeoQuestions) RP.openAeoQuestions(rDbId(p), p && p.name); else RP.go('projects'); };
     var mn = el.querySelector('#rpAiNow');

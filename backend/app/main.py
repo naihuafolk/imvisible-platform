@@ -1935,10 +1935,16 @@ async def project_citation_history(project_id: int, user=Depends(get_current_use
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import CitationSnapshot
     async with db.session() as s:
-        await _read_project(s, project_id, user)
+        p = await _read_project(s, project_id, user)
+        comp_raw = getattr(p, "ai_competitors", "") or ""
         rows = (await s.execute(
             select(CitationSnapshot).where(CitationSnapshot.project_id == project_id)
             .order_by(CitationSnapshot.sampled_at))).scalars().all()
+    import json as _json
+    try:
+        competitors = _json.loads(comp_raw) if comp_raw.strip() else []
+    except Exception:  # noqa: BLE001
+        competitors = []
 
     runs: list[dict] = []
     by_bucket: dict[str, dict] = {}
@@ -1970,6 +1976,7 @@ async def project_citation_history(project_id: int, user=Depends(get_current_use
         "prev_sov": prev["overall"] if prev else None,
         "per_engine_latest": latest["per_engine"] if latest else {},
         "count": len(runs),
+        "competitors": competitors,           # คู่แข่งที่ AI แนะนำในหมวดเรา (ล่าสุด)
         "note": "ค่าประมาณเชิงสถิติจากการสุ่มถาม — สะสมจากการรันจริงของโปรเจ็คนี้",
     }
 

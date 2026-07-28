@@ -6,6 +6,8 @@ AI Citation — Prompt Sampling (วัด 'ของจริงแต่เป
 *** ไม่มี API ทางการที่บอก citation ตรง ๆ — ทุกเครื่องมือในตลาด (Profound/Otterly)
 ใช้วิธีสุ่มถามแบบนี้ ผลจึงเป็น 'ค่าประมาณเชิงสถิติ' คำตอบ AI เปลี่ยนตามผู้ใช้/เวลา ***
 """
+import json
+
 import httpx
 
 from app.config import settings
@@ -79,11 +81,49 @@ def _is_cited(answer: str, brand_terms: list[str], domain: str) -> bool:
     return any(t.lower() in text for t in brand_terms if t)
 
 
+async def _extract_competitors(answers: list[str], brand_terms: list[str],
+                               domain: str, language: str = "ภาษาไทย") -> list[dict]:
+    """ดึง 'ชื่อแบรนด์/บริษัทที่ AI แนะนำ' จากคำตอบ (ยกเว้นแบรนด์เรา) → นับความถี่
+    = คู่แข่งที่ AI แนะนำแทนเรา (รู้ว่าต้องแซงใครในสนาม AEO) · ไม่แต่งชื่อที่ไม่มีในคำตอบ"""
+    text = "\n---\n".join(a for a in answers if a).strip()[:6000]
+    if not text:
+        return []
+    from app.connectors import content
+    ours = ", ".join([b for b in (brand_terms or []) if b] + ([domain] if domain else [])) or "-"
+    sysmsg = ("คุณคือนักวิเคราะห์ที่ดึง 'ชื่อแบรนด์/บริษัท/ผู้ให้บริการ' ที่ถูกแนะนำในคำตอบ AI เท่านั้น "
+              "เอาเฉพาะชื่อจริงที่เป็นแบรนด์ (ไม่เอาคำทั่วไป/คำอธิบาย) · ห้ามรวมแบรนด์เรา (%s) "
+              "ห้ามแต่งชื่อที่ไม่ได้อยู่ในคำตอบ · ตอบ JSON เท่านั้น ห้าม markdown fence · ภาษา%s" % (ours, language))
+    usermsg = ("คำตอบจาก AI (หลายคำถามรวมกัน):\n%s\n\n"
+               "ดึงชื่อแบรนด์/บริษัทที่ 'ถูกแนะนำ' + นับว่าถูกเอ่ยกี่ครั้ง (เรียงมาก→น้อย) ยกเว้นแบรนด์เรา\n"
+               'ส่ง JSON: {"competitors":[{"name":"ชื่อแบรนด์","mentions":3}]}' % text)
+    try:
+        _prov, out = await content._llm(sysmsg, usermsg, tier="fast")
+        raw = content._strip_fence(out).strip()
+        i, j = raw.find("{"), raw.rfind("}")
+        data = json.loads(raw[i:j + 1]) if (i >= 0 and j > i) else {}
+        ours_low = [x.lower() for x in ([b for b in (brand_terms or []) if b] + ([domain] if domain else []))]
+        res = []
+        for c in (data.get("competitors") or []):
+            if isinstance(c, dict) and str(c.get("name") or "").strip():
+                nm = str(c["name"]).strip()[:80]
+                if nm.lower() in ours_low:                 # กันแบรนด์เราหลุดเข้ามา
+                    continue
+                try:
+                    m = int(c.get("mentions") or 1)
+                except (TypeError, ValueError):
+                    m = 1
+                res.append({"name": nm, "mentions": max(1, m)})
+        return sorted(res, key=lambda x: -x["mentions"])[:8]
+    except Exception:  # noqa: BLE001
+        return []
+
+
 async def sample(questions: list[str], brand_terms: list[str], domain: str,
-                 engines: list[str]) -> dict:
-    """คืน Share of Voice ต่อเอนจิน + ภาพรวม + รายผลต่อคำถาม"""
+                 engines: list[str], language: str = "ภาษาไทย") -> dict:
+    """คืน Share of Voice ต่อเอนจิน + ภาพรวม + รายผลต่อคำถาม + คู่แข่งที่ AI แนะนำแทนเรา"""
     per_engine: dict[str, dict] = {}
     details: list[dict] = []
+    answers: list[str] = []
 
     for eng in engines:
         fn = _ENGINES.get(eng)
@@ -100,6 +140,7 @@ async def sample(questions: list[str], brand_terms: list[str], domain: str,
             if not ans:
                 continue
             answered += 1
+            answers.append(ans)                          # เก็บคำตอบไว้สกัด 'คู่แข่งที่ AI แนะนำ'
             hit = _is_cited(ans, brand_terms, domain)
             if hit:
                 cited += 1
@@ -113,10 +154,12 @@ async def sample(questions: list[str], brand_terms: list[str], domain: str,
 
     valid = [e["sov_percent"] for e in per_engine.values() if e["sov_percent"] is not None]
     overall = round(sum(valid) / len(valid), 1) if valid else None
+    competitors = await _extract_competitors(answers, brand_terms, domain, language)
 
     return {
         "overall_sov_percent": overall,
         "per_engine": per_engine,
         "details": details,
+        "competitors": competitors,
         "note": "ค่าประมาณเชิงสถิติจากการสุ่มถาม — คำตอบ AI เปลี่ยนได้ตามผู้ใช้/เวลา",
     }

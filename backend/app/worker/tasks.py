@@ -1749,15 +1749,17 @@ async def _sample_and_save(project_id: int, questions: list[str] | None = None) 
             return {"error": "project %s not found" % project_id}
         domain = p.domain
         brand_terms = _brand_terms_of(p)
+        lang = "English" if str(getattr(p, "language", "") or "").lower().startswith("en") else "ภาษาไทย"
         qs = [q for q in (questions or []) if q and q.strip()]
         if not qs:
             qs = await _project_questions(p, project_id)
     if not qs:
         return {"project": domain, "saved": False, "note": "ยังไม่มีชุดคำถามให้สุ่มถาม"}
 
-    res = await citation.sample(qs, brand_terms, domain, engines)
+    res = await citation.sample(qs, brand_terms, domain, engines, lang)
 
     per = res.get("per_engine") or {}
+    competitors = res.get("competitors") or []           # คู่แข่งที่ AI แนะนำแทนเรา
     # หลักฐาน AEO: เก็บตัวอย่างคำถามที่ AI 'ตอบแล้วอ้างเราจริง' (มี snippet) สูงสุด 6 ต่อรอบ
     examples = [d for d in (res.get("details") or []) if d.get("cited") and d.get("snippet")][:6]
     async with db.session() as s:                    # บันทึก snapshot ต่อเอนจิน (ตรวจสอบย้อนได้)
@@ -1770,6 +1772,10 @@ async def _sample_and_save(project_id: int, questions: list[str] | None = None) 
             s.add(CitationExample(project_id=project_id, engine=d.get("engine") or "",
                                   question=(d.get("question") or "")[:500],
                                   snippet=(d.get("snippet") or "")[:280]))
+        if competitors:                                  # เก็บ 'คู่แข่งที่ AI แนะนำ' ล่าสุดไว้ที่โปรเจ็ค (โชว์ในรายงาน)
+            pp = await s.get(Project, project_id)
+            if pp:
+                pp.ai_competitors = json.dumps(competitors, ensure_ascii=False)
         await s.commit()
     res["saved"] = bool(per)
     res["engines_used"] = engines
