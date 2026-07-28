@@ -274,6 +274,26 @@ async def _hero_video(topic: str) -> str:
         return ""
 
 
+async def _lead_magnet_video(topic: str, kind: str = "course") -> str:
+    """วิดีโอ hero สำหรับ 'คอร์ส/คู่มือ' — ใช้โมเดลวิดีโอที่ดีที่สุด (fal Kling) · เปิดด้วย LEAD_MAGNET_VIDEO
+    แยกจากวิดีโอบทความ เพื่อไม่ให้ทุกบทความช้า · เฉพาะสื่อชิ้นใหญ่ (course/guide) · crash-safe: ล้ม = คืน ''"""
+    try:
+        from app.config import settings
+        if kind not in ("course", "guide"):                # เช็คลิสต์/เทมเพลตไม่ต้องมีวิดีโอ
+            return ""
+        if not (getattr(settings, "lead_magnet_video", False) and media.enabled() and settings.fal_key):
+            return ""
+        model = getattr(settings, "lead_magnet_video_model", "") or settings.fal_video_model
+        if not model:
+            return ""
+        scene = await _visual_concept(topic, "hero")          # แปลหัวข้อไทย → ซีนภาษาอังกฤษ (โมเดลเข้าใจดีกว่า)
+        prompt = ("Short cinematic educational b-roll, clean modern learning/course aesthetic, "
+                  "soft depth of field, professional: " + (scene or topic))
+        return await media.generate_video(prompt, ratio="16:9", duration=5, model=model) or ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 async def _google_index(url: str):
     """แจ้ง Google Indexing API (crash-safe) — เก็บ connector ไว้ 'เฉพาะ' เคสที่ Google รองรับจริง:
     หน้า JobPosting (ประกาศงาน) / BroadcastEvent (ไลฟ์สด) เท่านั้น
@@ -1105,20 +1125,25 @@ async def _build_lead_magnet(magnet_id: int, topic: str) -> dict:
             pass
         return {"error": emsg}
     import asyncio as _aio
-    content_html, cover = await _aio.gather(
-        _enrich_media(gen["content_html"], topic),      # แทรกรูปประกอบในเนื้อตามหัวข้อ (fal.ai · crash-safe)
-        _gen_magnet_cover(topic, kind))                 # รูปปกดึงดูด (สไตล์อีบุ๊ก · crash-safe: ล้ม='')
+    content_html, cover, video = await _aio.gather(
+        _enrich_media(gen["content_html"], topic),      # แทรกรูปประกอบในเนื้อตามหัวข้อ (fal.ai Seedream · crash-safe)
+        _gen_magnet_cover(topic, kind),                 # รูปปกดึงดูด (สไตล์อีบุ๊ก · crash-safe: ล้ม='')
+        _lead_magnet_video(topic, kind))                # วิดีโอ hero (โมเดลดีสุด · เฉพาะ course/guide · crash-safe)
+    body = content_html or gen["content_html"]
+    if video:                                           # วางวิดีโอไว้บนสุดของเนื้อหา (โชว์หลังปลดล็อกอีเมล) → ให้ดูเป็นคอร์สจริง
+        body = ('<figure class="hero-video"><video src="%s" controls preload="metadata" playsinline '
+                'style="width:100%%;border-radius:12px"></video></figure>' % video) + body
     async with db.session() as s:
         m = await s.get(LeadMagnet, magnet_id)
         if m:
             m.title = gen["title"]
             m.description = gen["description"]
             m.teaser_html = gen["teaser_html"]
-            m.content_html = content_html or gen["content_html"]
+            m.content_html = body
             m.cover_url = cover or ""
             m.error = ""                                # เคลียร์ (กรณี retry สำเร็จ)
             await s.commit()
-    return {"magnet_id": magnet_id, "built": True, "images": bool(cover)}
+    return {"magnet_id": magnet_id, "built": True, "images": bool(cover), "video": bool(video)}
 
 
 @celery_app.task(name="app.worker.tasks.gsc_opportunities")

@@ -84,12 +84,13 @@ def _extract_video_url(d: dict) -> str:
     return ""
 
 
-async def _fal_video(prompt: str, ratio: str = "16:9", duration: int = 5) -> str:
+async def _fal_video(prompt: str, ratio: str = "16:9", duration: int = 5, model: str = "") -> str:
     """fal.ai text→video (queue API) · คืน URL วิดีโอ · ช้า (poll หลายรอบ) — ใช้เมื่อตั้ง FAL_VIDEO_MODEL"""
+    vm = model or settings.fal_video_model
     headers = {"Authorization": "Key " + settings.fal_key, "Content-Type": "application/json"}
     body = {"prompt": prompt, "aspect_ratio": ratio, "duration": str(duration)}
     async with httpx.AsyncClient(timeout=90) as c:
-        r = await c.post("https://queue.fal.run/" + settings.fal_video_model, headers=headers, json=body)
+        r = await c.post("https://queue.fal.run/" + vm, headers=headers, json=body)
         r.raise_for_status()
         data = r.json()
     direct = _extract_video_url(data)                      # บาง endpoint คืนผลตรง
@@ -115,10 +116,11 @@ async def _fal_video(prompt: str, ratio: str = "16:9", duration: int = 5) -> str
 
 
 async def generate_video(prompt: str, ratio: str = "16:9", duration: int = 5,
-                         max_polls: int = 40, interval: int = 6) -> str:
-    """text→video · ใช้ fal.ai ถ้าตั้ง FAL_VIDEO_MODEL ไม่งั้น Seedance (ModelArk) · สร้าง task → poll → คืน URL"""
-    if settings.fal_video_model and settings.fal_key:      # fal.ai video (ใช้ FAL_KEY เดิม ไม่ต้องคีย์ใหม่)
-        return await _fal_video(prompt, ratio, duration)
+                         max_polls: int = 40, interval: int = 6, model: str = "") -> str:
+    """text→video · ใช้ fal.ai ถ้าตั้ง model/FAL_VIDEO_MODEL ไม่งั้น Seedance (ModelArk) · สร้าง task → poll → คืน URL"""
+    vm = model or settings.fal_video_model
+    if vm and settings.fal_key:                            # fal.ai video (ใช้ FAL_KEY เดิม ไม่ต้องคีย์ใหม่)
+        return await _fal_video(prompt, ratio, duration, model=vm)
     if not settings.ark_video_model:
         raise RuntimeError("ยังไม่ได้ตั้ง ARK_VIDEO_MODEL (Seedance)")
     base = settings.ark_base_url.rstrip("/")
