@@ -1273,30 +1273,33 @@ async def project_rank_check(project_id: int, req: KeywordRequest, user=Depends(
 
 @app.post("/api/projects/{project_id}/rank/measure-all")
 async def project_measure_all(project_id: int, user=Depends(get_current_user)):
-    """วัดอันดับ Google 'เดี๋ยวนี้' ทุกคีย์เวิร์ด (ชื่อบทความที่เผยแพร่) ของโปรเจ็ค → เข้าคิวเบื้องหลัง
-    เติมข้อมูลจริงให้หน้ารายงานทันที (ต้องต่อ DataForSEO — คีย์กลางหรือต่อโปรเจ็ค)"""
+    """วัดอันดับ Google 'เดี๋ยวนี้' — 'ทุกคีย์ที่ติดตาม' (คีย์ลูกค้าใน topic_plan + หัวข้อบทความที่เผยแพร่)
+    ตรงกับที่หน้ารายงานโชว์ · สูงสุด = แพ็กของโปรเจ็ค · เข้าคิวเบื้องหลัง (ต้องต่อ DataForSEO)"""
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import Project, Article
+    from app.worker.tasks import _tracked_keywords, _pack_cap
     async with db.session() as s:
         p = await s.get(Project, project_id)
         if not p or p.user_id != user["id"]:
             raise HTTPException(404, "ไม่พบโปรเจ็ค")
         domain = p.domain
-        kws = (await s.execute(
+        if not domain:
+            raise HTTPException(422, "โปรเจ็คนี้ยังไม่ได้ตั้งโดเมน")
+        titles = (await s.execute(
             select(Article.title).where(Article.project_id == project_id,
                                         Article.status == "published"))).scalars().all()
-    if not domain:
-        raise HTTPException(422, "โปรเจ็คนี้ยังไม่ได้ตั้งโดเมน")
+        kws = _tracked_keywords(p, titles, _pack_cap(p))   # คีย์ลูกค้า (topic_plan) + หัวข้อบทความ · สูงสุด=แพ็ก
+        pname = p.name
     if not kws:
-        return {"queued": 0, "note": "ยังไม่มีบทความเผยแพร่ให้วัดอันดับ"}
+        return {"queued": 0, "note": "ยังไม่มีคีย์เวิร์ดให้วัด — เพิ่มคีย์เวิร์ดที่หน้าจัดการโปรเจ็คก่อน"}
     try:
         from app.worker.tasks import measure_rank
-        for kw in kws[:20]:
+        for kw in kws:
             measure_rank.delay(kw, domain, project_id)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, "ต่อคิวไม่ได้ (worker/redis พร้อมไหม): " + str(e))
-    return {"queued": min(len(kws), 20), "project": p.name}
+    return {"queued": len(kws), "project": pname}
 
 
 @app.post("/api/projects/{project_id}/gsc/summary")

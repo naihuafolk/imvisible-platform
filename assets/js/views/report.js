@@ -349,8 +349,13 @@
       if (mb) mb.onclick = function () {
         mb.disabled = true; mb.textContent = 'กำลังวัด…';
         RP.api.measureAllRanks(pid).then(function (d) {
-          ui.toast(d.queued ? ('สั่งวัดอันดับ ' + d.queued + ' คีย์เวิร์ดแล้ว ✓ อีกสักครู่กดรีเฟรช') : (d.note || 'ยังไม่มีบทความให้วัด'));
-          mb.textContent = '⏳ กำลังวัด';
+          if (d && d.queued) {
+            ui.toast('สั่งวัดอันดับ ' + d.queued + ' คีย์เวิร์ดแล้ว ✓ อีกสักครู่กดรีเฟรช (ต้องต่อ DataForSEO)');
+            mb.textContent = '⏳ กำลังวัด';
+          } else {                                   // ไม่มีคีย์ให้วัด → ปลดล็อกปุ่มให้กดใหม่ได้
+            ui.toast((d && d.note) || 'ยังไม่มีคีย์เวิร์ดให้วัด — เพิ่มคีย์เวิร์ดก่อน');
+            mb.disabled = false; mb.textContent = '🔄 วัดอันดับเดี๋ยวนี้';
+          }
         }).catch(function (e) { mb.disabled = false; mb.textContent = '🔄 วัดอันดับเดี๋ยวนี้'; ui.toast('วัดไม่ได้: ' + esc(e.message || String(e))); });
       };
       var sb = root.querySelector('#rpShare');

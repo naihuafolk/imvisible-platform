@@ -717,9 +717,25 @@
       </div>
     </div>
   </section>
+
+  <!-- success popup -->
+  <div id="lead-ok" role="dialog" aria-modal="true" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,18,40,.55);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:20px">
+    <div style="background:#fff;border-radius:20px;max-width:430px;width:100%;padding:38px 32px;text-align:center;box-shadow:0 40px 90px -24px rgba(10,18,40,.5)">
+      <div style="width:74px;height:74px;border-radius:50%;background:#e7f6ef;color:#0a7350;display:grid;place-items:center;margin:0 auto 20px;font-size:40px;line-height:1">✓</div>
+      <h3 style="margin:0 0 10px;font-size:1.5rem;color:var(--ink,#0f172a)" data-en="Thank you! 🙏">ขอบคุณครับ! 🙏</h3>
+      <p style="margin:0 0 24px;color:var(--muted,#64748b);font-size:1.02rem" data-en="We've received your details — our team will contact you back as soon as possible.">เราได้รับข้อมูลของคุณแล้ว<br>ทีมงานจะรีบติดต่อกลับโดยเร็วที่สุด</p>
+      <button type="button" class="btn btn-primary" id="lead-ok-close" style="width:100%;justify-content:center;padding:14px" data-en="Done">เรียบร้อย</button>
+    </div>
+  </div>
+
   <script>
   (function(){
     var f=document.getElementById('lead-form'); if(!f) return;
+    var okm=document.getElementById('lead-ok'),okc=document.getElementById('lead-ok-close');
+    function hideOk(){ if(okm) okm.style.display='none'; }
+    if(okc) okc.onclick=hideOk;
+    if(okm) okm.onclick=function(e){ if(e.target===okm) hideOk(); };
+    document.addEventListener('keydown',function(e){ if(e.key==='Escape') hideOk(); });
     f.addEventListener('submit',function(e){
       e.preventDefault();
       function g(n){var el=f.querySelector('[name="'+n+'"]');return el?(el.value||'').trim():'';}
@@ -730,7 +746,7 @@
         body:JSON.stringify({name:name,phone:phone,business:g('business'),keywords:[g('kw1'),g('kw2'),g('kw3')].filter(Boolean)})})
       .then(function(r){return r.json();}).then(function(d){
         btn.disabled=false;btn.textContent=ot;
-        if(d&&d.ok){f.reset();msg.textContent='ส่งแล้ว ✓ ทีมงานจะติดต่อกลับไวที่สุด ขอบคุณครับ';msg.style.color='#0a7350';}
+        if(d&&d.ok){f.reset();msg.textContent='';if(okm)okm.style.display='flex';}
         else{msg.textContent=(d&&d.detail)||'ส่งไม่สำเร็จ ลองใหม่ หรือทัก LINE @imaiofficial';msg.style.color='#dc2626';}
       }).catch(function(){btn.disabled=false;btn.textContent=ot;msg.textContent='ส่งไม่สำเร็จ ลองใหม่ หรือทัก LINE @imaiofficial';msg.style.color='#dc2626';});
     });
