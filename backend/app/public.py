@@ -716,7 +716,17 @@ h1{text-wrap:balance}.kb{box-shadow:0 8px 20px -8px rgba(26,86,255,.6)}
 .gate .btn{background:#fff;color:#3d6bff;font-weight:800;border:0;padding:13px 32px;border-radius:999px;font-size:15px;cursor:pointer;margin-top:10px}
 .gate .btn:disabled{opacity:.7}
 .gate .share{background:transparent;border:1.5px solid rgba(255,255,255,.65);color:#fff;font-weight:700;padding:9px 22px;border-radius:999px;cursor:pointer;font-size:13px;margin-bottom:12px}
-.content{display:none}.content h2{font-size:22px;margin:26px 0 10px}.content h3{font-size:18px;margin:18px 0 8px}.content p,.content li{font-size:16.5px}.content ul,.content ol{padding-left:1.45em}.content strong{font-weight:700}
+/* เนื้อหาเต็ม (หลังปลดล็อก) — จัดเป็น 'โมดูลบทเรียน' ให้ดูเป็นคอร์สจริง */
+.content{display:none;counter-reset:les;background:var(--pp);border:1px solid var(--ln);border-radius:18px;padding:6px 26px 26px;margin-top:10px;box-shadow:0 26px 56px -30px rgba(20,40,120,.3)}
+.content h2{counter-increment:les;font-size:21px;font-weight:800;line-height:1.32;margin:30px 0 12px;padding-top:26px;border-top:1px solid var(--ln);display:flex;align-items:flex-start;gap:12px}
+.content h2::before{content:counter(les,decimal-leading-zero);flex:none;background:var(--bl);color:#fff;font-size:13.5px;font-weight:800;min-width:30px;height:30px;border-radius:9px;display:grid;place-items:center;margin-top:2px;font-variant-numeric:tabular-nums}
+.content > h2:first-child{border-top:0;padding-top:14px;margin-top:4px}
+.content h3{font-size:17.5px;font-weight:700;margin:20px 0 8px}
+.content p,.content li{font-size:16.5px}.content p{margin:0 0 14px}.content ul,.content ol{padding-left:1.4em}.content li{margin-bottom:8px}.content strong{font-weight:700}
+.content figure{margin:20px 0}
+.content img{width:100%;border-radius:14px;display:block;box-shadow:0 20px 44px -22px rgba(20,40,120,.4)}
+.content figcaption{color:var(--mut);font-size:13px;text-align:center;margin-top:8px}
+.content .hero-video{margin:2px 0 22px}.content video{width:100%;border-radius:16px;display:block;box-shadow:0 24px 54px -24px rgba(20,40,120,.42)}
 .foot{color:var(--mut);font-size:12.5px;text-align:center;margin-top:34px;line-height:1.7}.foot a{color:var(--bl)}
 """
 
