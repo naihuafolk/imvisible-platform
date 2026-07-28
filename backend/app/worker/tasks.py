@@ -1116,6 +1116,7 @@ async def _build_lead_magnet(magnet_id: int, topic: str) -> dict:
         biz = (getattr(proj, "business_context", "") or (proj.name if proj else "")) if proj else ""
         lang_code = (getattr(m, "language", "") or (proj.language if proj else "") or "th")
         lang = "English" if str(lang_code).lower().startswith("en") else "ภาษาไทย"
+        m.stage = "✍️ กำลังเขียนเนื้อหา (AI)"; await s.commit()   # ขั้นที่ 1
     try:
         gen = await content.generate_lead_magnet(kind, topic, business_context=biz, language=lang)
     except Exception as e:  # noqa: BLE001 — บันทึก error ลง DB ไม่งั้นหน้า gate จะค้าง 'กำลังสร้าง' ตลอดกาล
@@ -1124,10 +1125,15 @@ async def _build_lead_magnet(magnet_id: int, topic: str) -> dict:
             async with db.session() as s:
                 m = await s.get(LeadMagnet, magnet_id)
                 if m:
-                    m.error = emsg; await s.commit()
+                    m.error = emsg; m.stage = ""; await s.commit()
         except Exception:  # noqa: BLE001
             pass
         return {"error": emsg}
+    async with db.session() as s:                        # ขั้นที่ 2
+        m = await s.get(LeadMagnet, magnet_id)
+        if m:
+            m.stage = ("🎬 กำลังทำรูป + วิดีโอ" if kind in ("course", "guide") else "🖼️ กำลังใส่รูป")
+            await s.commit()
     import asyncio as _aio
     content_html, cover, video = await _aio.gather(
         _enrich_media(gen["content_html"], topic),      # แทรกรูปประกอบในเนื้อตามหัวข้อ (fal.ai Seedream · crash-safe)
@@ -1145,7 +1151,7 @@ async def _build_lead_magnet(magnet_id: int, topic: str) -> dict:
             m.teaser_html = gen["teaser_html"]
             m.content_html = body
             m.cover_url = cover or ""
-            m.error = ""                                # เคลียร์ (กรณี retry สำเร็จ)
+            m.error = ""; m.stage = ""                   # เคลียร์ (เสร็จแล้ว/กรณี retry สำเร็จ)
             await s.commit()
     return {"magnet_id": magnet_id, "built": True, "images": bool(cover), "video": bool(video)}
 

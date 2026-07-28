@@ -2173,7 +2173,7 @@ async def create_lead_magnet(project_id: int, req: LeadMagnetCreate, user=Depend
         created = []
         for lc in langs:                              # lang=both → สร้างทั้งไทย+อังกฤษ (2 ชิ้น)
             m = LeadMagnet(project_id=project_id, kind=kind, language=lc, title=topic[:280],
-                           description="", teaser_html="", content_html="",
+                           description="", teaser_html="", content_html="", stage="⏳ อยู่ในคิว…",
                            token=secrets.token_urlsafe(12), require_share=bool(req.require_share))
             s.add(m); await s.commit(); await s.refresh(m)
             created.append({"id": m.id, "token": m.token, "language": lc, "path": "/api/lead/%s" % m.token})
@@ -2203,6 +2203,7 @@ async def list_lead_magnets(project_id: int, user=Depends(get_current_user)):
                          "building": not (m.content_html or "").strip() and not (getattr(m, "error", "") or ""),
                          "failed": bool(getattr(m, "error", "") or "") and not (m.content_html or "").strip(),
                          "error": getattr(m, "error", "") or "",
+                         "stage": getattr(m, "stage", "") or "",
                          "path": "/api/lead/%s" % m.token} for m in rows]}
 
 
@@ -2218,7 +2219,7 @@ async def retry_lead_magnet(magnet_id: int, user=Depends(get_current_user)):
             raise HTTPException(404, "not found")
         await _own_project(s, m.project_id, user)
         topic = m.title or ""
-        m.error = ""; await s.commit()
+        m.error = ""; m.stage = "⏳ อยู่ในคิว…"; await s.commit()
     try:
         from app.worker.tasks import build_lead_magnet
         build_lead_magnet.delay(magnet_id, topic)

@@ -53,26 +53,35 @@
 
     return { html: html, mount: function (root) {
       var sel = root.querySelector('#lmProj');
+      var pollTimer = null;                              // auto-refresh ตอนมีชิ้นที่ 'กำลังสร้าง' (งานรันใน worker ไม่หายแม้ปิดหน้า)
+      function managePoll(any) {
+        if (any && !pollTimer) pollTimer = setInterval(loadMagnets, 6000);
+        else if (!any && pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      }
       function loadMagnets() {
         var pid = dbId(sel.value), box = root.querySelector('#lmList');
-        if (!(pid && RP.api.enabled())) { box.innerHTML = ''; return; }
+        if (box && !document.body.contains(box)) { managePoll(false); return; }   // ออกจากหน้าแล้ว → หยุด poll
+        if (!(pid && RP.api.enabled())) { if (box) box.innerHTML = ''; managePoll(false); return; }
         RP.api.leadMagnets(pid).then(function (d) {
           var ms = (d && d.magnets) || [];
-          if (!ms.length) { box.innerHTML = ui.card({ title: 'สื่อของคุณ', body: RP.noData('ยังไม่มีสื่อ', 'สร้างชิ้นแรกด้านบนได้เลย') }); return; }
+          if (!ms.length) { box.innerHTML = ui.card({ title: 'สื่อของคุณ', body: RP.noData('ยังไม่มีสื่อ', 'สร้างชิ้นแรกด้านบนได้เลย') }); managePoll(false); return; }
+          managePoll(ms.some(function (m) { return m.building; }));
           var rows = ms.map(function (m) {
             var url = location.origin + m.path;
             var right = m.failed
               ? '<span class="soft small" style="color:#c0392b">⚠️ สร้างไม่สำเร็จ</span> ' +
                 '<button class="btn btn-sm lm-retry" data-id="' + m.id + '">ลองใหม่</button>'
               : m.building
-              ? '<span class="soft small">⏳ กำลังสร้าง (เขียน+ใส่รูป)…</span>'
+              ? '<span class="soft small" style="color:var(--brand-700,#4338ca);white-space:nowrap">' + esc(m.stage || '⏳ กำลังสร้าง…') + '</span>'
               : '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="btn btn-sm">เปิด ↗</a> ' +
                 '<button class="btn btn-sm lm-copy" data-u="' + esc(url) + '">คัดลอกลิงก์</button> ' +
                 '<button class="btn btn-sm lm-split" data-id="' + m.id + '" title="แตกแต่ละบทเป็นบทความ SEO (ร่าง)">✂️ แตกเป็นบทความ</button>';
             return '<div class="list-row"><div class="grow"><div class="t">' + esc(m.title) + '</div>' +
               '<div class="soft small">' + esc(m.kind) + ' · ' + (m.language === 'en' ? '🇬🇧 EN' : '🇹🇭 TH') + ' · ลีด ' + (m.leads_count || 0) + (m.require_share ? ' · ต้องแชร์' : '') + '</div></div>' + right + '</div>';
           }).join('');
-          box.innerHTML = ui.card({ title: 'สื่อของคุณ', sub: ms.length + ' ชิ้น', flush: true, body: rows });
+          var _nb = ms.filter(function (m) { return m.building; }).length;
+          box.innerHTML = ui.card({ title: 'สื่อของคุณ', flush: true, body: rows,
+            sub: ms.length + ' ชิ้น' + (_nb ? ' · ⏳ กำลังสร้าง ' + _nb + ' (ปิดหน้าได้ ระบบทำต่อเบื้องหลังจนเสร็จ · อัปเดตให้อัตโนมัติ)' : '') });
           Array.prototype.forEach.call(box.querySelectorAll('.lm-copy'), function (b) {
             b.onclick = function () { try { navigator.clipboard.writeText(b.getAttribute('data-u')); } catch (e) {} b.textContent = '✓ คัดลอกแล้ว'; setTimeout(function () { b.textContent = 'คัดลอกลิงก์'; }, 1500); };
           });

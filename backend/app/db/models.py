@@ -192,6 +192,7 @@ class LeadMagnet(Base):
     require_share: Mapped[bool] = mapped_column(Boolean, default=False)      # ต้องกดแชร์ก่อนปลดล็อก (เพิ่ม reach)
     leads_count: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str] = mapped_column(String(300), default="")              # ว่าง=กำลังสร้าง/สำเร็จ · มีค่า=สร้างล้ม (กันค้าง building ตลอดกาล)
+    stage: Mapped[str] = mapped_column(String(120), default="")              # ขั้นตอนที่กำลังทำ (เขียน→รูป/วิดีโอ→เสร็จ) โชว์ความคืบหน้า
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
