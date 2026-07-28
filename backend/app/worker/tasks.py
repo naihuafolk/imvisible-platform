@@ -401,6 +401,10 @@ async def _analyze_project(project_id: int) -> dict:
     ctx_text = site.context_text(ctx)
     bt = ctx.get("brand_terms")
     brands_txt = ", ".join(str(b) for b in bt[:5]) if isinstance(bt, list) else str(bt or "")[:200]
+    try:                                                  # 🌱 seed คำถาม AEO 'recommendation-intent' → วัด AI Citation ได้มีความหมาย (แก้/ลบเองได้)
+        aeo_qs = await content.suggest_aeo_questions(name, domain, ctx_text, lang, n=8)
+    except Exception:  # noqa: BLE001
+        aeo_qs = []
 
     async with db.session() as s:
         p = await s.get(Project, project_id)
@@ -410,6 +414,8 @@ async def _analyze_project(project_id: int) -> dict:
             # ไม่ทับแผนหัวข้อที่ลูกค้าเลือกไว้ตอนสร้าง (คีย์เวิร์ดที่ AI ช่วยคิด/ติ๊กเอง)
             if plan and not (getattr(p, "topic_plan", "") or "").strip():
                 p.topic_plan = json.dumps(plan, ensure_ascii=False)
+            if aeo_qs and not (getattr(p, "aeo_questions", "") or "").strip():   # ไม่ทับคำถามที่ลูกค้าตั้งเอง
+                p.aeo_questions = json.dumps(aeo_qs, ensure_ascii=False)
             p.analyzed_at = datetime.now(timezone.utc)
             await s.commit()
     return {"project": name, "analyzed": True, "pages_read": ctx.get("_pages_read") or [],
@@ -1696,31 +1702,28 @@ def _aeo_questions_of(p) -> list[str]:
 
 
 async def _project_questions(p, project_id: int, limit: int = 6) -> list[str]:
-    """ชุดคำถามสำหรับสุ่มถาม AI — 'คำถาม AEO ที่ลูกค้าตั้งเอง' มาก่อน (ตรงที่สุด)
-    แล้วค่อยเติมจากแผนหัวข้อ (Site Intelligence) → หัวข้อบทความจริง → ขุดสดจากชื่อโปรเจ็ค"""
+    """ชุดคำถามสำหรับสุ่มถาม AI (วัด AI Citation) — 'คำถาม AEO ที่ลูกค้าตั้งเอง' มาก่อน (ตรงที่สุด)
+    ถ้ายังไม่พอ → สร้าง 'คำถาม recommendation-intent' (ที่ AI จะแนะนำแบรนด์จริง) จากบริบทธุรกิจ
+    → สำรองด้วยหัวข้อบทความ/แผนหัวข้อเฉพาะกรณีสร้างคำถามไม่ได้"""
     from app.db.models import Article
     custom = _aeo_questions_of(p)                         # ลูกค้าตั้งเอง = ลำดับแรกเสมอ
     qs: list[str] = list(custom)
-    if getattr(p, "topic_plan", ""):
+    if len(qs) < limit:                                   # เติมด้วยคำถามที่ 'ทำให้ AI แนะนำแบรนด์' (ไม่ใช่คีย์เวิร์ดลอย ๆ)
         try:
-            for it in (json.loads(p.topic_plan) or []):
-                if isinstance(it, dict) and it.get("topic"):
-                    qs.append(str(it["topic"]))
+            lang = "English" if str(getattr(p, "language", "") or "").lower().startswith("en") else "ภาษาไทย"
+            gen = await content.suggest_aeo_questions(
+                getattr(p, "name", "") or "", getattr(p, "domain", "") or "",
+                getattr(p, "business_context", "") or "", lang, n=limit)
+            qs += [q for q in gen if q]
         except Exception:  # noqa: BLE001
             pass
-    if len(qs) < limit and db.enabled():
+    if len(qs) < 2 and db.enabled():                      # สำรองสุดท้าย: หัวข้อบทความจริง (กันว่างเปล่า)
         async with db.session() as s:
             titles = (await s.execute(
                 select(Article.title).where(Article.project_id == project_id,
                                             Article.status == "published")
                 .order_by(Article.id.desc()).limit(limit))).scalars().all()
         qs += [t for t in titles if t]
-    if not qs:
-        try:
-            mined = await mining.mine((p.name or p.domain or "").strip())
-            qs = [q.get("q") for q in mined.get("questions", []) if q.get("q")]
-        except Exception:  # noqa: BLE001
-            qs = []
     # กันซ้ำ คงลำดับ — ถ้าลูกค้าตั้งคำถามเองไว้เยอะ ให้ใช้ครบ (เพดาน 10 กันค่ายิงบานปลาย)
     seen, out = set(), []
     for q in qs:

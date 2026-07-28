@@ -192,6 +192,40 @@ async def suggest_keywords(domain: str, name: str = "", language: str = "ภา�
     return out[:n]
 
 
+async def suggest_aeo_questions(name: str, domain: str, business_context: str = "",
+                                language: str = "ภาษาไทย", n: int = 8) -> list[str]:
+    """สร้างคำถาม 'recommendation-intent' — คำที่คนถาม AI แล้ว AI มักจะ 'แนะนำชื่อแบรนด์/ผู้ให้บริการ'
+    (เช่น แนะนำ… / เจ้าไหนดี / ที่ไหนดี / ควรเลือก…) → ใช้วัด AI Citation ให้มีความหมายจริง
+    กติกา: ห้ามใส่ชื่อแบรนด์เราในคำถาม (ต้องเป็นคำถามกลาง ๆ ถึงจะวัดได้ว่า AI แนะนำเราเองไหม) · ไม่แต่งข้อมูล"""
+    grounded = bool((business_context or "").strip())
+    sysmsg = ("คุณคือผู้เชี่ยวชาญ AEO ที่เข้าใจว่าคนไทยถาม AI (ChatGPT/Gemini/Perplexity) ยังไงเวลาจะ "
+              "'เลือกผู้ให้บริการ/สินค้า/แบรนด์' สร้างคำถามที่ทำให้ AI 'แนะนำชื่อแบรนด์' ในหมวดธุรกิจนี้ "
+              "รูปแบบเช่น 'แนะนำ...หน่อย', '...เจ้าไหนดี', '...ที่ไหนดี', 'ควรเลือก...ยังไง', 'บริษัท...ดี ๆ' "
+              "ห้ามใส่ชื่อแบรนด์/โดเมนของเราในคำถามเด็ดขาด (ต้องเป็นคำถามกลางที่คนทั่วไปถาม) "
+              + ("ยึดบริบทธุรกิจจริงที่ให้มา ให้ตรงสินค้า/บริการ/พื้นที่จริง. " if grounded else "")
+              + "ตอบเป็น JSON valid เท่านั้น ห้าม markdown fence · เขียนเป็น%s" % language)
+    ctx = ("\n\nบริบทธุรกิจ (อ่านจากเว็บจริง): " + business_context[:800]) if grounded else ""
+    usermsg = ("ธุรกิจ/เว็บไซต์: %s (โดเมน %s)%s\n"
+               "สร้าง %d คำถามแบบ recommendation-intent ที่คนไทยถาม AI แล้ว AI จะแนะนำผู้ให้บริการ/แบรนด์ในหมวดนี้ "
+               "คละมุม (แนะนำทั่วไป / เจ้าไหนดี / ตามพื้นที่ / ตามงบ / เปรียบเทียบ)\n"
+               'ส่ง JSON เท่านั้น: {"questions":["คำถาม1","คำถาม2"]}'
+               % ((name or domain), domain, ctx, n))
+    _prov, text = await _llm(sysmsg, usermsg, tier="fast")
+    raw = _strip_fence(text).strip()
+    try:
+        data = json.loads(raw)
+    except Exception:  # noqa: BLE001
+        i, j = raw.find("{"), raw.rfind("}")
+        data = json.loads(raw[i:j + 1]) if (i >= 0 and j > i) else {}
+    items = data.get("questions") if isinstance(data, dict) else (data if isinstance(data, list) else [])
+    out, seen = [], set()
+    for q in items or []:
+        q = str(q).strip()
+        if q and q.lower() not in seen:
+            seen.add(q.lower()); out.append(q[:200])
+    return out[:n]
+
+
 # ============ stage prompts ============
 
 _S1_SYSTEM = ("คุณคือ SEO/AEO strategist ที่ reverse-engineer หน้า SERP ไทยได้แม่นยำ และอ่านใจคนไทยที่กำลังค้นหาเพื่อตัดสินใจซื้อ "
