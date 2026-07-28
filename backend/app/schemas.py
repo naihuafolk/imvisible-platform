@@ -102,6 +102,11 @@ class KeywordPackUpdate(BaseModel):
     pack: int = 50                   # ตั้งแพ็กคีย์เวิร์ดของโปรเจ็ค (10/30/50) — เฉพาะแอดมิน
 
 
+class FacebookConvert(BaseModel):
+    facebook_url: str = ""           # ลิงก์เพจ Facebook — ตั้งเป็นปุ่ม CTA ท้ายบทความ
+    name: str = ""                   # (ทางเลือก) เปลี่ยนชื่อโปรเจ็คเป็นชื่อธุรกิจ
+
+
 class SmsAlertUpdate(BaseModel):
     enabled: bool = False            # เปิดแจ้งเตือน SMS อันดับ (คีย์ติด/ขยับขึ้น) ของโปรเจ็คนี้
     to: str = ""                     # เบอร์ปลายทาง (0xxxxxxxxx หรือ +66... — ระบบแปลงเป็น E.164 ให้)

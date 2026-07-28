@@ -54,6 +54,7 @@
       '<button class="btn btn-sm chg-pack" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">🎟 แพ็ก</button>' +
       '<button class="btn btn-sm aeo-q" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">🎯 คำถาม AEO</button>' +
       '<button class="btn btn-sm sms-alert" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">🔔 SMS</button>' +
+      '<button class="btn btn-sm conv-fb" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '" title="ลูกค้ามีแค่เพจ Facebook? แปลงให้โฮสต์บล็อก+CTA ทัก FB">📘 Facebook</button>' +
       '<button class="btn btn-sm cfg-proj" data-id="' + esc(p.id) + '">⚙️ ตั้งค่า</button>' +
       '<button class="btn btn-sm del-proj" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '" style="margin-left:auto;color:var(--red-600,#dc2626)">🗑 ลบ</button>' +
       '</div></div>';
@@ -211,6 +212,31 @@
       '</div>' +
       (full ? '<div style="padding:0 22px 16px"><div class="hint">ต้องการมากกว่า ' + q + ' โปรเจ็ค? อัปเกรดเป็น <b>Enterprise</b> (ไม่จำกัดเว็บ) ในหน้า การตั้งค่า › บัญชี & ทีม</div></div>' : '') +
       '</div>';
+  }
+
+  /* 📘 แปลงโปรเจ็คเป็นแบบ "ลูกค้ามีแค่ Facebook" — โฮสต์บล็อกให้ + CTA ลิงก์ไปเพจ */
+  function convertFacebookModal(id, name) {
+    var pid = String(id).replace(/^db/, '');
+    ui.modal({ title: '📘 แปลงเป็นแบบ Facebook', sub: esc(name), width: 480, body:
+      '<div class="hint mb">สำหรับลูกค้าที่<b>ไม่มีเว็บ มีแค่เพจ Facebook</b> — ระบบจะ<b>โฮสต์บล็อกให้</b> + ใส่ปุ่ม CTA ท้ายบทความ "💬 ทักทาง Facebook" ลิงก์ไปเพจ (คนอ่าน→ทักเพจ)</div>' +
+      field('ลิงก์เพจ Facebook', '<input class="input" id="fbc_url" placeholder="เช่น https://facebook.com/yourpage" style="width:100%">') +
+      field('ชื่อธุรกิจ (ไม่ใส่ = คงชื่อเดิม)', '<input class="input" id="fbc_name" placeholder="เช่น คลินิกความงาม ABC" style="width:100%">') +
+      '<div class="row between" style="margin-top:14px"><button class="btn btn-sm" id="fbc_cancel">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="fbc_save">แปลงเลย</button></div>' });
+    var cc = document.getElementById('fbc_cancel'), go = document.getElementById('fbc_save');
+    if (cc) cc.onclick = function () { ui.closeModal(); };
+    if (go) go.onclick = function () {
+      var url = (document.getElementById('fbc_url').value || '').trim();
+      var nm = (document.getElementById('fbc_name').value || '').trim();
+      if (!url) { ui.toast('วางลิงก์เพจ Facebook ก่อน'); return; }
+      if (!RP.api.reachable()) { ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'); return; }
+      go.disabled = true; go.textContent = 'กำลังแปลง…';
+      RP.api.toFacebook(pid, { facebook_url: url, name: nm }).then(function () {
+        ui.closeModal();
+        ui.toast('แปลงเป็นแบบ Facebook แล้ว ✓ — โฮสต์บล็อกให้ + ใส่ปุ่มทัก FB ท้ายบทความ');
+        if (RP.loadRealData) RP.loadRealData(function () { mountNow(); }); else mountNow();
+      }).catch(function (e) { go.disabled = false; go.textContent = 'แปลงเลย'; ui.toast('แปลงไม่ได้: ' + esc(e.message || String(e))); });
+    };
   }
 
   /* แจ้งเตือน SMS อันดับต่อโปรเจ็ค (คีย์ติด/ขยับขึ้น) — Twilio */
@@ -466,6 +492,9 @@
         });
         Array.prototype.forEach.call(root.querySelectorAll('.sms-alert'), function (b) {
           b.onclick = function () { smsAlertModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
+        });
+        Array.prototype.forEach.call(root.querySelectorAll('.conv-fb'), function (b) {
+          b.onclick = function () { convertFacebookModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
         });
         Array.prototype.forEach.call(root.querySelectorAll('.aeo-q'), function (b) {
           b.onclick = function () { aeoQuestionsModal(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };

@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm, KeywordPackUpdate, SmsAlertUpdate,
+    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -763,6 +763,31 @@ async def set_project_pack(project_id: int, req: KeywordPackUpdate, user=Depends
         await s.commit()
         used = _topic_count(p)
     return {"ok": True, "keyword_pack": pack, "keywords_used": used, "over_quota": used > pack}
+
+
+@app.post("/api/projects/{project_id}/to-facebook")
+async def convert_to_facebook(project_id: int, req: FacebookConvert, user=Depends(get_current_user)):
+    """📘 แปลงโปรเจ็คให้ทำงานแบบ 'ลูกค้ามีแค่ Facebook' — โฮสต์บล็อกให้ (managed) + ตั้งปุ่ม CTA ลิงก์ไปเพจ FB
+    ใช้กับโปรเจ็คที่เผลอสร้างเป็น facebook.com หรือเว็บที่จริง ๆ ลูกค้าไม่มี → ให้กลไกถูกต้อง"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project
+    fb_url = (req.facebook_url or "").strip()
+    if not fb_url:
+        raise HTTPException(422, "กรุณาวางลิงก์เพจ Facebook")
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        p.publish_mode = "managed"                   # โฮสต์บล็อกให้ (ลูกค้าไม่มีเว็บของตัวเอง)
+        import json as _json
+        p.cta_json = _json.dumps({"enabled": True, "headline": "สนใจบริการ? ทักเราเลย",
+                                  "text": "แชทกับเราทาง Facebook ได้ทันที", "button": "💬 ทักทาง Facebook",
+                                  "url": fb_url}, ensure_ascii=False)
+        if (req.name or "").strip():
+            p.name = req.name.strip()[:200]
+        await s.commit()
+    return {"ok": True, "publish_mode": "managed", "cta_url": fb_url}
 
 
 @app.get("/api/projects/{project_id}/sms")
