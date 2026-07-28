@@ -323,6 +323,16 @@
     }
   }
 
+  function loadReport(root, p, pid) {   // ดึงข้อมูลรายงานทั้งหมด → เรนเดอร์ (เรียกซ้ำได้ = auto-refresh)
+    return Promise.all([
+      RP.api.rankHistory(pid).catch(function () { return null; }),
+      RP.api.citationHistory(pid).catch(function () { return null; }),
+      RP.api.projectAeo(pid).catch(function () { return null; }),
+      RP.api.seoAudit(pid).catch(function () { return null; }),
+      RP.api.citationExamples(pid).catch(function () { return null; })
+    ]).then(function (r) { fillReport(root, p, r[0], r[1], r[2], r[3], r[4]); });
+  }
+
   function realReport() {
     var p = currentProject();
     if (!p) {
@@ -350,8 +360,12 @@
         mb.disabled = true; mb.textContent = 'กำลังวัด…';
         RP.api.measureAllRanks(pid).then(function (d) {
           if (d && d.queued) {
-            ui.toast('สั่งวัดอันดับ ' + d.queued + ' คีย์เวิร์ดแล้ว ✓ อีกสักครู่กดรีเฟรช (ต้องต่อ DataForSEO)');
-            mb.textContent = '⏳ กำลังวัด';
+            ui.toast('สั่งวัด ' + d.queued + ' คีย์แล้ว ✓ กำลังดึงอันดับสด — อัปเดตให้อัตโนมัติ');
+            mb.textContent = '⏳ กำลังดึงอันดับ';
+            var _n = 0, _iv = setInterval(function () {   // auto-refresh: ดึงผลสด ๆ มาแสดงเองทุก 6 วิ (~36 วิ)
+              _n++; loadReport(root, p, pid);
+              if (_n >= 6) { clearInterval(_iv); mb.disabled = false; mb.textContent = '🔄 วัดอันดับเดี๋ยวนี้'; }
+            }, 6000);
           } else {                                   // ไม่มีคีย์ให้วัด → ปลดล็อกปุ่มให้กดใหม่ได้
             ui.toast((d && d.note) || 'ยังไม่มีคีย์เวิร์ดให้วัด — เพิ่มคีย์เวิร์ดก่อน');
             mb.disabled = false; mb.textContent = '🔄 วัดอันดับเดี๋ยวนี้';
@@ -421,13 +435,7 @@
         }).catch(function (e) { bl.disabled = false; bl.textContent = '🔗 หาโอกาสแบ็กลิงก์'; ui.toast('หาไม่ได้: ' + esc(e.message || String(e))); });
       };
       if (!(pid && RP.api.enabled())) return;
-      Promise.all([
-        RP.api.rankHistory(pid).catch(function () { return null; }),
-        RP.api.citationHistory(pid).catch(function () { return null; }),
-        RP.api.projectAeo(pid).catch(function () { return null; }),
-        RP.api.seoAudit(pid).catch(function () { return null; }),
-        RP.api.citationExamples(pid).catch(function () { return null; })
-      ]).then(function (r) { fillReport(root, p, r[0], r[1], r[2], r[3], r[4]); });
+      loadReport(root, p, pid);
     } };
   }
 

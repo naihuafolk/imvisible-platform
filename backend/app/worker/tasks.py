@@ -289,8 +289,12 @@ async def _lead_magnet_video(topic: str, kind: str = "course") -> str:
         scene = await _visual_concept(topic, "hero")          # แปลหัวข้อไทย → ซีนภาษาอังกฤษ (โมเดลเข้าใจดีกว่า)
         prompt = ("Short cinematic educational b-roll, clean modern learning/course aesthetic, "
                   "soft depth of field, professional: " + (scene or topic))
-        return await media.generate_video(prompt, ratio="16:9", duration=5, model=model) or ""
-    except Exception:  # noqa: BLE001
+        print("[lead-magnet video] generating via %s …" % model)
+        url = await media.generate_video(prompt, ratio="16:9", duration=5, model=model) or ""
+        print("[lead-magnet video] %s" % ("ok" if url else "empty result"))
+        return url
+    except Exception as e:  # noqa: BLE001 — โชว์เหตุผลใน worker log เพื่อ debug (เช่น Kling ยังไม่เปิดสิทธิ์/เครดิตหมด)
+        print("[lead-magnet video] failed: %s" % str(e)[:200])
         return ""
 
 
