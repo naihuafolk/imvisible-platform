@@ -632,18 +632,31 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
         lim = plans.limits(await usage.user_plan(user["id"]))
         raise HTTPException(402, "ถึงขีดจำกัดจำนวนโปรเจ็คของแพ็กเกจ %s (%d โปรเจ็ค) — อัปเกรดเพื่อเพิ่ม"
                             % (lim["label"], lim["projects"]))
+    src = (getattr(req, "source_type", "") or "website").strip().lower()
+    fb_url = (getattr(req, "facebook_url", "") or "").strip()
     domain = (req.domain or "").strip().lower()
-    if not domain and req.url:                       # "ลูกค้าใส่แค่ลิงก์"
-        u = req.url.strip()
-        if "://" not in u:
-            u = "https://" + u
-        domain = (urlparse(u).hostname or "").removeprefix("www.")
-    if not domain:
-        raise HTTPException(422, "กรุณาระบุเว็บไซต์ (url หรือ domain)")
-    name = (req.name or "").strip() or domain
-    base_slug = project_slug_from_domain(domain)
-    custom = _clean_custom_domain(req.custom_domain)
-    pmode = _norm_publish_mode(req.publish_mode or "managed")
+    if src == "facebook":                            # ลูกค้ามีแค่เพจ Facebook (ไม่มีเว็บ) → เราโฮสต์บล็อกให้ + CTA ลิงก์ไปเพจ
+        if not (req.name or "").strip():
+            raise HTTPException(422, "กรุณาระบุชื่อธุรกิจ (ลูกค้าที่มีแค่ Facebook)")
+        if not fb_url:
+            raise HTTPException(422, "กรุณาวางลิงก์เพจ Facebook")
+        name = req.name.strip()
+        base_slug = project_slug_from_domain(name) or "brand"
+        domain = base_slug                           # โดเมนเทียมจากชื่อธุรกิจ (ตัวระบุ) — เนื้อหาเผยแพร่บนบล็อกที่เราโฮสต์
+        custom = _clean_custom_domain(req.custom_domain)
+        pmode = "managed"                            # บังคับโฮสต์บล็อกให้ (ลูกค้าไม่มีเว็บของตัวเอง)
+    else:
+        if not domain and req.url:                   # "ลูกค้าใส่แค่ลิงก์"
+            u = req.url.strip()
+            if "://" not in u:
+                u = "https://" + u
+            domain = (urlparse(u).hostname or "").removeprefix("www.")
+        if not domain:
+            raise HTTPException(422, "กรุณาระบุเว็บไซต์ (url หรือ domain)")
+        name = (req.name or "").strip() or domain
+        base_slug = project_slug_from_domain(domain)
+        custom = _clean_custom_domain(req.custom_domain)
+        pmode = _norm_publish_mode(req.publish_mode or "managed")
     pack = plans.normalize_pack(getattr(req, "keyword_pack", plans.DEFAULT_PACK))   # แพ็กคีย์ของลูกค้ารายนี้
     async with db.session() as s:
         if custom:                                   # กันโดเมนซ้ำกับโปรเจ็คอื่น (backstop = unique index)
@@ -671,6 +684,12 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
         if seeds:
             import json as _json
             p.topic_plan = _json.dumps([{"topic": k, "cluster": ""} for k in seeds], ensure_ascii=False)
+            await s.commit()
+        if src == "facebook" and fb_url:             # 📘 กลไก FB: ตั้งกล่อง CTA ท้ายบทความ → ลิงก์ไปเพจ Facebook (คนอ่าน→ทักเพจ)
+            import json as _json
+            p.cta_json = _json.dumps({"enabled": True, "headline": "สนใจบริการ? ทักเราเลย",
+                                      "text": "แชทกับเราทาง Facebook ได้ทันที", "button": "💬 ทักทาง Facebook",
+                                      "url": fb_url}, ensure_ascii=False)
             await s.commit()
         await s.refresh(p)
         result = _proj_dict(p)

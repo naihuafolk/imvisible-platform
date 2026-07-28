@@ -94,6 +94,8 @@ class ProjectCreate(BaseModel):
     custom_domain: str = ""          # เช่น blog.abccoffee.com (ตั้ง CNAME มาที่เรา)
     keywords: list[str] = []         # คีย์เวิร์ด/หัวข้อเริ่มต้นที่ลูกค้าเลือก (AI ช่วยคิด) → ใช้ผลิตบทความแรกจริง
     keyword_pack: int = 50           # แพ็กคีย์เวิร์ดของลูกค้ารายนี้ (10/30/50) — โควตารวมที่ระบบติดตาม+ดัน
+    source_type: str = "website"     # website (มีเว็บ) | facebook (มีแค่เพจ FB → เราโฮสต์บล็อกให้ + CTA ลิงก์ไปเพจ)
+    facebook_url: str = ""           # ลิงก์เพจ Facebook (ใช้เมื่อ source_type=facebook)
 
 
 class KeywordPackUpdate(BaseModel):

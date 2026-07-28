@@ -287,8 +287,16 @@
 
   function openWizard() {
     var body =
-      '<div class="hint mb">ใส่ลิงก์เว็บลูกค้า → <b>เลือกแพ็ก</b> → เลือกคีย์เวิร์ด (ไม่เกินแพ็ก) → สร้าง · ที่เหลือระบบเขียน/เผยแพร่/วัดผลให้เอง</div>' +
-      field('ลิงก์เว็บไซต์ลูกค้า', '<input class="input" id="np_url" placeholder="เช่น abccoffee.com หรือ https://abccoffee.com" style="width:100%">') +
+      '<div class="hint mb">เลือกประเภทลูกค้า → กรอกลิงก์ → เลือกแพ็ก → เลือกคีย์เวิร์ด → สร้าง · ที่เหลือระบบเขียน/เผยแพร่/วัดผลให้เอง</div>' +
+      '<div style="margin-bottom:14px"><div class="soft small" style="margin-bottom:7px"><b>ลูกค้ามีอะไร?</b></div>' +
+        '<div class="row gap-s wrap">' +
+          '<label class="row gap-s" style="cursor:pointer;padding:9px 16px;border:1px solid var(--border,#e5e7eb);border-radius:999px"><input type="radio" name="np_src" value="website" checked> <span>🌐 มีเว็บไซต์</span></label>' +
+          '<label class="row gap-s" style="cursor:pointer;padding:9px 16px;border:1px solid var(--border,#e5e7eb);border-radius:999px"><input type="radio" name="np_src" value="facebook"> <span>📘 มีแค่ Facebook</span></label>' +
+        '</div></div>' +
+      '<div style="margin-bottom:10px"><div class="soft small" style="margin-bottom:4px" id="np_urllabel">ลิงก์เว็บไซต์ลูกค้า</div>' +
+        '<input class="input" id="np_url" placeholder="เช่น abccoffee.com หรือ https://abccoffee.com" style="width:100%">' +
+        '<div id="np_fbnote" class="hint" style="display:none;margin-top:8px">📘 ลูกค้าไม่มีเว็บ? ไม่เป็นไร — เรา<b>โฮสต์บล็อกให้</b> แล้วใส่ปุ่ม CTA ลิงก์ไปเพจ Facebook อัตโนมัติ · คนอ่านบทความ → กดทักเพจได้เลย</div></div>' +
+      '<div id="np_fbname" style="display:none;margin-bottom:10px"><div class="soft small" style="margin-bottom:4px">ชื่อธุรกิจ <span class="soft">(ใช้ตั้งชื่อบล็อกที่เราโฮสต์)</span></div><input class="input" id="np_bizname" placeholder="เช่น คลินิกความงาม ABC" style="width:100%"></div>' +
       '<div style="margin:8px 0 18px"><div class="soft small" style="margin-bottom:8px"><b>1 · เลือกแพ็กคีย์เวิร์ดของลูกค้ารายนี้</b> <span class="soft">(โควตาที่ระบบติดตาม+ดัน+วัดผล · เปลี่ยนภายหลังได้)</span></div>' +
         '<div class="row gap-s wrap">' + PACKS.map(function (pk) {
           return '<label class="row gap-s" style="cursor:pointer;padding:10px 20px;border:1px solid var(--border,#e5e7eb);border-radius:999px"><input type="radio" name="np_pack" value="' + pk + '"' + (pk === 10 ? ' checked' : '') + '> <span><b>' + pk + '</b> คีย์</span></label>';
@@ -334,6 +342,18 @@
     var kwTa = document.getElementById('np_kw'); if (kwTa) kwTa.oninput = updateCount;
     updateCount();
 
+    function srcType() { var e = document.querySelector('input[name="np_src"]:checked'); return e ? e.value : 'website'; }
+    function applySrc() {   // สลับหน้าจอตามประเภทลูกค้า (เว็บ / เฉพาะ Facebook)
+      var fb = srcType() === 'facebook', $ = function (id) { return document.getElementById(id); };
+      if ($('np_urllabel')) $('np_urllabel').textContent = fb ? 'ลิงก์เพจ Facebook' : 'ลิงก์เว็บไซต์ลูกค้า';
+      if ($('np_url')) $('np_url').placeholder = fb ? 'เช่น https://facebook.com/yourpage' : 'เช่น abccoffee.com หรือ https://abccoffee.com';
+      if ($('np_fbnote')) $('np_fbnote').style.display = fb ? 'block' : 'none';
+      if ($('np_fbname')) $('np_fbname').style.display = fb ? 'block' : 'none';
+      var sgb = $('np_suggest'); if (sgb) { sgb.style.display = fb ? 'none' : ''; }   // FB ไม่มีเว็บให้ AI อ่าน → พิมพ์คีย์เอง
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="np_src"]'), function (r) { r.onchange = applySrc; });
+    applySrc();
+
     var sg = document.getElementById('np_suggest');
     if (sg) sg.onclick = function () {
       var url = (document.getElementById('np_url').value || '').trim();
@@ -354,9 +374,14 @@
 
     var btn = document.getElementById('np_create');
     if (btn) btn.onclick = function () {
+      var src = srcType(), fb = src === 'facebook';
       var url = (document.getElementById('np_url').value || '').trim();
-      if (!url) { ui.toast('วางลิงก์เว็บไซต์ก่อน'); return; }
       var name = (document.getElementById('np_name') && document.getElementById('np_name').value || '').trim();
+      var bizname = (document.getElementById('np_bizname') && document.getElementById('np_bizname').value || '').trim();
+      if (fb) {
+        if (!bizname) { ui.toast('กรอกชื่อธุรกิจก่อน'); return; }
+        if (!url) { ui.toast('วางลิงก์เพจ Facebook ก่อน'); return; }
+      } else if (!url) { ui.toast('วางลิงก์เว็บไซต์ก่อน'); return; }
       var modeEl = document.querySelector('input[name="np_mode"]:checked');
       var mode = modeEl ? modeEl.value : 'approve';
       var packEl = document.querySelector('input[name="np_pack"]:checked');
@@ -365,7 +390,10 @@
       if (keywords.length > pack) { ui.toast('เลือก ' + keywords.length + ' คีย์ เกินแพ็ก ' + pack + ' — จะใช้ ' + pack + ' คีย์แรก'); keywords = keywords.slice(0, pack); }
       if (!(RP.api && RP.api.reachable())) { ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — <b>ยังไม่ได้สร้างโปรเจ็ค</b>'); return; }
       btn.disabled = true; btn.textContent = 'กำลังสร้าง…';
-      RP.api.createProject({ url: url, name: name, mode: mode, country: 'ไทย', language: curLang(), publish_mode: 'managed', keywords: keywords, keyword_pack: pack })
+      var payload = fb
+        ? { source_type: 'facebook', facebook_url: url, name: bizname, mode: mode, country: 'ไทย', language: curLang(), publish_mode: 'managed', keywords: keywords, keyword_pack: pack }
+        : { url: url, name: name, mode: mode, country: 'ไทย', language: curLang(), publish_mode: 'managed', keywords: keywords, keyword_pack: pack };
+      RP.api.createProject(payload)
         .then(function (p) {
           var home = p.public_home || '', dom = p.domain || url;
           ui.closeModal();
