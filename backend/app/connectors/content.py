@@ -139,10 +139,14 @@ async def _llm(system: str, user: str, tier: str = "fast") -> tuple[str, str]:
                 text = await _anthropic_chat(system, user, model=mdl)
             else:
                 text = await callers[prov](system, user)
-        except Exception:
+        except Exception as e:  # noqa: BLE001 — โชว์ใน log ว่า provider ไหนล้ม → fall back ตัวถัดไป (เห็นชัดตอน debug)
+            print("[LLM] %s ล้ม (%s) → fall back ตัวถัดไป" % (prov, str(e)[:140]))
             continue
         if text and text.strip():
+            if prov != order[0]:                       # ใช้ตัวสำรอง (ไม่ใช่ตัวหลัก) → log ให้รู้ว่ากำลัง fallback
+                print("[LLM] ✓ ใช้ %s (fallback) สำเร็จ · tier=%s" % (prov, tier))
             return prov, text
+        print("[LLM] %s คืนค่าว่าง (safety block?) → fall back ตัวถัดไป" % prov)
     raise RuntimeError("LLM ทุกตัวคืนค่าว่าง/ล้มเหลว (ตรวจคีย์ ANTHROPIC/OPENAI/GEMINI)")
 
 
