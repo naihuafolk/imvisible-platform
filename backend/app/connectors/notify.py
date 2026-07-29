@@ -68,25 +68,62 @@ def normalize_phone(raw: str, default_cc: str = "66") -> str:
     return "+" + s
 
 
-async def send_sms(to: str, text: str) -> bool:
-    """ส่ง SMS ผ่าน Twilio — คืน True ถ้าส่งสำเร็จ · ยืนยันตัวตนด้วย API Key (SK+secret) ก่อน ไม่งั้น Auth Token"""
+async def send_sms_detail(to: str, text: str) -> dict:
+    """ส่ง SMS ผ่าน Twilio + คืนเหตุผลจริง (โปร่งใส) — log ทุกกรณีให้เห็นใน docker logs
+    ไม่ปิดบัง: ถ้า Twilio ปฏิเสธจะคืน code+message จริงของ Twilio กลับมา"""
     acct = settings.twilio_account_sid
-    to = normalize_phone(to)
-    if not (acct and to and sms_ready()):
-        return False
+    to_e164 = normalize_phone(to)
+    if not sms_ready():
+        miss = []
+        if not settings.twilio_account_sid:
+            miss.append("TWILIO_ACCOUNT_SID")
+        if not (settings.twilio_api_key_sid and settings.twilio_api_key_secret) and not settings.twilio_auth_token:
+            miss.append("TWILIO_AUTH_TOKEN หรือ (TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET)")
+        if not (settings.twilio_from or settings.twilio_messaging_service_sid):
+            miss.append("TWILIO_FROM หรือ TWILIO_MESSAGING_SERVICE_SID")
+        reason = "Twilio ยังไม่พร้อม ขาด env: " + ", ".join(miss)
+        print("[SMS] ✗ " + reason)
+        return {"ok": False, "reason": reason}
+    if not to_e164:
+        print("[SMS] ✗ เบอร์ปลายทางว่าง/ไม่ถูกต้อง: %r" % (to,))
+        return {"ok": False, "reason": "เบอร์ปลายทางว่างหรือไม่ถูกต้อง"}
     if settings.twilio_api_key_sid and settings.twilio_api_key_secret:
         auth = (settings.twilio_api_key_sid, settings.twilio_api_key_secret)
     else:
         auth = (acct, settings.twilio_auth_token)
-    data = {"To": to, "Body": text[:1500]}
+    data = {"To": to_e164, "Body": text[:1500]}
     if settings.twilio_messaging_service_sid:
         data["MessagingServiceSid"] = settings.twilio_messaging_service_sid
     else:
         data["From"] = settings.twilio_from
     url = "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json" % acct
-    async with httpx.AsyncClient(timeout=20) as c:
-        r = await c.post(url, data=data, auth=auth)
-        return r.status_code in (200, 201)
+    try:
+        async with httpx.AsyncClient(timeout=20) as c:
+            r = await c.post(url, data=data, auth=auth)
+    except Exception as e:  # noqa: BLE001
+        print("[SMS] ✗ เชื่อม Twilio ไม่ได้: %r" % e)
+        return {"ok": False, "reason": "เชื่อม Twilio ไม่ได้: %s" % e}
+    if r.status_code in (200, 201):
+        print("[SMS] ✓ ส่งถึง %s สำเร็จ" % to_e164)
+        return {"ok": True, "to": to_e164}
+    try:
+        j = r.json()
+    except Exception:  # noqa: BLE001
+        j = {}
+    code = j.get("code")
+    message = j.get("message") or (r.text or "")[:300]
+    print("[SMS] ✗ Twilio ปฏิเสธ (HTTP %d · code=%s): %s" % (r.status_code, code, message))
+    hint = {21608: "บัญชี trial ส่งได้เฉพาะเบอร์ที่ verify แล้ว — verify เบอร์ปลายทางใน Twilio หรืออัปเกรดบัญชี",
+            21211: "รูปแบบเบอร์ปลายทางไม่ถูกต้อง",
+            21606: "เบอร์ต้นทาง (From) ส่ง SMS ไม่ได้/ไม่ใช่เบอร์ SMS",
+            21612: "เส้นทางนี้ส่งไม่ได้ — เปิด Geo Permission ประเทศไทยใน Twilio (Messaging → Geo Permissions)"}.get(code)
+    return {"ok": False, "status": r.status_code, "code": code, "reason": message, "hint": hint}
+
+
+async def send_sms(to: str, text: str) -> bool:
+    """ส่ง SMS ผ่าน Twilio — คืน True ถ้าส่งสำเร็จ (log เหตุผลจริงเสมอผ่าน send_sms_detail)"""
+    res = await send_sms_detail(to, text)
+    return bool(res.get("ok"))
 
 
 async def reply_line(reply_token: str, text: str) -> bool:

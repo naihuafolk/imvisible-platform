@@ -82,6 +82,7 @@
     setSms: function (pid, enabled, to) { return api._put('/api/projects/' + pid + '/sms', { enabled: !!enabled, to: to || '' }); },
     reportLink: function (pid) { return api._post('/api/projects/' + pid + '/report-link', {}); },
     siteCheck: function (url, keywords) { return api._post('/api/site-check', { url: url, keywords: keywords || [] }); },
+    smsTest: function (to) { return api._post('/api/sms/test' + (to ? '?to=' + encodeURIComponent(to) : ''), {}); },
     backlinkOpportunities: function (pid) { return api._post('/api/projects/' + pid + '/backlink-opportunities', {}); },
     backlinkOutreach: function (pid, o) { return api._post('/api/projects/' + pid + '/backlink-outreach', o); },
     createLeadMagnet: function (pid, o) { return api._post('/api/projects/' + pid + '/lead-magnets', o); },

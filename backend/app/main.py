@@ -2402,20 +2402,25 @@ async def contact_form(req: ContactForm, _rl=Depends(rate_limit_auth)):
             s.add(ContactLead(name=name, phone=phone, business=business, keywords=kw_txt))
             await s.commit()
     from app.connectors import notify
-    try:                                              # 📱 SMS เข้ามือถือแอดมินทันที (ตั้ง CONTACT_SMS_TO) — crash-safe
+    try:                                              # 📱 SMS เข้ามือถือแอดมินทันที (ตั้ง CONTACT_SMS_TO) — crash-safe + log เหตุผลจริง
         if settings.contact_sms_to:
             sms = ("ลีดใหม่ imvisible.tech | ชื่อ: %s | เบอร์: %s | ธุรกิจ: %s | คีย์: %s"
                    % (name, phone, business or "-", kw_txt or "-"))
-            await notify.send_sms(settings.contact_sms_to, sms)
-    except Exception:  # noqa: BLE001
-        pass
+            res = await notify.send_sms_detail(settings.contact_sms_to, sms)
+            if not res.get("ok"):
+                print("[contact] SMS ไม่ส่ง: %s" % (res.get("reason") or "ไม่ทราบสาเหตุ"))
+        else:
+            print("[contact] ข้าม SMS — ยังไม่ได้ตั้ง CONTACT_SMS_TO ใน .env")
+    except Exception as e:  # noqa: BLE001
+        print("[contact] SMS error: %r" % e)
     try:                                              # แจ้ง LINE ด้วย (ถ้าตั้งไว้) — ล้มก็ยังเก็บลีด+ส่ง SMS ไปแล้ว
         msg = ("\U0001F514 มีคนสนใจบริการ (จากหน้าเว็บ imvisible.tech)\n"
                "\U0001F464 ชื่อ: %s\n\U0001F4DE เบอร์: %s\n\U0001F3E2 ธุรกิจ: %s\n\U0001F3AF คีย์เวิร์ด: %s"
                % (name, phone, business or "-", kw_txt or "-"))
-        await notify.send_line(msg)
-    except Exception:  # noqa: BLE001
-        pass
+        if not await notify.send_line(msg):
+            print("[contact] LINE ไม่ส่ง — ตรวจ LINE_CHANNEL_ACCESS_TOKEN / LINE_DEFAULT_TO")
+    except Exception as e:  # noqa: BLE001
+        print("[contact] LINE error: %r" % e)
     return {"ok": True}
 
 
@@ -2444,6 +2449,17 @@ async def list_contacts(user=Depends(get_current_user)):
     return {"contacts": [{"name": r.name, "phone": r.phone, "business": r.business,
                           "keywords": r.keywords, "at": r.created_at.isoformat() if r.created_at else ""}
                          for r in rows], "count": len(rows)}
+
+
+@app.post("/api/sms/test")
+async def sms_test(to: str = "", user=Depends(get_current_user)):
+    """ทดสอบส่ง SMS จริง (แอดมิน) → คืนเหตุผลจริงของ Twilio ทันที เพื่อวินิจฉัยว่าทำไมไม่ส่ง
+    ?to=0xxxxxxxxx เพื่อทดสอบเบอร์เจาะจง · ว่าง = ใช้ CONTACT_SMS_TO"""
+    from app.connectors import notify
+    target = (to or settings.contact_sms_to or "").strip()
+    if not target:
+        raise HTTPException(422, "ไม่มีเบอร์ปลายทาง — ส่ง ?to=0xxxxxxxxx หรือตั้ง CONTACT_SMS_TO ก่อน")
+    return await notify.send_sms_detail(target, "ทดสอบ SMS จาก imvisible.tech ✓ ระบบแจ้งเตือนลีดพร้อมใช้งาน")
 
 
 @app.post("/api/line/webhook")
