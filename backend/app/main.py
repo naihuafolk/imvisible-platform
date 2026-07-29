@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
+    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -2417,6 +2417,20 @@ async def contact_form(req: ContactForm, _rl=Depends(rate_limit_auth)):
     except Exception:  # noqa: BLE001
         pass
     return {"ok": True}
+
+
+@app.post("/api/site-check")
+async def site_check(req: SiteCheckRequest, _rl=Depends(rate_limit_auth)):
+    """ตรวจสุขภาพเว็บจากหน้าแรก 'จริง' (สาธารณะ) → คะแนน + วิธีแก้ + การครอบคลุมคีย์เวิร์ด
+    วัดจาก HTML จริง ไม่กุคะแนน · กัน SSRF · rate-limit กันสแปม"""
+    url = (req.url or "").strip()
+    if not url:
+        raise HTTPException(422, "กรุณาใส่ลิงก์เว็บไซต์ของคุณ")
+    from app.connectors import sitecheck
+    res = await sitecheck.check_url(url, req.keywords or [])
+    if not res.get("ok"):
+        raise HTTPException(422, res.get("note") or "เปิดเว็บไม่ได้ — ตรวจสอบลิงก์อีกครั้ง")
+    return res
 
 
 @app.get("/api/contacts")

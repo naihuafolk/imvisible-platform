@@ -182,6 +182,11 @@ class ContactForm(BaseModel):
     keywords: list[str] = []          # คีย์เวิร์ดที่คาดหวัง (สูงสุด 3)
 
 
+class SiteCheckRequest(BaseModel):
+    url: str = ""                     # ลิงก์เว็บที่จะตรวจสุขภาพ (สาธารณะ — หน้าแรก)
+    keywords: list[str] = []          # คีย์เวิร์ดที่อยากติด (สูงสุด 3) → ประเมินการครอบคลุมบนหน้าเพจ
+
+
 class ChannelUpdate(BaseModel):
     kind: str                        # line | facebook | telegram | x | linkedin | discord | mastodon | webhook
     ref: str = ""                    # facebook: page_id · line: userId/groupId (หรือ 'broadcast')

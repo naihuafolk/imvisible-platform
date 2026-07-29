@@ -380,6 +380,7 @@
       <span class="iss">imvisible.tech · 2026</span>
     </div>
     <nav class="nav" aria-label="หลัก">
+      <a href="#audit" class="iv-link" data-en="Free check">ตรวจเว็บฟรี</a>
       <a href="#how" class="iv-link" data-en="How it works">วิธีการทำงาน</a>
       <a href="#why" class="iv-link" data-en="Why us">ทำไมต้องเรา</a>
       <a href="#dash" class="iv-link" data-en="Dashboard">แดชบอร์ด</a>
@@ -411,10 +412,11 @@
         </h1>
         <p class="hero-sub" data-en="ImVisible gets your site ranked on Google and cited by AI like ChatGPT, Gemini, and Perplexity — fully automated, end to end: from mining the real questions people ask, to producing content, to measuring results.">ImVisible ดันเว็บของคุณให้ติดอันดับ Google และถูก AI อย่าง ChatGPT, Gemini, Perplexity หยิบไปแนะนำ — อัตโนมัติ ครบวงจร ตั้งแต่ขุดคำถามจริง ผลิตคอนเทนต์ ไปจนถึงวัดผล</p>
         <div class="hero-cta">
-          <a href="https://app.imvisible.tech/" class="btn btn-primary"><span data-en="Log in">เข้าสู่ระบบ</span>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
+          <a href="#audit" class="btn btn-primary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+            <span data-en="Check your website — free">เช็คสุขภาพเว็บฟรี</span>
           </a>
-          <a href="#how" class="btn btn-ghost" data-en="See how it works">ดูวิธีการทำงาน</a>
+          <a href="https://app.imvisible.tech/" class="btn btn-ghost" data-en="Log in">เข้าสู่ระบบ</a>
         </div>
         <div class="trust">
           <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0f8a5f" stroke-width="2.6"><path d="M4 12l5 5L20 6"/></svg> <span data-en="No credit card">ไม่ต้องใช้บัตรเครดิต</span></span>
@@ -457,6 +459,332 @@
       </aside>
     </div>
   </section>
+
+  <!-- ============ FREE WEBSITE HEALTH CHECK (real audit → keyword assessment → sales) ============ -->
+  <section class="wrap audit" id="audit" style="padding:clamp(30px,5vw,64px) 0">
+    <style>
+      .audit-head{text-align:center;max-width:660px;margin:0 auto clamp(24px,4vw,40px)}
+      .audit-head .eyebrow{display:inline-flex;align-items:center;gap:8px}
+      .audit-head .eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(15,138,95,.6);animation:pulse 2.1s infinite}
+      .audit-head h2{margin:13px 0 9px;font-weight:800;letter-spacing:-.025em;line-height:1.05;font-size:clamp(1.8rem,4.8vw,3rem);text-wrap:balance}
+      .audit-head p{margin:0 auto;color:var(--ink-soft);font-size:1.02rem;line-height:1.62;max-width:52ch}
+      .audit-head p b{color:var(--blue)}
+      .au-trust{display:flex;flex-wrap:wrap;gap:9px 20px;justify-content:center;margin-top:18px;font-size:.82rem;color:var(--muted);font-weight:500}
+      .au-trust span{display:inline-flex;align-items:center;gap:7px}
+      .au-trust svg{color:var(--ok);flex:0 0 auto}
+
+      .audit-card{max-width:860px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:20px;padding:clamp(22px,3.6vw,38px);position:relative;overflow:hidden;box-shadow:0 40px 90px -44px rgba(10,26,82,.42),0 2px 10px rgba(15,23,42,.05)}
+      .audit-card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--azure),var(--blue),var(--blue-deep));z-index:3}
+      .audit-card::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+        background:linear-gradient(90deg,rgba(26,86,255,.05) 1px,transparent 1px) 0 0/44px 100%,linear-gradient(180deg,rgba(26,86,255,.05) 1px,transparent 1px) 0 0/100% 44px;
+        -webkit-mask:radial-gradient(130% 90% at 50% -10%,#000,transparent 72%);mask:radial-gradient(130% 90% at 50% -10%,#000,transparent 72%);opacity:.7}
+      .audit-card>*{position:relative;z-index:1}
+      .au-reg{position:absolute;top:15px;right:19px;z-index:3;font-size:.6rem;letter-spacing:.26em;text-transform:uppercase;color:var(--muted);font-weight:700;display:inline-flex;align-items:center;gap:6px}
+      .au-reg::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(15,138,95,.6);animation:pulse 2.1s infinite}
+
+      .au-console{display:flex;align-items:center;gap:11px;border:1.5px solid var(--line);border-radius:14px;padding:6px 6px 6px 15px;background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(10,26,82,.04)}
+      .au-console:focus-within{border-color:var(--blue);box-shadow:0 0 0 4px rgba(26,86,255,.1)}
+      .au-console .au-globe{flex:0 0 auto;color:var(--blue);display:grid;place-items:center;width:22px;height:22px}
+      .au-console .pfx{color:var(--muted);font-weight:600;font-size:.98rem;flex:0 0 auto}
+      .au-console input{flex:1;min-width:80px;border:0;outline:0;background:transparent;font-family:inherit;font-size:1.08rem;color:var(--ink);padding:12px 0}
+      .au-console button{flex:0 0 auto;white-space:nowrap;padding:13px 26px}
+      .au-console button[disabled]{opacity:.7;cursor:progress}
+      @media(max-width:560px){.au-console{flex-wrap:wrap;padding:12px}.au-console .pfx{display:none}.au-console input{min-width:calc(100% - 36px);font-size:1rem}.au-console button{width:100%;justify-content:center;margin-top:2px}}
+      .audit-kw{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:15px}
+      .audit-kw .kwl{width:100%;font-size:.82rem;color:var(--muted);font-weight:600;letter-spacing:.01em}
+      .audit-kw input{flex:1;min-width:150px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:.95rem;color:var(--ink);background:var(--paper-2)}
+      .audit-kw input:focus{outline:2px solid var(--blue);outline-offset:1px;border-color:var(--blue);background:#fff}
+      .au-msg{margin-top:13px;font-size:.92rem;text-align:center;color:#c0392b;min-height:0}
+
+      /* --- scanning state --- */
+      .au-scan{margin-top:24px;border-top:1px solid var(--line);padding-top:24px}
+      .scan-view{position:relative;height:132px;border-radius:13px;overflow:hidden;border:1px solid var(--line);background:linear-gradient(180deg,#f6faff,#fff)}
+      .scan-view .sg{position:absolute;inset:0;background:linear-gradient(90deg,rgba(26,86,255,.09) 1px,transparent 1px) 0 0/30px 100%,linear-gradient(180deg,rgba(26,86,255,.09) 1px,transparent 1px) 0 0/100% 30px}
+      .scan-view .sl{position:absolute;top:0;bottom:0;width:70px;left:-70px;background:linear-gradient(90deg,transparent,rgba(26,86,255,.14),rgba(26,86,255,.5));border-right:2px solid var(--blue);box-shadow:0 0 24px 5px rgba(26,86,255,.32);animation:scanx 1.5s cubic-bezier(.5,0,.5,1) infinite}
+      @keyframes scanx{to{left:100%}}
+      .scan-view .sh{position:absolute;left:16px;top:15px;font-size:.82rem;font-weight:700;color:var(--blue-deep);letter-spacing:.01em;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:7px}
+      .scan-view .sh::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(15,138,95,.6);animation:pulse 2.1s infinite}
+      .scan-steps{list-style:none;margin:18px 0 2px;padding:0;display:grid;gap:11px}
+      .scan-steps li{display:flex;align-items:center;gap:12px;font-size:.92rem;color:var(--muted);font-weight:600;opacity:.45;transition:opacity .3s,color .3s}
+      .scan-steps li i{flex:0 0 auto;width:19px;height:19px;border-radius:50%;border:2px solid var(--line);position:relative;transition:.3s}
+      .scan-steps li.on{opacity:1;color:var(--ink)}
+      .scan-steps li.on i{border-color:var(--blue);background:var(--blue)}
+      .scan-steps li.on i::after{content:"";position:absolute;left:4px;top:1px;width:5px;height:9px;border:2px solid #fff;border-top:0;border-left:0;transform:rotate(45deg)}
+      .scan-steps li.cur i{border-color:var(--blue);background:transparent;animation:pulse 1s infinite}
+      .scan-steps li.cur i::after{display:none}
+
+      .au-result{margin-top:26px;border-top:1px solid var(--line);padding-top:26px;animation:aufade .5s ease}
+      @keyframes aufade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+      .au-readout{display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+      .au-gauge{position:relative;flex:0 0 auto;width:136px;height:136px}
+      .au-gauge svg{transform:rotate(-90deg)}
+      .au-gauge .gv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+      .au-gauge .gv b{font-size:2.6rem;font-weight:800;letter-spacing:-.035em;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink)}
+      .au-gauge .gg{margin-top:7px;font-size:.64rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:3px 11px;border-radius:999px;color:#fff}
+      .au-verdict{flex:1;min-width:250px}
+      .au-verdict .v-lbl{font-size:.64rem;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);font-weight:800}
+      .au-verdict .v-title{font-size:1.22rem;font-weight:800;letter-spacing:-.012em;line-height:1.42;margin-top:9px;text-wrap:balance}
+      .au-metrics{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
+      .mx{display:inline-flex;align-items:center;gap:7px;font-size:.83rem;font-weight:700;padding:6px 13px;border-radius:10px;border:1px solid transparent}
+      .mx b{font-variant-numeric:tabular-nums;font-size:.98rem}
+      .mx.ok{background:#e7f6ef;color:#0a7350;border-color:#bfe6d2}
+      .mx.warn{background:#fef3e2;color:#b45309;border-color:#f5dcae}
+      .mx.fail{background:#fdecea;color:#c0392b;border-color:#f3c9c2}
+
+      .au-sec-t{margin:26px 0 13px;font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:800;display:flex;align-items:center;gap:12px}
+      .au-sec-t::after{content:"";flex:1;height:1px;background:var(--line)}
+
+      .kw-row{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px dashed var(--line)}
+      .kw-row:last-child{border-bottom:0}
+      .kw-main{flex:1;min-width:0}
+      .kw-main .kn{font-weight:700;word-break:break-word;letter-spacing:-.005em}
+      .kw-meter{height:8px;border-radius:999px;background:#eaf0fb;overflow:hidden;margin-top:9px}
+      .kw-meter i{display:block;height:100%;border-radius:999px;width:0;transition:width .85s cubic-bezier(.4,0,.2,1)}
+      .wf{display:inline-flex;gap:5px;margin-top:10px;vertical-align:middle}
+      .wf i{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:.6rem;font-weight:800;font-style:normal;background:var(--paper-2);color:var(--muted);border:1px solid var(--line)}
+      .wf i.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+      .kw-side{flex:0 0 auto;text-align:right;min-width:120px}
+      .kw-side .kpct{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+      .kw-side .kp{font-size:.8rem;font-weight:700;margin-top:4px}
+      .kp.ok{color:#0a7350}.kp.warn{color:#b45309}.kp.fail{color:#c0392b}
+      @media(max-width:480px){.kw-side{min-width:0}}
+
+      .au-checks{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+      @media(max-width:640px){.au-checks{grid-template-columns:1fr}}
+      .chk{position:relative;display:flex;gap:12px;padding:14px 15px 14px 18px;border:1px solid var(--line);border-radius:13px;background:#fff;overflow:hidden;transition:transform .18s,box-shadow .18s,border-color .18s;animation:aufade .5s ease both}
+      .chk::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
+      .chk.ok::before{background:var(--ok)}.chk.warn::before{background:#e0921a}.chk.fail::before{background:#c0392b}
+      .chk:hover{transform:translateY(-2px);box-shadow:0 14px 30px -18px rgba(10,26,82,.4);border-color:#c9d6f2}
+      .chk .ci{flex:0 0 auto;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;margin-top:1px}
+      .chk .ci svg{width:15px;height:15px}
+      .chk.ok .ci{background:#e7f6ef;color:#0a7350}.chk.warn .ci{background:#fef3e2;color:#b45309}.chk.fail .ci{background:#fdecea;color:#c0392b}
+      .chk .cb{min-width:0}
+      .chk .cl{font-weight:700;font-size:.93rem;letter-spacing:-.006em}
+      .chk .cd{font-size:.82rem;color:var(--muted);margin-top:3px;line-height:1.45;word-break:break-word}
+      .chk .cf{font-size:.82rem;color:var(--blue-deep);margin-top:9px;line-height:1.48;background:var(--blue-wash);border-radius:9px;padding:8px 11px}
+      .chk .cf b{color:var(--blue)}
+
+      .au-rx{margin-top:28px;position:relative;overflow:hidden;background:linear-gradient(120deg,var(--blue-deep),var(--blue));color:#fff;border-radius:17px;padding:24px 26px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;box-shadow:0 28px 56px -26px rgba(26,86,255,.75)}
+      .au-rx::after{content:"";position:absolute;right:-46px;top:-46px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.16),transparent 68%);pointer-events:none}
+      .au-rx .rx-mark{flex:0 0 auto;width:48px;height:48px;border-radius:13px;background:rgba(255,255,255,.16);display:grid;place-items:center;position:relative;z-index:1}
+      .au-rx .rx-txt{flex:1;min-width:230px;position:relative;z-index:1}
+      .au-rx .rx-txt b{display:block;font-size:1.12rem;letter-spacing:-.012em;line-height:1.35}
+      .au-rx .rx-txt span{display:block;font-size:.9rem;color:#d7e4ff;margin-top:6px;line-height:1.5}
+      .au-rx .btn{flex:0 0 auto;position:relative;z-index:1;background:#fff;color:var(--blue);box-shadow:0 10px 22px -10px rgba(0,0,0,.4)}
+      .au-rx .btn:hover{background:var(--ink);color:#fff;transform:translateY(-1px)}
+      .au-note{max-width:860px;margin:17px auto 0;font-size:.77rem;color:var(--muted);text-align:center;line-height:1.55}
+
+      @media(prefers-reduced-motion:reduce){
+        .scan-view .sl{animation:none;left:0;width:100%;opacity:.25}
+        .scan-steps li.cur i{animation:none}
+        .chk,.au-result{animation:none}
+        #au-arc,.kw-meter i{transition:none}
+      }
+    </style>
+
+    <div class="audit-head">
+      <span class="eyebrow blue" data-en="Free tool · no signup">เครื่องมือฟรี · ไม่ต้องสมัคร</span>
+      <h2 data-en="Check your website's health — free">เช็คสุขภาพเว็บของคุณ — ฟรี</h2>
+      <p data-en="Paste your link. We read your real homepage, score it on 13 SEO/AEO signals, and check how well it covers the keywords you want — no made-up numbers.">วางลิงก์เว็บของคุณ ระบบอ่าน<b>หน้าแรกจริง</b> ให้คะแนน SEO/AEO 13 ปัจจัย พร้อมประเมินว่าเว็บครอบคลุมคีย์เวิร์ดที่คุณอยากติดแค่ไหน — วัดจริง ไม่มีเลขปั้น</p>
+      <div class="au-trust">
+        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Reads your real page">อ่านหน้าเว็บจริง</span></span>
+        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M4 12l5 5L20 6"/></svg> <span data-en="13 measured signals">13 ปัจจัยที่วัดได้จริง</span></span>
+        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Instant · no signup">รู้ผลทันที · ไม่ต้องสมัคร</span></span>
+      </div>
+    </div>
+
+    <div class="audit-card">
+      <span class="au-reg" aria-hidden="true">SITE&nbsp;REPORT</span>
+      <form id="audit-form" autocomplete="off">
+        <div class="au-console">
+          <span class="au-globe" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18"/></svg></span>
+          <span class="pfx">https://</span>
+          <input id="au-url" name="url" placeholder="yourwebsite.com" data-en-ph="yourwebsite.com" required inputmode="url">
+          <button class="btn btn-primary" type="submit" id="au-go"><span data-en="Check free">ตรวจฟรี</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+        <div class="audit-kw">
+          <span class="kwl" data-en="Keywords you want to rank for (optional):">คีย์เวิร์ดที่อยากติดอันดับ (ไม่บังคับ):</span>
+          <input name="kw1" placeholder="เช่น รับทำ seo" data-en-ph="e.g. seo services">
+          <input name="kw2" placeholder="คีย์เวิร์ด 2" data-en-ph="keyword 2">
+          <input name="kw3" placeholder="คีย์เวิร์ด 3" data-en-ph="keyword 3">
+        </div>
+      </form>
+      <div id="au-msg" class="au-msg"></div>
+
+      <!-- scanning state -->
+      <div id="au-scan" class="au-scan" hidden aria-hidden="true">
+        <div class="scan-view">
+          <div class="sg"></div>
+          <div class="sl"></div>
+          <div class="sh" id="au-scan-host"></div>
+        </div>
+        <ul class="scan-steps">
+          <li data-en="Connecting &amp; reading the page">เชื่อมต่อและอ่านหน้าเว็บ<i></i></li>
+          <li data-en="Auditing 13 SEO/AEO signals">ตรวจ 13 ปัจจัย SEO/AEO<i></i></li>
+          <li data-en="Assessing keyword coverage">ประเมินการครอบคลุมคีย์เวิร์ด<i></i></li>
+        </ul>
+      </div>
+
+      <!-- result -->
+      <div id="au-result" class="au-result" hidden>
+        <div class="au-readout">
+          <div class="au-gauge" aria-hidden="true">
+            <svg width="136" height="136" viewBox="0 0 136 136">
+              <defs><linearGradient id="auGrad" x1="0" y1="0" x2="1" y2="1"><stop id="au-g0" offset="0" stop-color="#5b9bff"/><stop id="au-g1" offset="1" stop-color="#1a56ff"/></linearGradient></defs>
+              <circle cx="68" cy="68" r="58" fill="none" stroke="#e6eefc" stroke-width="12"/>
+              <circle id="au-arc" cx="68" cy="68" r="58" fill="none" stroke="url(#auGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="364.4" stroke-dashoffset="364.4" style="transition:stroke-dashoffset .85s cubic-bezier(.4,0,.2,1)"/>
+            </svg>
+            <div class="gv"><b id="au-num">0</b><span class="gg" id="au-grade">—</span></div>
+          </div>
+          <div class="au-verdict">
+            <div class="v-lbl" data-en="Health score">คะแนนสุขภาพเว็บ</div>
+            <div class="v-title" id="au-verdict"></div>
+            <div class="au-metrics" id="au-tags"></div>
+          </div>
+        </div>
+
+        <div id="au-kwwrap" hidden>
+          <div class="au-sec-t" data-en="Keyword coverage on your homepage">การครอบคลุมคีย์เวิร์ดบนหน้าแรก</div>
+          <div id="au-kw"></div>
+        </div>
+
+        <div class="au-sec-t" data-en="What we found — measured from your HTML">สิ่งที่เจอ — วัดจาก HTML จริงของคุณ</div>
+        <div class="au-checks" id="au-checks"></div>
+
+        <div class="au-rx">
+          <div class="rx-mark" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.1"><path d="M12 3l7 3v5c0 4.4-3 7.8-7 9-4-1.2-7-4.6-7-9V6l7-3z"/><path d="M9 12l2 2 4.5-4.5"/></svg></div>
+          <div class="rx-txt">
+            <b id="au-cta-h"></b>
+            <span data-en="ImVisible fixes all of this automatically — then pushes you to rank on Google and get cited by AI.">ImVisible แก้ทุกจุดนี้ให้อัตโนมัติ แล้วดันให้ติดอันดับ Google และถูก AI แนะนำ</span>
+          </div>
+          <button class="btn btn-primary" id="au-cta-btn" type="button" data-en="Have your team contact me">สนใจ · ให้ทีมติดต่อกลับ</button>
+        </div>
+      </div>
+    </div>
+    <p class="au-note" id="au-foot"></p>
+  </section>
+
+  <script>
+  (function(){
+    var f=document.getElementById('audit-form'); if(!f) return;
+    var API='https://app.imvisible.tech/api/site-check';
+    var CIRC=364.4;
+    var box=document.getElementById('au-result'),scan=document.getElementById('au-scan'),msg=document.getElementById('au-msg');
+    var arc=document.getElementById('au-arc'),num=document.getElementById('au-num'),grade=document.getElementById('au-grade');
+    var ICO={
+      ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M4 12.5l5 5L20 6.5"/></svg>',
+      warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3.5l9 15.5H3l9-15.5z"/><path d="M12 10v4.2"/><circle cx="12" cy="17.4" r=".5" fill="currentColor" stroke="none"/></svg>',
+      fail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>'
+    };
+    function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+    function g(n){var el=f.querySelector('[name="'+n+'"]');return el?(el.value||'').trim():'';}
+    function col(sc){return sc>=85?'#0a7350':sc>=70?'#1a56ff':sc>=55?'#b45309':'#c0392b';}
+    function grad(sc){return sc>=85?['#34d399','#0a7350']:sc>=70?['#5b9bff','#1a56ff']:sc>=55?['#fbbf24','#d97706']:['#f87171','#c0392b'];}
+
+    var scanT=[];
+    function startScan(host){
+      box.hidden=true;msg.textContent='';
+      document.getElementById('au-scan-host').textContent=host;
+      var lis=scan.querySelectorAll('.scan-steps li');
+      lis.forEach(function(li){li.className='';});
+      scan.hidden=false;
+      scanT.forEach(clearTimeout);scanT=[];
+      lis.forEach(function(li,i){
+        scanT.push(setTimeout(function(){
+          if(i>0)lis[i-1].className='on';
+          li.className=(i<lis.length?'on cur':'on');
+        },i*560));
+      });
+    }
+    function stopScan(){scanT.forEach(clearTimeout);scanT=[];scan.querySelectorAll('.scan-steps li').forEach(function(li){li.className='on';});scan.hidden=true;}
+
+    f.addEventListener('submit',function(e){
+      e.preventDefault();
+      var url=g('url'); if(!url){msg.textContent='กรุณาใส่ลิงก์เว็บไซต์';return;}
+      var kws=[g('kw1'),g('kw2'),g('kw3')].filter(Boolean);
+      var btn=document.getElementById('au-go'),ot=btn.innerHTML;
+      btn.disabled=true;btn.querySelector('span').textContent='กำลังตรวจ…';
+      startScan(url.replace(/^https?:\/\//,'').split('/')[0]);
+      var t0=Date.now();
+      function done(fn){var wait=Math.max(0,1100-(Date.now()-t0));setTimeout(function(){stopScan();btn.disabled=false;btn.innerHTML=ot;fn();},wait);}
+      fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url,keywords:kws})})
+      .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+      .then(function(res){done(function(){res.ok?render(res.d):(msg.textContent=(res.d&&res.d.detail)||'ตรวจไม่สำเร็จ ลองใหม่อีกครั้ง');});})
+      .catch(function(){done(function(){msg.textContent='เชื่อมระบบไม่ได้ ลองใหม่ หรือทัก LINE @imaiofficial';});});
+    });
+
+    function render(d){
+      var c=col(d.score),gp=grad(d.score);
+      document.getElementById('au-g0').setAttribute('stop-color',gp[0]);
+      document.getElementById('au-g1').setAttribute('stop-color',gp[1]);
+      arc.style.strokeDashoffset=CIRC*(1-Math.max(0,Math.min(100,d.score))/100);
+      arc.style.filter='drop-shadow(0 2px 6px '+gp[1]+'66)';
+      num.textContent=d.score;
+      grade.textContent='เกรด '+d.grade;grade.style.background=c;
+      document.getElementById('au-verdict').textContent=d.summary||'';
+      // metric chips
+      var mx=[];
+      if(d.passed)mx.push('<span class="mx ok"><b>'+d.passed+'</b>ผ่าน</span>');
+      if(d.warns)mx.push('<span class="mx warn"><b>'+d.warns+'</b>ควรปรับ</span>');
+      if(d.fails)mx.push('<span class="mx fail"><b>'+d.fails+'</b>ต้องแก้</span>');
+      document.getElementById('au-tags').innerHTML=mx.join('');
+      // keyword meters
+      var kw=d.keywords||[],kwrap=document.getElementById('au-kwwrap');
+      if(kw.length){
+        document.getElementById('au-kw').innerHTML=kw.map(function(k){
+          var pct=Math.round((k.coverage||0)*100),kc=col(pct);
+          function dot(on,ch){return '<i class="'+(on?'on':'')+'">'+ch+'</i>';}
+          return '<div class="kw-row"><div class="kw-main">'
+            +'<div class="kn">'+esc(k.keyword)+'</div>'
+            +'<div class="kw-meter"><i style="background:'+kc+'"></i></div>'
+            +'<div class="wf" title="พบใน Title / หัวข้อ / เนื้อหา">'+dot(k.in_title,'T')+dot(k.in_heading,'H')+dot(k.in_body,'B')+'</div>'
+            +'</div><div class="kw-side"><div class="kpct" style="color:'+kc+'">'+pct+'%</div>'
+            +'<div class="kp '+esc(k.tone)+'">'+esc(k.label)+'</div></div></div>';
+        }).join('');
+        kwrap.hidden=false;
+        // animate meters after paint
+        setTimeout(function(){
+          var bars=document.getElementById('au-kw').querySelectorAll('.kw-meter i');
+          kw.forEach(function(k,i){if(bars[i])bars[i].style.width=Math.round((k.coverage||0)*100)+'%';});
+        },60);
+      }else{kwrap.hidden=true;}
+      // findings — worst first, staggered reveal
+      var order={fail:0,warn:1,ok:2};
+      var fx=(d.factors||[]).slice().sort(function(a,b){return order[a.tone]-order[b.tone];});
+      document.getElementById('au-checks').innerHTML=fx.map(function(x,i){
+        return '<div class="chk '+esc(x.tone)+'" style="animation-delay:'+(i*45)+'ms"><span class="ci">'+ICO[x.tone]+'</span>'
+          +'<div class="cb"><div class="cl">'+esc(x.label)+'</div>'
+          +'<div class="cd">'+esc(x.detail)+'</div>'
+          +(x.fix?'<div class="cf"><b>วิธีแก้:</b> '+esc(x.fix)+'</div>':'')+'</div></div>';
+      }).join('');
+      // sales headline
+      var issues=(d.fails||0)+(d.warns||0);
+      document.getElementById('au-cta-h').textContent = issues
+        ? ('เว็บคุณมี '+issues+' จุดที่ควรแก้ — และยังต้องดันให้ "ติดอันดับ" ต่อ')
+        : 'พื้นฐานแน่นแล้ว — ก้าวต่อไปคือดันให้ติดอันดับ + ถูก AI แนะนำ';
+      document.getElementById('au-foot').textContent=d.note||'';
+      box.hidden=false;
+      box.scrollIntoView({behavior:'smooth',block:'nearest'});
+    }
+
+    // CTA → เติมฟอร์มติดต่อให้อัตโนมัติ (แฝงการขาย) แล้วเลื่อนไป #contact
+    document.getElementById('au-cta-btn').addEventListener('click',function(){
+      var lf=document.getElementById('lead-form');
+      if(lf){
+        var host=g('url').replace(/^https?:\/\//,'').split('/')[0];
+        var b=lf.querySelector('[name="business"]'); if(b&&!b.value) b.value=host;
+        ['kw1','kw2','kw3'].forEach(function(n){
+          var dst=lf.querySelector('[name="'+n+'"]'); if(dst&&!dst.value&&g(n)) dst.value=g(n);
+        });
+      }
+      var t=document.getElementById('contact');
+      if(t) t.scrollIntoView({behavior:'smooth'});
+      var nm=lf&&lf.querySelector('[name="name"]'); if(nm) setTimeout(function(){nm.focus();},500);
+    });
+  })();
+  </script>
 
   <!-- platform marquee -->
   <div class="platforms" aria-label="แพลตฟอร์มที่ครอบคลุม">
