@@ -365,6 +365,16 @@ async def admin_costs(user=Depends(get_current_user)):
             "note": "ประมาณการ = การใช้งานจริงเดือนนี้ (จาก DB) × ราคาต่อหน่วยโดยประมาณ · ไม่ใช่บิลจริง · ยอดเครดิตคงเหลือจริง ดูที่ console ของแต่ละผู้ให้บริการ"}
 
 
+@app.post("/api/admin/cost-check")
+async def admin_cost_check(user=Depends(get_current_user)):
+    """สั่งเช็กค่าใช้จ่าย/เครดิตเดี๋ยวนี้ + เตือน LINE ถ้าถึงเกณฑ์ (แอดมิน) — ไว้ทดสอบเอง"""
+    from app import usage
+    if (await usage.user_plan(user["id"])) != "admin":
+        raise HTTPException(403, "หน้านี้สำหรับแอดมินเท่านั้น")
+    from app.worker.tasks import _cost_watch
+    return {"result": await _cost_watch()}
+
+
 @app.get("/api/activity")
 async def activity_feed(limit: int = 40, project_id: int = 0, user=Depends(get_current_user)):
     """กิจกรรมสดของบัญชี — ไทม์ไลน์ล่าสุด (บทความ/เผยแพร่/วัดอันดับ/AI citation)

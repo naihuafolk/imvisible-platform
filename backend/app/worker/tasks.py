@@ -2044,6 +2044,57 @@ async def _send_weekly_reports() -> str:
     return "sent %d weekly reports" % sent
 
 
+@celery_app.task(name="app.worker.tasks.cost_watch")
+def cost_watch() -> str:
+    """💳 เฝ้าค่าใช้จ่าย/เครดิต → เด้ง LINE เตือนเมื่อยอด DataForSEO ใกล้หมด หรือค่าใช้จ่ายเดือนนี้ใกล้/เกินงบ"""
+    return _run(_cost_watch())
+
+
+async def _cost_watch() -> str:
+    from datetime import datetime, timezone
+    from sqlalchemy import func
+    from app.db.models import Article, RankSnapshot, CitationSnapshot
+    from app.connectors import notify, serp
+    from app.config import settings as S
+    if not db.enabled():
+        return "DB not configured"
+    alerts = []
+    # 1) ยอดคงเหลือ DataForSEO (ดึงสดจาก API) — เตือนก่อนหมดเครดิต
+    low_usd = float(getattr(S, "cost_alert_low_usd", 5.0) or 5.0)
+    if S.dataforseo_login and S.dataforseo_password:
+        try:
+            bal = await serp.account_balance()
+        except Exception:  # noqa: BLE001
+            bal = None
+        if bal is not None and bal < low_usd:
+            alerts.append("💳 DataForSEO เหลือ $%.2f (ต่ำกว่า $%g) — เติมด่วน\n   → app.dataforseo.com › Billing" % (bal, low_usd))
+    # 2) ค่าใช้จ่ายเดือนนี้ (ประมาณการจากการใช้จริง) เทียบงบที่ตั้งไว้
+    budget = int(getattr(S, "cost_budget_thb", 0) or 0)
+    if budget > 0:
+        mstart = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        async with db.session() as s:
+            arts = int((await s.execute(select(func.count(Article.id)).where(Article.created_at >= mstart))).scalar() or 0)
+            imgs = int((await s.execute(select(func.count(Article.id)).where(Article.created_at >= mstart, Article.cover_url != ""))).scalar() or 0)
+            rnk = int((await s.execute(select(func.count(RankSnapshot.id)).where(RankSnapshot.checked_at >= mstart))).scalar() or 0)
+            cit = int((await s.execute(select(func.count(CitationSnapshot.id)).where(CitationSnapshot.sampled_at >= mstart))).scalar() or 0)
+        total = round(arts * 12.0 + imgs * 5.0 + rnk * 0.3 + cit * 2.0)
+        pct = round(total / budget * 100)
+        if total >= budget:
+            alerts.append("📊 ค่าใช้จ่ายเดือนนี้ ~฿%s / งบ ฿%s (%d%%) — เกินงบแล้ว!" % (total, budget, pct))
+        elif pct >= 80:
+            alerts.append("📊 ค่าใช้จ่ายเดือนนี้ ~฿%s / งบ ฿%s (%d%%) — ใกล้เต็มงบ" % (total, budget, pct))
+    if not alerts:
+        return "cost ok — ไม่มีอะไรต้องเตือน"
+    msg = "⚠️ แจ้งเตือนค่าใช้จ่าย ImVisible\n\n" + "\n\n".join(alerts) + "\n\n(ดูละเอียดที่แดชบอร์ด › ต้นทุน)"
+    try:
+        ok = await notify.send_line(msg)
+    except Exception:  # noqa: BLE001
+        ok = False
+    if not ok:
+        print("[cost_watch] มีเรื่องต้องเตือน %d ข้อ แต่ส่ง LINE ไม่สำเร็จ (ตรวจ LINE_CHANNEL_ACCESS_TOKEN/LINE_DEFAULT_TO)" % len(alerts))
+    return "cost alert: %d issue · line_sent=%s" % (len(alerts), ok)
+
+
 @celery_app.task(name="app.worker.tasks.learning_loop")
 def learning_loop() -> str:
     """M6: เรียนรู้จากผลจริงของทุกโปรเจ็ค → ปรับลำดับหัวข้อให้คลัสเตอร์ที่ได้ผลมาก่อน"""

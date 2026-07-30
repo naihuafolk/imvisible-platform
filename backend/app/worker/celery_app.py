@@ -103,6 +103,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.send_weekly_reports",
         "schedule": crontab(hour=8, minute=0, day_of_week=1),
     },
+    "cost-watch-daily": {            # 💳 เฝ้าค่าใช้จ่าย/เครดิต → เตือน LINE เมื่อใกล้หมด/เกินงบ ทุกวัน 09:00
+        "task": "app.worker.tasks.cost_watch",
+        "schedule": crontab(hour=9, minute=0),
+    },
     "publish-scheduled": {           # M4 · เผยแพร่บทความที่ตั้งเวลาไว้ ทุก 15 นาที
         "task": "app.worker.tasks.publish_scheduled",
         "schedule": crontab(minute="*/15"),

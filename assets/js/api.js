@@ -54,6 +54,7 @@
     activity: function (limit, projectId) { return api._get('/api/activity?limit=' + (limit || 40) + (projectId ? '&project_id=' + projectId : '')); },
     plans: function () { return api._get('/api/plans'); },
     adminCosts: function () { return api._get('/api/admin/costs'); },
+    costCheck: function () { return api._post('/api/admin/cost-check', {}); },
     team: function () { return api._get('/api/team'); },
     inviteTeam: function (email, role) { return api._post('/api/team/invite', { email: email, role: role || 'viewer' }); },
     removeTeam: function (id) { return api._del('/api/team/' + id); },
