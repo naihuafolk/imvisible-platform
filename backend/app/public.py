@@ -540,15 +540,58 @@ async def report_data(project_id: int, days: int) -> dict | None:
     runs = list(by_bucket.values())
     per_engine = runs[-1] if runs else {}
     sov_vals = [v for v in per_engine.values() if v is not None]
+    sov_now = round(sum(sov_vals) / len(sov_vals), 1) if sov_vals else None
+
+    # --- แนวโน้ม: อันดับเฉลี่ยตามเวลา (bucket รายวัน · ยิ่งต่ำยิ่งดี) ---
+    rank_buckets: dict[str, list] = {}
+    for r in rows:
+        if r.rank is None or not r.checked_at:
+            continue
+        rank_buckets.setdefault(r.checked_at.strftime("%Y-%m-%d"), []).append(r.rank)
+    rank_trend = [round(sum(v) / len(v), 1) for _, v in sorted(rank_buckets.items())]
+    avg_prev = rank_trend[-2] if len(rank_trend) >= 2 else None
+
+    # --- แนวโน้ม: Share of Voice overall ต่อรอบที่รันจริง ---
+    sov_trend = []
+    for run in runs:
+        vv = [v for v in run.values() if v is not None]
+        if vv:
+            sov_trend.append(round(sum(vv) / len(vv), 1))
+    sov_prev = sov_trend[-2] if len(sov_trend) >= 2 else None
+
+    # --- คู่แข่งที่ AI แนะนำในหมวดเรา (ต้องแซงในสนาม AEO) ---
+    comp_names = []
+    try:
+        _comps = _json.loads(getattr(proj, "ai_competitors", "") or "") if (getattr(proj, "ai_competitors", "") or "").strip() else []
+    except Exception:  # noqa: BLE001
+        _comps = []
+    for c in (_comps or [])[:10]:
+        nm = (c.get("name") or c.get("brand") or c.get("competitor") or "") if isinstance(c, dict) else str(c)
+        nm = str(nm).strip()
+        if nm and nm.lower() not in {x.lower() for x in comp_names}:
+            comp_names.append(nm)
+
+    # --- ระดับความสำเร็จ AEO (0=ยังไม่เริ่ม · 1=เริ่มติด · 2=มีส่วนแบ่ง · 3=นำในหมวด) ---
+    if sov_now is None or sov_now <= 0:
+        stage_ix = 0
+    elif sov_now < 20:
+        stage_ix = 1
+    elif sov_now < 50:
+        stage_ix = 2
+    else:
+        stage_ix = 3
+
     return {
         "proj": proj, "kws": kws[:50], "pipeline": pipeline,
         "page1": sum(1 for k in kws if k["on_page1"]),
         "top3": sum(1 for k in kws if k["rank"] is not None and k["rank"] <= 3),
         "avg": round(sum(ranked) / len(ranked), 1) if ranked else None,
+        "avg_prev": avg_prev, "rank_trend": rank_trend,
         "keywords_tracked": len(latest), "published": len(arts),
         "aeo_avg": round(sum(scored) / len(scored)) if scored else None,
         "new_count": len(new_arts), "recent": arts[:6],
-        "per_engine": per_engine, "sov": round(sum(sov_vals) / len(sov_vals), 1) if sov_vals else None,
+        "per_engine": per_engine, "sov": sov_now, "sov_prev": sov_prev, "sov_trend": sov_trend,
+        "competitors": comp_names, "stage": stage_ix,
         "examples": cexs,
     }
 
@@ -587,7 +630,62 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .arts a{color:var(--bl);text-decoration:none}.arts a:hover{text-decoration:underline}
 .foot{color:var(--mut);font-size:12.5px;text-align:center;margin-top:30px;line-height:1.7}
 .note{background:var(--wash);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--mut);margin-top:10px}
+/* exec summary */
+.exec{background:linear-gradient(135deg,var(--bl),#5b4ff0);color:#fff;border:0}
+.exec .el{font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;opacity:.85}
+.exec p{margin:8px 0 0;font-size:15.5px;line-height:1.62}.exec b{font-weight:800}
+.exec .arrow-up{color:#8affc4;font-weight:800}.exec .arrow-dn{color:#ffc4c4;font-weight:800}
+/* KPI delta */
+.kpi .kd{font-size:12px;font-weight:800;margin-top:3px}
+.kd.up{color:var(--grn)}.kd.dn{color:var(--rd)}.kd.flat{color:var(--mut)}
+/* AEO success stage stepper */
+.stage-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.stage-head .now{font-size:18px;font-weight:800}
+.stage-head .badge{font-size:11px;font-weight:800;padding:2px 10px;border-radius:999px;background:rgba(27,63,212,.12);color:var(--bl)}
+.stage-desc{color:var(--mut);font-size:13.5px;margin:2px 0 16px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.step{border:1px solid var(--ln);border-radius:12px;padding:12px 12px 13px;position:relative;opacity:.55}
+.step.on{opacity:1;border-color:var(--bl);background:rgba(27,63,212,.05)}
+.step.on.cur{box-shadow:0 0 0 2px var(--bl) inset}
+.step .sn{width:22px;height:22px;border-radius:50%;background:var(--ln);color:var(--mut);display:grid;place-items:center;font-size:12px;font-weight:800}
+.step.on .sn{background:var(--bl);color:#fff}
+.step .st{font-weight:800;font-size:13.5px;margin:7px 0 2px}.step .ss{font-size:12px;color:var(--mut);line-height:1.45}
+@media(max-width:560px){.steps{grid-template-columns:1fr}}
+/* trend sparklines */
+.trends{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.trends{grid-template-columns:1fr}}
+.trend{border:1px solid var(--ln);border-radius:12px;padding:13px 15px}
+.trend .tl{font-size:12.5px;color:var(--mut);font-weight:700}
+.trend .tv{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:2px 0 8px;font-variant-numeric:tabular-nums}
+.trend .tv small{font-size:12px;font-weight:800}.trend .th{font-size:11.5px;color:var(--mut);margin-top:5px}
+/* competitors */
+.comps{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 0}
+.comp{font-size:13px;font-weight:700;padding:6px 13px;border-radius:999px;background:var(--wash);border:1px solid var(--ln)}
+.comp::before{content:"🥊 ";}
 """
+
+
+def _sparkline(vals, up_is_good=True, w=132, h=34):
+    """SVG sparkline เล็ก — เขียวถ้าดีขึ้น แดงถ้าแย่ลง (อันดับใช้ up_is_good=False เพราะยิ่งต่ำยิ่งดี)"""
+    vals = [v for v in (vals or []) if v is not None]
+    if len(vals) < 2:
+        return ""
+    lo, hi = min(vals), max(vals)
+    rng = (hi - lo) or 1.0
+    npts = len(vals)
+    pts = []
+    for i, v in enumerate(vals):
+        x = round(i / (npts - 1) * (w - 6) + 3, 1)
+        norm = (v - lo) / rng
+        y = round(((1 - norm) if up_is_good else norm) * (h - 8) + 4, 1)
+        pts.append("%s,%s" % (x, y))
+    improved = (vals[-1] > vals[0]) if up_is_good else (vals[-1] < vals[0])
+    col = "#0a7350" if improved else ("#dc2626" if vals[-1] != vals[0] else "#5a6a86")
+    lx, ly = pts[-1].split(",")
+    return ('<svg viewBox="0 0 %d %d" width="100%%" height="%d" preserveAspectRatio="none" style="display:block;overflow:visible">'
+            '<polyline points="%s" fill="none" stroke="%s" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+            '<circle cx="%s" cy="%s" r="2.8" fill="%s"/></svg>'
+            % (w, h, h, " ".join(pts), col, lx, ly, col))
 
 
 def render_report_page(data: dict, period_label: str, generated: str) -> str:
@@ -602,11 +700,23 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
     def n(v):
         return "—" if v is None else str(v)
 
-    kpis = [(t("ติดหน้า 1", "On page 1"), n(data["page1"])), ("Top 3", n(data["top3"])),
-            (t("อันดับเฉลี่ย", "Avg. rank"), n(data["avg"])),
-            (t("บทความเผยแพร่", "Articles published"), n(data["published"])),
-            ("AI Citation", ("%s%%" % data["sov"]) if data["sov"] is not None else "—")]
-    kpi_html = "".join('<div class="kpi"><div class="kv">%s</div><div class="kl">%s</div></div>' % (v, _esc(l)) for l, v in kpis)
+    def d_rank(cur, prev):                     # อันดับ: ต่ำลง=ดีขึ้น
+        if cur is None or prev is None or cur == prev:
+            return ""
+        d = round(prev - cur, 1)
+        return '<div class="kd up">▲ %s</div>' % d if d > 0 else '<div class="kd dn">▼ %s</div>' % (-d)
+
+    def d_pct(cur, prev):                      # SoV: มากขึ้น=ดี
+        if cur is None or prev is None or cur == prev:
+            return ""
+        d = round(cur - prev, 1)
+        return '<div class="kd up">▲ %s pt</div>' % d if d > 0 else '<div class="kd dn">▼ %s pt</div>' % (-d)
+
+    kpis = [(t("ติดหน้า 1", "On page 1"), n(data["page1"]), ""), ("Top 3", n(data["top3"]), ""),
+            (t("อันดับเฉลี่ย", "Avg. rank"), n(data["avg"]), d_rank(data.get("avg"), data.get("avg_prev"))),
+            (t("บทความเผยแพร่", "Articles published"), n(data["published"]), ""),
+            ("AI Citation", ("%s%%" % data["sov"]) if data["sov"] is not None else "—", d_pct(data.get("sov"), data.get("sov_prev")))]
+    kpi_html = "".join('<div class="kpi"><div class="kv">%s</div><div class="kl">%s</div>%s</div>' % (v, _esc(l), dl) for l, v, dl in kpis)
 
     def mv(k):
         cur, prev = k["rank"], k["prev"]
@@ -663,6 +773,71 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
                                getattr(a, "aeo_score", "") or "—")
                             for a in data["recent"]) + '</ul></div>')
 
+    # ---------- ครบวงจร: exec summary + AEO success stage + trends + competitors ----------
+    parts = []
+    if data.get("avg") is not None:
+        seg = t("อันดับเฉลี่ย <b>#%s</b>", "avg rank <b>#%s</b>") % data["avg"]
+        ap = data.get("avg_prev")
+        if ap is not None and ap != data["avg"]:
+            up = data["avg"] < ap
+            seg += ' <span class="%s">%s</span>' % ("arrow-up" if up else "arrow-dn", "▲" if up else "▼")
+        parts.append(seg)
+    parts.append(t("ติดหน้าแรก <b>%s</b> คีย์", "<b>%s</b> on page 1") % data["page1"])
+    if data.get("sov") is not None:
+        seg = t("AI แนะนำคุณ <b>%s%%</b>", "AI cites you <b>%s%%</b>") % data["sov"]
+        sp = data.get("sov_prev")
+        if sp is not None and sp != data["sov"]:
+            up = data["sov"] > sp
+            seg += ' <span class="%s">%s</span>' % ("arrow-up" if up else "arrow-dn", "▲" if up else "▼")
+        parts.append(seg)
+    parts.append(t("เผยแพร่ <b>%s</b> บทความช่วงนี้", "<b>%s</b> new articles this period") % data["new_count"])
+    exec_html = ('<div class="card exec"><div class="el">%s</div><p>%s</p></div>'
+                 % (t("สรุปผลงานช่วงนี้", "This period at a glance"), " · ".join(parts)))
+
+    stage_ix = data.get("stage", 0)
+    stage_defs = [
+        (t("เริ่มติด", "Getting cited"), t("AI เริ่มพูดถึงคุณบนคำถามบางข้อ", "AI starts mentioning you on some questions")),
+        (t("มีส่วนแบ่งเสียง", "Share of voice"), t("แข่งในสนามแล้ว — ถูก AI แนะนำสม่ำเสมอขึ้น", "In the mix — cited regularly")),
+        (t("นำในหมวด", "Category leader"), t("AI แนะนำคุณเป็นตัวเลือกต้น ๆ", "AI recommends you as a top pick")),
+    ]
+    now_label = t("ยังไม่เริ่มติด", "Not cited yet") if stage_ix == 0 else stage_defs[stage_ix - 1][0]
+    steps_html = "".join(
+        '<div class="%s"><div class="sn">%s</div><div class="st">%s</div><div class="ss">%s</div></div>'
+        % ("step" + (" on" if i <= stage_ix else "") + (" cur" if i == stage_ix else ""),
+           "✓" if i < stage_ix else str(i), _esc(st), _esc(ss))
+        for i, (st, ss) in enumerate(stage_defs, start=1))
+    stage_html = ('<h2>%s</h2><div class="card"><div class="stage-head"><span class="now">%s</span>'
+                  '<span class="badge">%s %d/3</span></div><div class="stage-desc">%s</div>'
+                  '<div class="steps">%s</div></div>'
+                  % (t("🏁 เส้นทางสู่ความสำเร็จ AEO", "🏁 Your AEO success path"), _esc(now_label),
+                     t("ระดับ", "Stage"), stage_ix,
+                     t("AEO ไม่มีเส้นชัยจุดเดียว — วัดจาก Share of Voice ที่ไต่ขึ้นต่อเนื่อง · ตอนนี้คุณอยู่ตรงนี้:",
+                       "AEO isn't one finish line — it's a rising Share of Voice. Here's where you stand:"),
+                     steps_html))
+
+    tr = []
+    rt = data.get("rank_trend") or []
+    if len(rt) >= 2:
+        tr.append('<div class="trend"><div class="tl">%s</div><div class="tv">#%s</div>%s<div class="th">%s</div></div>'
+                  % (t("อันดับเฉลี่ยตามเวลา", "Avg rank over time"), rt[-1], _sparkline(rt, up_is_good=False),
+                     t("ยิ่งต่ำยิ่งดี · เขียว = ดีขึ้น", "lower is better · green = improving")))
+    stv = data.get("sov_trend") or []
+    if len(stv) >= 2:
+        tr.append('<div class="trend"><div class="tl">%s</div><div class="tv">%s<small>%%</small></div>%s<div class="th">%s</div></div>'
+                  % (t("AI Citation (SoV) ตามเวลา", "AI Citation (SoV) over time"), stv[-1], _sparkline(stv, up_is_good=True),
+                     t("ยิ่งสูงยิ่งดี · เขียว = ไต่ขึ้น", "higher is better · green = climbing")))
+    trends_html = ('<h2>%s</h2><div class="card"><div class="trends">%s</div></div>'
+                   % (t("📈 แนวโน้ม (เทียบตามเวลา)", "📈 Trends over time"), "".join(tr))) if tr else ""
+
+    comp_html = ""
+    comps = data.get("competitors") or []
+    if comps:
+        comp_html = ('<h2>%s</h2><div class="card"><div class="comps">%s</div><div class="note">%s</div></div>'
+                     % (t("🥊 คู่แข่งที่ AI แนะนำในหมวดคุณ", "🥊 Competitors AI recommends in your space"),
+                        "".join('<span class="comp">%s</span>' % _esc(c) for c in comps[:8]),
+                        t("เป้าหมาย AEO = ทำให้ AI แนะนำ 'คุณ' ควบคู่/แทนแบรนด์เหล่านี้ (ระบบกำลังไล่แซง)",
+                          "AEO goal = get AI to recommend YOU alongside/instead of these — the system is closing the gap")))
+
     link = '<a href="https://imvisible.tech" style="color:var(--bl)">ImVisible</a>'
     sub = (t("%s · %s · ผลิตในช่วงนี้ %d บทความ · คะแนน AEO เฉลี่ย %s",
              "%s · %s · %d articles this period · avg AEO %s")
@@ -678,21 +853,24 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
         '<link rel="icon" href="/favicon.svg"><style>%s</style></head><body><div class="wrap">'
         '<div class="brand"><span class="mk">i</span>ImVisible<span>%s</span></div>'
         '<h1>%s</h1><div class="sub">%s</div>'
+        '%s'
         '<div class="card"><div class="kpis">%s</div></div>'
+        '%s%s'
         '<h2>%s</h2><div class="card" style="overflow-x:auto">%s'
         '<table><thead><tr><th>%s</th><th>%s</th><th class="n">%s</th><th class="n">%s</th><th class="n">%s</th></tr></thead>'
         '<tbody>%s</tbody></table></div>'
         '<h2>%s</h2><div class="card"><div class="engs">%s</div><div class="note">%s</div></div>'
-        '%s%s<div class="foot">%s</div>'
+        '%s%s%s<div class="foot">%s</div>'
         '</div></body></html>'
         % ("en" if en else "th", t("รายงานผลงาน", "Performance Report"), name, _REPORT_CSS,
-           t(" · รายงานผลงาน", " · Performance Report"), name, sub, kpi_html,
+           t(" · รายงานผลงาน", " · Performance Report"), name, sub, exec_html, kpi_html,
+           stage_html, trends_html,
            t("อันดับ Google (ต่อคีย์เวิร์ด)", "Google Rankings (by keyword)"), pl_html,
            t("คีย์เวิร์ด", "Keyword"), t("สถานะ", "Stage"), t("อันดับ", "Rank"), t("ดีสุด", "Best"), t("เปลี่ยนแปลง", "Change"),
            rank_rows, t("🤖 AI แนะนำเราหรือยัง", "🤖 Is AI recommending you?"), engs,
            t("วัดจริงโดยถาม ChatGPT / Gemini / Perplexity แล้วเช็คว่าคำตอบอ้างอิงแบรนด์/เว็บของคุณ (Share of Voice)",
              "Measured by actually querying ChatGPT / Gemini / Perplexity and checking whether the answer cites your brand/site (Share of Voice)"),
-           proof, recent, foot)
+           comp_html, proof, recent, foot)
     )
 
 
