@@ -107,6 +107,14 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.cost_watch",
         "schedule": crontab(hour=9, minute=0),
     },
+    "self-check-daily": {            # 🩺 เฝ้าระบบ + ซ่อมเบา ๆ (db/redis/การผลิต/บทความตั้งเวลา) → เตือน LINE เมื่อมีปัญหา ทุกวัน 09:30
+        "task": "app.worker.tasks.self_check",
+        "schedule": crontab(hour=9, minute=30),
+    },
+    "social-push-daily": {           # ♻️ กระจายบทความไป FB/โซเชียลที่ต่อไว้ (ดริปวันละ 1/ช่อง กันสแปม) ทุกวัน 10:15
+        "task": "app.worker.tasks.social_push",
+        "schedule": crontab(hour=10, minute=15),
+    },
     "publish-scheduled": {           # M4 · เผยแพร่บทความที่ตั้งเวลาไว้ ทุก 15 นาที
         "task": "app.worker.tasks.publish_scheduled",
         "schedule": crontab(minute="*/15"),

@@ -2120,6 +2120,160 @@ async def _learning_loop() -> str:
         len(ids), total_insights, tuned)
 
 
+# ============================================================
+# ♻️ Social Push — กระจาย 'สื่อแจกฟรี/บทความ' ไปช่องโซเชียล (FB Page ฯลฯ) อัตโนมัติ
+#   • โพสต์ 'ครั้งเดียวต่อบทความต่อช่อง' (กันสแปม) → backfill บทความเก่า + ช่องที่เพิ่งต่อ
+#   • caption ดึงดูด + รูปปก (FB ดึง og:image จากหน้าบทความ = รูปหัวข้อโดน ๆ อัตโนมัติ)
+#   • หมายเหตุตามจริง: ลิงก์ FB = nofollow → คุณค่าคือ traffic + AEO/entity + เหยื่อลิงก์ (ไม่ใช่ backlink สาย SEO ตรง ๆ)
+# ============================================================
+_SOCIAL_KINDS = {"facebook", "x", "linkedin", "telegram", "instagram", "pinterest", "mastodon", "discord", "webhook"}
+_HOOKS_TH = ["🔥 อ่านจบทำตามได้เลย", "📌 สรุปครบในโพสต์เดียว", "💡 รู้ไว้ไม่พลาด", "✅ เช็กลิสต์ทำจริง", "🚀 เริ่มวันนี้เห็นผลไว"]
+_HOOKS_EN = ["🔥 A practical guide", "📌 Save this for later", "💡 Worth knowing", "✅ A hands-on checklist", "🚀 Start today"]
+
+
+def _social_caption(title: str, desc: str, lang: str = "th") -> str:
+    """คำโปรยโซเชียลสั้น ๆ ดึงดูด (deterministic · ไม่ยิง LLM = ไม่มีค่าใช้จ่าย/ไม่ล้ม)"""
+    title = (title or "").strip()
+    hooks = _HOOKS_EN if lang == "en" else _HOOKS_TH
+    hook = hooks[len(title) % len(hooks)] if title else hooks[0]
+    cta = "อ่านเต็ม ๆ 👇" if lang != "en" else "Read the full guide 👇"
+    d = (desc or "").strip()
+    if len(d) > 160:
+        d = d[:157].rstrip() + "…"
+    lines = [hook, "", title]
+    if d:
+        lines += ["", d]
+    lines += ["", cta]
+    return "\n".join(x for x in lines if x is not None)
+
+
+@celery_app.task(name="app.worker.tasks.social_push")
+def social_push(project_id: int = 0, per_project: int = 1) -> str:
+    """♻️ (beat/แมนนวล) กระจายบทความที่เผยแพร่แล้วไปช่องโซเชียลที่ 'ยังไม่เคยโพสต์' — ดริปวันละไม่กี่ชิ้น กันสแปม"""
+    return _run(_social_push(project_id, per_project))
+
+
+async def _social_push(project_id: int, per_project: int) -> str:
+    from app.db.models import Project
+    if not db.enabled():
+        return "DB not configured"
+    async with db.session() as s:
+        if project_id:
+            pids = [project_id] if await s.get(Project, project_id) else []
+        else:
+            pids = list((await s.execute(select(Project.id))).scalars().all())
+    total = 0
+    for pid in pids:
+        try:
+            total += await _social_push_one(pid, per_project)
+        except Exception:  # noqa: BLE001 — โปรเจ็คเดียวล้ม ไม่ให้ทั้งชุดพัง
+            continue
+    return "social push: posted %d item(s) across %d project(s)" % (total, len(pids))
+
+
+async def _social_push_one(project_id: int, per_project: int) -> int:
+    from app.db.models import Project, Article, DistributionChannel, DistributionEvent
+    async with db.session() as s:
+        proj = await s.get(Project, project_id)
+        if not proj:
+            return 0
+        chans = (await s.execute(select(DistributionChannel).where(
+            DistributionChannel.project_id == project_id,
+            DistributionChannel.enabled == True))).scalars().all()   # noqa: E712
+        targets = [(c.kind, crypto.dec(c.token_enc), c.ref) for c in chans
+                   if c.kind in _SOCIAL_KINDS and c.token_enc]
+        if not targets:
+            return 0                                     # ไม่มีช่องโซเชียลที่ต่อไว้ → เงียบ (opt-in ด้วยการต่อช่อง)
+        arts = (await s.execute(select(Article).where(
+            Article.project_id == project_id, Article.status == "published",
+            Article.url != "").order_by(Article.id))).scalars().all()
+        done = (await s.execute(select(DistributionEvent.article_id, DistributionEvent.channel).where(
+            DistributionEvent.project_id == project_id,
+            DistributionEvent.status == "posted"))).all()
+    done_set = {(aid, ch) for aid, ch in done}           # โพสต์แล้ว (บทความ×ช่อง) — กันซ้ำ
+    lang = "en" if str(getattr(proj, "language", "") or "").lower().startswith("en") else "th"
+    posted = 0
+    for kind, token, ref in targets:
+        if not token:
+            continue
+        picked = [a for a in arts if (a.id, kind) not in done_set][:max(1, per_project)]
+        for a in picked:
+            caption = _social_caption(a.title, a.description or "", lang)
+            res = await social.dispatch(kind, token, ref, caption, a.url, a.cover_url or "")
+            async with db.session() as s:
+                s.add(DistributionEvent(article_id=a.id, project_id=project_id, channel=kind,
+                                        status="posted" if res.get("ok") else "failed",
+                                        url=(res.get("url") or "")[:600], detail=(res.get("detail") or "")[:390]))
+                await s.commit()
+            if res.get("ok"):
+                posted += 1
+    return posted
+
+
+# ============================================================
+# 🩺 Self-Check — เฝ้าระบบ + ซ่อมเบา ๆ อัตโนมัติทุกวัน → เตือน LINE เมื่อมีปัญหา
+# ============================================================
+@celery_app.task(name="app.worker.tasks.self_check")
+def self_check() -> str:
+    """🩺 (beat) เช็ค DB/Redis/การผลิต + กู้บทความตั้งเวลาที่ตกค้าง · เตือน LINE เฉพาะเมื่อมีปัญหา (ปกติเงียบ)"""
+    return _run(_self_check())
+
+
+async def _self_check() -> str:
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import func, text as _text
+    from app.db.models import Article, Project
+    from app.connectors import notify
+    from app.config import settings as S
+    problems: list[str] = []
+    heals: list[str] = []
+    # 1) ฐานข้อมูล
+    db_ok = False
+    if db.enabled():
+        try:
+            async with db.session() as s:
+                await s.execute(_text("SELECT 1"))
+            db_ok = True
+        except Exception as e:  # noqa: BLE001
+            problems.append("🛑 ฐานข้อมูลต่อไม่ได้: %s" % str(e)[:120])
+    else:
+        problems.append("🛑 ยังไม่ได้ตั้ง DATABASE_URL")
+    # 2) Redis / คิวงาน (broker)
+    try:
+        import redis as _redis
+        _redis.from_url(S.redis_url, socket_connect_timeout=3, socket_timeout=3).ping()
+    except Exception as e:  # noqa: BLE001
+        problems.append("🛑 Redis/คิวงานต่อไม่ได้: %s" % str(e)[:120])
+    # 3) การผลิตยังเดินอยู่ไหม + ซ่อมบทความตั้งเวลาที่ถึงกำหนดแต่ค้าง
+    if db_ok:
+        try:
+            since = datetime.now(timezone.utc) - timedelta(hours=48)
+            async with db.session() as s:
+                nprj = int((await s.execute(select(func.count(Project.id)))).scalar() or 0)
+                recent = int((await s.execute(select(func.count(Article.id)).where(Article.created_at >= since))).scalar() or 0)
+            if nprj > 0 and recent == 0:
+                problems.append("⚠️ ไม่มีบทความใหม่ใน 48 ชม. — วงจรผลิตอาจสะดุด (ตรวจ worker/beat)")
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            r = await _publish_scheduled()               # idempotent — เผยแพร่ที่ถึงกำหนด (ซ่อม)
+            if r.startswith("published ") and not r.startswith("published 0 "):
+                heals.append("🔧 " + r)
+        except Exception:  # noqa: BLE001
+            pass
+    if not problems and not heals:
+        return "self-check: healthy"
+    if problems:                                         # เตือน LINE เฉพาะเมื่อมีปัญหาจริง
+        body = ["🩺 ระบบ ImVisible — ต้องดู:\n" + "\n".join(problems)]
+        if heals:
+            body.append("ซ่อมอัตโนมัติแล้ว:\n" + "\n".join(heals))
+        try:
+            await notify.send_line("\n\n".join(body))
+        except Exception:  # noqa: BLE001
+            pass
+    return "self-check: %d problem(s), %d heal(s)" % (len(problems), len(heals))
+
+
 async def _save_rank(project_id: int, res: dict):
     from app.db.models import RankSnapshot, Project
     kw = res.get("keyword", "")

@@ -581,6 +581,20 @@ async def report_data(project_id: int, days: int) -> dict | None:
     else:
         stage_ix = 3
 
+    # คำถาม AEO ที่ลูกค้าตั้งเอง (สิ่งที่คนถาม AI) → โชว์ว่าเรากำลัง 'ดัน' ให้ AI แนะนำเขาบนคำถามพวกนี้
+    aeo_qs: list[str] = []
+    try:
+        _rawq = getattr(proj, "aeo_questions", "") or ""
+        if _rawq.strip():
+            _seenq = set()
+            for q in (_json.loads(_rawq) or []):
+                qq = str(q).strip()
+                if qq and qq.lower() not in _seenq:
+                    _seenq.add(qq.lower()); aeo_qs.append(qq)
+    except Exception:  # noqa: BLE001
+        pass
+    cited_qs = {str(getattr(e, "question", "") or "").strip().lower() for e in cexs}
+
     return {
         "proj": proj, "kws": kws[:50], "pipeline": pipeline,
         "page1": sum(1 for k in kws if k["on_page1"]),
@@ -593,6 +607,7 @@ async def report_data(project_id: int, days: int) -> dict | None:
         "per_engine": per_engine, "sov": sov_now, "sov_prev": sov_prev, "sov_trend": sov_trend,
         "competitors": comp_names, "stage": stage_ix,
         "examples": cexs,
+        "aeo_questions": aeo_qs[:10], "cited_questions": cited_qs,
     }
 
 
@@ -630,6 +645,9 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .arts a{color:var(--bl);text-decoration:none}.arts a:hover{text-decoration:underline}
 .foot{color:var(--mut);font-size:12.5px;text-align:center;margin-top:30px;line-height:1.7}
 .note{background:var(--wash);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--mut);margin-top:10px}
+.qwant{display:flex;flex-direction:column;gap:2px}
+.qrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--ln)}
+.qrow:last-child{border-bottom:0}.qq{font-size:14.5px;font-weight:600;line-height:1.4}
 /* exec summary */
 .exec{background:linear-gradient(135deg,var(--bl),#5b4ff0);color:#fff;border:0}
 .exec .el{font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;opacity:.85}
@@ -838,6 +856,24 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
                         t("เป้าหมาย AEO = ทำให้ AI แนะนำ 'คุณ' ควบคู่/แทนแบรนด์เหล่านี้ (ระบบกำลังไล่แซง)",
                           "AEO goal = get AI to recommend YOU alongside/instead of these — the system is closing the gap")))
 
+    # 🎯 คำถามที่ 'ดันให้ AI แนะนำคุณ' — ตอบโจทย์ลูกค้าที่อยากรู้ว่า 'AI แนะนำเราเมื่อถามอะไร'
+    qwant_html = ""
+    aeo_qs = data.get("aeo_questions") or []
+    citedq = data.get("cited_questions") or set()
+    if aeo_qs:
+        qrows = "".join(
+            '<div class="qrow"><span class="qq">%s</span>%s</div>'
+            % (_esc(q),
+               ('<span class="pill green">%s</span>' % t("✓ AI แนะนำแล้ว", "✓ AI cites you"))
+               if q.strip().lower() in citedq else
+               ('<span class="pill amber">%s</span>' % t("🎯 กำลังดัน", "🎯 In progress")))
+            for q in aeo_qs)
+        qwant_html = ('<h2>%s</h2><div class="card"><div class="qwant">%s</div><div class="note">%s</div></div>'
+                      % (t("🎯 คำถามที่เราทำให้ AI แนะนำคุณ (AEO)", "🎯 Questions we're getting AI to recommend you on (AEO)"),
+                         qrows,
+                         t("เมื่อมีคนถาม ChatGPT / Gemini / Perplexity ด้วยคำถามเหล่านี้ เป้าหมายคือให้คำตอบของ AI แนะนำแบรนด์คุณ — ระบบกำลังผลิตคอนเทนต์ให้ AI หยิบไปตอบ",
+                           "When people ask ChatGPT / Gemini / Perplexity these questions, the goal is for the answer to recommend your brand — the system keeps producing the content AI pulls from")))
+
     link = '<a href="https://imvisible.tech" style="color:var(--bl)">ImVisible</a>'
     sub = (t("%s · %s · ผลิตในช่วงนี้ %d บทความ · คะแนน AEO เฉลี่ย %s",
              "%s · %s · %d articles this period · avg AEO %s")
@@ -860,7 +896,7 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
         '<table><thead><tr><th>%s</th><th>%s</th><th class="n">%s</th><th class="n">%s</th><th class="n">%s</th></tr></thead>'
         '<tbody>%s</tbody></table></div>'
         '<h2>%s</h2><div class="card"><div class="engs">%s</div><div class="note">%s</div></div>'
-        '%s%s%s<div class="foot">%s</div>'
+        '%s%s%s%s<div class="foot">%s</div>'
         '</div></body></html>'
         % ("en" if en else "th", t("รายงานผลงาน", "Performance Report"), name, _REPORT_CSS,
            t(" · รายงานผลงาน", " · Performance Report"), name, sub, exec_html, kpi_html,
@@ -870,7 +906,7 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
            rank_rows, t("🤖 AI แนะนำเราหรือยัง", "🤖 Is AI recommending you?"), engs,
            t("วัดจริงโดยถาม ChatGPT / Gemini / Perplexity แล้วเช็คว่าคำตอบอ้างอิงแบรนด์/เว็บของคุณ (Share of Voice)",
              "Measured by actually querying ChatGPT / Gemini / Perplexity and checking whether the answer cites your brand/site (Share of Voice)"),
-           comp_html, proof, recent, foot)
+           qwant_html, comp_html, proof, recent, foot)
     )
 
 
