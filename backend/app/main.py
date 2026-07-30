@@ -59,6 +59,7 @@ async def _security_headers(request: Request, call_next):
     resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     resp.headers.setdefault("X-XSS-Protection", "0")
+    resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
     if is_prod():
         resp.headers.setdefault("Strict-Transport-Security",
                                 "max-age=63072000; includeSubDomains")

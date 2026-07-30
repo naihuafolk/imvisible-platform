@@ -8,8 +8,21 @@
     }
 }
 
+# ---- Security headers (ครอบทุกไซต์ รวม static landing + SPA ที่ Caddy เสิร์ฟเอง) ----
+(sec) {
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        -Server
+    }
+}
+
 # imvisible.tech → หน้าแรก = landing พรีเมียม (static) · /blog/* = บล็อกลูกค้า · ที่เหลือ = WordPress
 {$DOMAIN}, www.{$DOMAIN} {
+    import sec
     encode gzip
     root * /srv/landing
 
@@ -33,6 +46,7 @@
 
 # แดชบอร์ด/แพลตฟอร์ม ImVisible → app.imvisible.tech (เสิร์ฟ frontend + proxy /api ให้ same-origin)
 {$APP_DOMAIN} {
+    import sec
     encode gzip
     handle /api/* {
         reverse_proxy api:8000
@@ -54,6 +68,7 @@ https:// {
     tls {
         on_demand
     }
+    import sec
     encode gzip
     reverse_proxy api:8000
 }
