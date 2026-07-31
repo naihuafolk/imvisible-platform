@@ -659,7 +659,7 @@
             <div class="gv"><b id="au-num">0</b><span class="gg" id="au-grade">—</span></div>
           </div>
           <div class="au-verdict">
-            <div class="v-lbl" data-en="Health score">คะแนนสุขภาพเว็บ</div>
+            <div class="v-lbl" data-en="AEO · AI-recommendation readiness">AEO · ความพร้อมถูก AI แนะนำ</div>
             <div class="v-title" id="au-verdict"></div>
             <div class="au-metrics" id="au-tags"></div>
           </div>
@@ -737,16 +737,19 @@
     });
 
     function render(d){
-      var c=col(d.score),gp=grad(d.score);
+      var HERO=(d.aeo_score!=null?d.aeo_score:d.score);
+      var HGRD=(d.aeo_grade!=null?d.aeo_grade:d.grade);
+      var c=col(HERO),gp=grad(HERO);
       document.getElementById('au-g0').setAttribute('stop-color',gp[0]);
       document.getElementById('au-g1').setAttribute('stop-color',gp[1]);
-      arc.style.strokeDashoffset=CIRC*(1-Math.max(0,Math.min(100,d.score))/100);
+      arc.style.strokeDashoffset=CIRC*(1-Math.max(0,Math.min(100,HERO))/100);
       arc.style.filter='drop-shadow(0 2px 6px '+gp[1]+'66)';
-      num.textContent=d.score;
-      grade.textContent='เกรด '+d.grade;grade.style.background=c;
-      document.getElementById('au-verdict').textContent=d.summary||'';
-      // metric chips
+      num.textContent=HERO;
+      grade.textContent='AEO '+HGRD;grade.style.background=c;
+      document.getElementById('au-verdict').textContent=d.aeo_summary||d.summary||'';
+      // metric chips — โชว์ SEO เป็นตัวรอง
       var mx=[];
+      if(d.score!=null){var st=d.score>=70?'ok':d.score>=55?'warn':'fail';mx.push('<span class="mx '+st+'"><b>SEO '+d.score+'</b>/100</span>');}
       if(d.passed)mx.push('<span class="mx ok"><b>'+d.passed+'</b>ผ่าน</span>');
       if(d.warns)mx.push('<span class="mx warn"><b>'+d.warns+'</b>ควรปรับ</span>');
       if(d.fails)mx.push('<span class="mx fail"><b>'+d.fails+'</b>ต้องแก้</span>');
@@ -773,7 +776,11 @@
       }else{kwrap.hidden=true;}
       // findings — worst first, staggered reveal
       var order={fail:0,warn:1,ok:2};
-      var fx=(d.factors||[]).slice().sort(function(a,b){return order[a.tone]-order[b.tone];});
+      var byTone=function(a,b){return order[a.tone]-order[b.tone];};
+      var skip={schema:1,meta_desc:1,depth:1,h1:1,headings:1};  // ตัดที่ซ้ำกับ AEO factors
+      var aeoF=(d.aeo_factors||[]).slice().sort(byTone);
+      var seoF=(d.factors||[]).filter(function(x){return !skip[x.key];}).slice().sort(byTone);
+      var fx=aeoF.length?aeoF.concat(seoF):(d.factors||[]).slice().sort(byTone);  // ชู AEO ขึ้นก่อน (fallback ถ้า backend ยังไม่ส่ง)
       document.getElementById('au-checks').innerHTML=fx.map(function(x,i){
         return '<div class="chk '+esc(x.tone)+'" style="animation-delay:'+(i*45)+'ms"><span class="ci">'+ICO[x.tone]+'</span>'
           +'<div class="cb"><div class="cl">'+esc(x.label)+'</div>'
@@ -781,10 +788,10 @@
           +(x.fix?'<div class="cf"><b>วิธีแก้:</b> '+esc(x.fix)+'</div>':'')+'</div></div>';
       }).join('');
       // sales headline
-      var issues=(d.fails||0)+(d.warns||0);
-      document.getElementById('au-cta-h').textContent = issues
-        ? ('เว็บคุณมี '+issues+' จุดที่ควรแก้ — และยังต้องดันให้ "ติดอันดับ" ต่อ')
-        : 'พื้นฐานแน่นแล้ว — ก้าวต่อไปคือดันให้ติดอันดับ + ถูก AI แนะนำ';
+      var aeoSc=(d.aeo_score!=null?d.aeo_score:d.score);
+      document.getElementById('au-cta-h').textContent = aeoSc>=85
+        ? ('เว็บคุณพร้อม AI มาก (AEO '+aeoSc+') — มาต่อยอดให้ติดอันดับ + ปิดการขายกัน')
+        : ('AEO '+aeoSc+'/100 — อยากให้ AI อย่าง ChatGPT แนะนำเว็บคุณมากขึ้นไหม? เราดันให้อัตโนมัติ');
       document.getElementById('au-foot').textContent=d.note||'';
       if(window.ivTrack)ivTrack('audit_result');
       box.hidden=false;
