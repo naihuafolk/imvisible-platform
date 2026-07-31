@@ -34,7 +34,8 @@
     }
 
     # เครื่องมือเช็คเว็บฟรี (linkable asset ดึง backlink) — static + อนุญาต iframe ฝังข้ามเว็บ (embed widget: /tool/?embed=1)
-    handle /tool /tool/* {
+    @tool path /tool /tool/*
+    handle @tool {
         header -X-Frame-Options
         header Content-Security-Policy "frame-ancestors *"
         try_files {path} /tool/index.html
