@@ -11,8 +11,17 @@
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
   gtag('config', 'AW-18358742286');
-  // Conversion "ลีดกรอกฟอร์ม": ใส่ค่า send_to จาก Google Ads (เช่น "AW-18358742286/AbCdEfGh") แล้วลีดจะถูกนับเป็น conversion อัตโนมัติ · เว้นว่าง = ยังไม่ยิง
+  // GA4 (ดู funnel รั่วตรงไหน: ad→landing→audit→ทัก): ใส่ Measurement ID (G-XXXX) จาก Google Analytics · เว้นว่าง = ปิด
+  window.GA4_ID = "";
+  if (window.GA4_ID) gtag('config', window.GA4_ID);
+  // Conversion "ลีดกรอกฟอร์ม": ใส่ค่า send_to จาก Google Ads (เช่น "AW-18358742286/AbCdEfGh") · เว้นว่าง = ยังไม่นับ conversion (แต่ event ยังยิงให้ดีบั๊กได้)
   window.GADS_LEAD_CONVERSION = "";
+  // Conversion "คลิกทัก LINE/โทร" (ไม่ตั้ง = ใช้ตัวเดียวกับลีดฟอร์ม)
+  window.GADS_CONTACT_CONVERSION = "";
+  // ตัวช่วยกลาง: ยิง event (ไป GA4) + นับ conversion เข้า Google Ads เมื่อมี send_to (beacon กันหลุดตอนลิงก์พาออกจากหน้า)
+  window.ivTrack = function(evt, sendTo, params){
+    try{ gtag('event', evt, params||{}); if(sendTo) gtag('event','conversion',{send_to: sendTo, transport_type:'beacon'}); }catch(e){}
+  };
 </script>
 
 <!-- ============ SEO (ไทย + อังกฤษ) ============ -->
@@ -427,7 +436,7 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
             <span data-en="Check your website — free">เช็คสุขภาพเว็บฟรี</span>
           </a>
-          <a href="https://app.imvisible.tech/" class="btn btn-ghost" data-en="Log in">เข้าสู่ระบบ</a>
+          <a href="https://line.me/R/ti/p/%40imaiofficial" target="_blank" rel="noopener" class="btn btn-ghost" data-en="Free consult on LINE">ปรึกษาฟรีทาง LINE</a>
         </div>
         <div class="trust">
           <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0f8a5f" stroke-width="2.6"><path d="M4 12l5 5L20 6"/></svg> <span data-en="No credit card">ไม่ต้องใช้บัตรเครดิต</span></span>
@@ -714,6 +723,7 @@
     f.addEventListener('submit',function(e){
       e.preventDefault();
       var url=g('url'); if(!url){msg.textContent='กรุณาใส่ลิงก์เว็บไซต์';return;}
+      if(window.ivTrack)ivTrack('audit_start');
       var kws=[g('kw1'),g('kw2'),g('kw3')].filter(Boolean);
       var btn=document.getElementById('au-go'),ot=btn.innerHTML;
       btn.disabled=true;btn.querySelector('span').textContent='กำลังตรวจ…';
@@ -776,12 +786,14 @@
         ? ('เว็บคุณมี '+issues+' จุดที่ควรแก้ — และยังต้องดันให้ "ติดอันดับ" ต่อ')
         : 'พื้นฐานแน่นแล้ว — ก้าวต่อไปคือดันให้ติดอันดับ + ถูก AI แนะนำ';
       document.getElementById('au-foot').textContent=d.note||'';
+      if(window.ivTrack)ivTrack('audit_result');
       box.hidden=false;
       box.scrollIntoView({behavior:'smooth',block:'nearest'});
     }
 
     // CTA → เติมฟอร์มติดต่อให้อัตโนมัติ (แฝงการขาย) แล้วเลื่อนไป #contact
     document.getElementById('au-cta-btn').addEventListener('click',function(){
+      if(window.ivTrack)ivTrack('audit_cta_click');
       var lf=document.getElementById('lead-form');
       if(lf){
         var host=g('url').replace(/^https?:\/\//,'').split('/')[0];
@@ -1085,10 +1097,25 @@
         body:JSON.stringify({name:name,phone:phone,business:g('business'),keywords:[g('kw1'),g('kw2'),g('kw3')].filter(Boolean)})})
       .then(function(r){return r.json();}).then(function(d){
         btn.disabled=false;btn.textContent=ot;
-        if(d&&d.ok){f.reset();msg.textContent='';if(okm)okm.style.display='flex';}
+        if(d&&d.ok){if(window.ivTrack)ivTrack('generate_lead',window.GADS_LEAD_CONVERSION,{method:'contact_form'});f.reset();msg.textContent='';if(okm)okm.style.display='flex';}
         else{msg.textContent=(d&&d.detail)||'ส่งไม่สำเร็จ ลองใหม่ หรือทัก LINE @imaiofficial';msg.style.color='#dc2626';}
       }).catch(function(){btn.disabled=false;btn.textContent=ot;msg.textContent='ส่งไม่สำเร็จ ลองใหม่ หรือทัก LINE @imaiofficial';msg.style.color='#dc2626';});
     });
+  })();
+  </script>
+
+  <!-- ปุ่มลอย LINE (ทุกจอ) + ติดตามคลิกทัก LINE/โทร เป็น conversion -->
+  <a id="iv-line-fab" href="https://line.me/R/ti/p/%40imaiofficial" target="_blank" rel="noopener" aria-label="ปรึกษาฟรีทาง LINE" style="position:fixed;right:16px;bottom:16px;z-index:9998;display:inline-flex;align-items:center;gap:8px;background:#06C755;color:#fff;font-weight:800;padding:12px 17px;border-radius:999px;box-shadow:0 14px 34px -10px rgba(6,199,85,.75);text-decoration:none;font-family:inherit;font-size:.96rem">
+    <span style="font-size:1.15rem;line-height:1">💬</span><span data-en="Free consult on LINE">ปรึกษาฟรีทาง LINE</span>
+  </a>
+  <script>
+  (function(){
+    function wire(){
+      function fire(evt){ if(window.ivTrack) window.ivTrack(evt, window.GADS_CONTACT_CONVERSION||window.GADS_LEAD_CONVERSION); }
+      document.querySelectorAll('a[href*="line.me"]').forEach(function(a){ a.addEventListener('click',function(){ fire('contact_line'); }); });
+      document.querySelectorAll('a[href^="tel:"]').forEach(function(a){ a.addEventListener('click',function(){ fire('contact_call'); }); });
+    }
+    if(document.readyState!=='loading') wire(); else document.addEventListener('DOMContentLoaded', wire);
   })();
   </script>
 
