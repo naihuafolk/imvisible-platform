@@ -648,6 +648,9 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .qwant{display:flex;flex-direction:column;gap:2px}
 .qrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--ln)}
 .qrow:last-child{border-bottom:0}.qq{font-size:14.5px;font-weight:600;line-height:1.4}
+.aeo-spot{border:1.5px solid var(--bl);background:rgba(27,63,212,.05)}
+.aeo-spot .asl{font-weight:800;font-size:15px;color:var(--bl);margin-bottom:6px}
+.aeo-spot p{margin:0;font-size:14.5px;line-height:1.62}.aeo-spot b{font-weight:800}
 /* exec summary */
 .exec{background:linear-gradient(135deg,var(--bl),#5b4ff0);color:#fff;border:0}
 .exec .el{font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;opacity:.85}
@@ -874,6 +877,18 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
                          t("เมื่อมีคนถาม ChatGPT / Gemini / Perplexity ด้วยคำถามเหล่านี้ เป้าหมายคือให้คำตอบของ AI แนะนำแบรนด์คุณ — ระบบกำลังผลิตคอนเทนต์ให้ AI หยิบไปตอบ",
                            "When people ask ChatGPT / Gemini / Perplexity these questions, the goal is for the answer to recommend your brand — the system keeps producing the content AI pulls from")))
 
+    # 🤖 AEO spotlight — ชูว่า AEO คือสนามที่คู่แข่งยังไม่ทำ (blue-ocean) + สถานะจริง
+    _sov = data.get("sov")
+    _sov_txt = ("%s%%" % _sov) if _sov is not None else "0%"
+    aeo_spotlight_html = (
+        '<div class="card aeo-spot"><div class="asl">🤖 %s</div><p>%s</p></div>'
+        % (t("จุดที่คุณชนะก่อนใคร: AEO", "Where you win first: AEO"),
+           (t("SEO ทุกคนแย่งกัน แต่ <b>AEO — การให้ AI อย่าง ChatGPT / Gemini แนะนำคุณ</b> ยังเป็นสนามที่คู่แข่งเกือบทั้งหมดไม่ทำ · "
+              "ตอนนี้ AI แนะนำคุณ <b>%s</b> ของหมวด และระบบกำลังผลิตคอนเทนต์ให้ AI หยิบไปตอบเพื่อดันส่วนนี้ขึ้นต่อเนื่อง",
+              "Everyone fights over SEO, but <b>AEO — getting AI like ChatGPT / Gemini to recommend you</b> is still wide open · "
+              "AI currently cites you <b>%s</b> of the category, and the system keeps producing the content AI pulls from to grow it")
+            % _sov_txt)))
+
     link = '<a href="https://imvisible.tech" style="color:var(--bl)">ImVisible</a>'
     sub = (t("%s · %s · ผลิตในช่วงนี้ %d บทความ · คะแนน AEO เฉลี่ย %s",
              "%s · %s · %d articles this period · avg AEO %s")
@@ -891,7 +906,7 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
         '<h1>%s</h1><div class="sub">%s</div>'
         '%s'
         '<div class="card"><div class="kpis">%s</div></div>'
-        '%s%s'
+        '%s%s%s'
         '<h2>%s</h2><div class="card" style="overflow-x:auto">%s'
         '<table><thead><tr><th>%s</th><th>%s</th><th class="n">%s</th><th class="n">%s</th><th class="n">%s</th></tr></thead>'
         '<tbody>%s</tbody></table></div>'
@@ -900,7 +915,7 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
         '</div></body></html>'
         % ("en" if en else "th", t("รายงานผลงาน", "Performance Report"), name, _REPORT_CSS,
            t(" · รายงานผลงาน", " · Performance Report"), name, sub, exec_html, kpi_html,
-           stage_html, trends_html,
+           aeo_spotlight_html, stage_html, trends_html,
            t("อันดับ Google (ต่อคีย์เวิร์ด)", "Google Rankings (by keyword)"), pl_html,
            t("คีย์เวิร์ด", "Keyword"), t("สถานะ", "Stage"), t("อันดับ", "Rank"), t("ดีสุด", "Best"), t("เปลี่ยนแปลง", "Change"),
            rank_rows, t("🤖 AI แนะนำเราหรือยัง", "🤖 Is AI recommending you?"), engs,
