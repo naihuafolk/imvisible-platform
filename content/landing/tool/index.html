@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>เช็คสุขภาพเว็บฟรี (SEO + AEO) ใน 30 วิ — ImVisible</title>
+<meta name="description" content="เครื่องมือเช็คสุขภาพเว็บไซต์ฟรี — วาง URL รู้คะแนน SEO + AEO ทันที พร้อมจุดที่ต้องแก้ ไม่ต้องสมัคร โดย ImVisible"/>
+<link rel="canonical" href="https://imvisible.tech/tool/"/>
+<meta property="og:title" content="เช็คสุขภาพเว็บฟรี (SEO + AEO) — ImVisible"/>
+<meta property="og:description" content="วาง URL รู้คะแนนเว็บทันที พร้อมจุดที่ต้องแก้ ฟรี ไม่ต้องสมัคร"/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://imvisible.tech/tool/"/>
+<style>
+  *{box-sizing:border-box}
+  :root{--bl:#1a56ff;--ink:#0f172a;--mut:#64748b;--line:#e2e8f0;--wash:#f6f8fd;--grn:#0a7350;--amb:#b45309;--rd:#dc2626;--card:#fff}
+  @media(prefers-color-scheme:dark){:root{--ink:#eef2fb;--mut:#93a3c2;--bl:#7d97ff;--line:#233150;--wash:#0b111f;--card:#111a2e}}
+  html,body{margin:0}
+  body{background:var(--wash);color:var(--ink);font-family:"Sarabun","Noto Sans Thai","Segoe UI",system-ui,sans-serif;line-height:1.6}
+  .wrap{max-width:660px;margin:0 auto;padding:26px 18px 60px}
+  .brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--ink);font-weight:800;font-size:1.05rem}
+  .brand .mk{width:28px;height:28px;border-radius:8px;background:var(--bl);color:#fff;display:grid;place-items:center;font-size:15px}
+  .brand small{color:var(--mut);font-weight:500;font-size:.8rem}
+  h1{font-size:clamp(22px,4.4vw,31px);letter-spacing:-.02em;margin:22px 0 6px}
+  .sub{color:var(--mut);margin:0 0 20px;font-size:1rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+  form{display:flex;gap:10px;flex-wrap:wrap}
+  input[type=url]{flex:1;min-width:200px;padding:13px 15px;border:1px solid var(--line);border-radius:11px;font-size:1rem;background:transparent;color:var(--ink)}
+  .btn{border:0;border-radius:11px;padding:13px 20px;font-weight:800;font-size:1rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+  .btn-primary{background:var(--bl);color:#fff}
+  .btn-line{background:#06C755;color:#fff}
+  .btn[disabled]{opacity:.6;cursor:default}
+  .hint{font-size:.85rem;color:var(--mut);margin-top:10px}
+  #out{margin-top:18px}
+  .gauge{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .score{width:118px;height:118px;border-radius:50%;display:grid;place-items:center;position:relative;flex:0 0 auto}
+  .score .num{font-size:2.1rem;font-weight:800;line-height:1}
+  .score .of{font-size:.72rem;color:var(--mut)}
+  .grade{font-size:2.2rem;font-weight:800}
+  .meta{flex:1;min-width:180px}
+  .meta .g{font-size:.9rem;color:var(--mut)}
+  .bar{height:9px;border-radius:99px;background:var(--line);overflow:hidden;margin:8px 0}
+  .bar i{display:block;height:100%;border-radius:99px}
+  h2{font-size:1.05rem;margin:22px 0 10px}
+  ul.fixes{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:9px}
+  ul.fixes li{display:flex;gap:9px;align-items:flex-start;font-size:.95rem;background:var(--wash);border:1px solid var(--line);border-radius:11px;padding:11px 13px}
+  ul.fixes .ic{flex:0 0 auto;margin-top:1px}
+  .cta{margin-top:24px;background:linear-gradient(135deg,var(--bl),#5b4ff0);color:#fff;border-radius:16px;padding:22px;text-align:center}
+  .cta h3{margin:0 0 6px;font-size:1.15rem}
+  .cta p{margin:0 0 16px;opacity:.92;font-size:.95rem}
+  .cta .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .foot{margin-top:30px;text-align:center;color:var(--mut);font-size:.82rem}
+  .foot a{color:var(--bl)}
+  .err{color:var(--rd);font-size:.95rem;margin-top:12px}
+  body.embed .wrap{padding:14px}
+  body.embed .site-head,body.embed .foot,body.embed h1,body.embed .sub{display:none}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="brand site-head" href="https://imvisible.tech/" target="_blank" rel="noopener">
+      <span class="mk">i</span>ImVisible <small>· เช็คสุขภาพเว็บฟรี</small>
+    </a>
+
+    <h1>เช็คสุขภาพเว็บฟรี (SEO + AEO)</h1>
+    <p class="sub">วางลิงก์เว็บไซต์ → รู้คะแนนทันทีใน 30 วิ พร้อมจุดที่ต้องแก้ · ฟรี ไม่ต้องสมัคร</p>
+
+    <div class="card">
+      <form id="f">
+        <input id="url" type="url" inputmode="url" placeholder="https://yourwebsite.com" required autocomplete="off"/>
+        <button class="btn btn-primary" id="go" type="submit"><span>ตรวจเลย</span></button>
+      </form>
+      <div class="hint">ตัวอย่าง: https://www.example.com — ระบบตรวจ ~13 สัญญาณ SEO/AEO จากหน้าเว็บจริง</div>
+      <div id="out"></div>
+    </div>
+
+    <div class="cta" id="cta" style="display:none">
+      <h3>อยากให้คะแนนขึ้น + ติดอันดับ Google และถูก AI แนะนำ?</h3>
+      <p>ImVisible ใช้ AI เขียน+ดันคอนเทนต์ให้เว็บคุณอัตโนมัติ วัดผลจริง โปร่งใส</p>
+      <div class="row">
+        <a class="btn btn-line" href="https://line.me/R/ti/p/%40imaiofficial" target="_blank" rel="noopener">💬 ปรึกษาฟรีทาง LINE</a>
+        <a class="btn btn-primary" href="https://imvisible.tech/" target="_blank" rel="noopener">ดูบริการ ImVisible</a>
+      </div>
+    </div>
+
+    <div class="foot">
+      เครื่องมือฟรีโดย <a href="https://imvisible.tech/" target="_blank" rel="noopener">ImVisible</a> — แพลตฟอร์ม AEO + SEO อัตโนมัติด้วย AI
+    </div>
+  </div>
+
+<script>
+(function(){
+  var API="https://app.imvisible.tech/api/site-check";
+  var qs=new URLSearchParams(location.search);
+  if(qs.get("embed")==="1") document.body.classList.add("embed");
+  var f=document.getElementById("f"),inp=document.getElementById("url"),
+      go=document.getElementById("go"),out=document.getElementById("out"),cta=document.getElementById("cta");
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  function color(sc){ return sc>=80?"var(--grn)":sc>=60?"var(--amb)":"var(--rd)"; }
+  function fixText(x){ if(x==null)return ""; if(typeof x==="string")return x; return x.fix||x.label||x.name||x.text||JSON.stringify(x); }
+  function render(d){
+    if(!d||d.ok===false){ out.innerHTML='<div class="err">'+esc((d&&(d.detail||d.error))||"ตรวจไม่สำเร็จ ลองใหม่ หรือเช็ก URL")+'</div>'; return; }
+    var sc=Math.max(0,Math.min(100,Math.round(d.score||0))), c=color(sc);
+    var grade=esc(d.grade||""), passed=(d.passed!=null?d.passed:"—"), total=(d.total!=null?d.total:"—");
+    var ring='conic-gradient('+c+' '+(sc*3.6)+'deg, var(--line) 0deg)';
+    var fixes=(d.top_fixes||d.fails||[]).slice(0,6).map(fixText).filter(Boolean);
+    var html=''
+      +'<div class="gauge">'
+      +  '<div class="score" style="background:'+ring+'"><div style="position:absolute;inset:9px;border-radius:50%;background:var(--card);display:grid;place-items:center"><div class="num" style="color:'+c+'">'+sc+'</div><div class="of">/100</div></div></div>'
+      +  '<div class="meta"><div class="g">เกรด</div><div class="grade" style="color:'+c+'">'+grade+'</div>'
+      +     '<div class="bar"><i style="width:'+sc+'%;background:'+c+'"></i></div>'
+      +     '<div class="g">ผ่าน '+passed+' / '+total+' สัญญาณ · '+esc(d.summary||"")+'</div></div>'
+      +'</div>';
+    if(fixes.length){
+      html+='<h2>🔧 จุดที่ควรแก้ก่อน</h2><ul class="fixes">'
+        +fixes.map(function(x){return '<li><span class="ic">›</span><span>'+esc(x)+'</span></li>';}).join('')
+        +'</ul>';
+    }
+    if(d.note){ html+='<div class="hint" style="margin-top:12px">'+esc(d.note)+'</div>'; }
+    out.innerHTML=html;
+    cta.style.display="block";
+  }
+  f.addEventListener("submit",function(e){
+    e.preventDefault();
+    var url=(inp.value||"").trim();
+    if(!url){ return; }
+    if(!/^https?:\/\//i.test(url)){ url="https://"+url; }
+    var ot=go.querySelector("span").textContent;
+    go.disabled=true; go.querySelector("span").textContent="กำลังตรวจ…";
+    out.innerHTML='<div class="hint">⏳ กำลังดึงหน้าเว็บและให้คะแนน…</div>';
+    fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:url,keywords:[]})})
+      .then(function(r){return r.json();})
+      .then(function(d){ render(d); })
+      .catch(function(){ out.innerHTML='<div class="err">เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง</div>'; })
+      .finally(function(){ go.disabled=false; go.querySelector("span").textContent=ot; });
+  });
+})();
+</script>
+</body>
+</html>

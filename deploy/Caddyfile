@@ -33,6 +33,14 @@
         file_server
     }
 
+    # เครื่องมือเช็คเว็บฟรี (linkable asset ดึง backlink) — static + อนุญาต iframe ฝังข้ามเว็บ (embed widget: /tool/?embed=1)
+    handle /tool /tool/* {
+        header -X-Frame-Options
+        header Content-Security-Policy "frame-ancestors *"
+        try_files {path} /tool/index.html
+        file_server
+    }
+
     # Managed Hosting แบบ path (ใช้ได้ทันที ไม่ต้องตั้ง DNS): imvisible.tech/blog/{slug}/...
     handle /blog/* {
         reverse_proxy api:8000
