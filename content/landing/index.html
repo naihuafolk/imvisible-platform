@@ -541,6 +541,9 @@
       .au-gauge .gv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
       .au-gauge .gv b{font-size:2.6rem;font-weight:800;letter-spacing:-.035em;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink)}
       .au-gauge .gg{margin-top:7px;font-size:.64rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:3px 11px;border-radius:999px;color:#fff}
+      .au-gcol{display:flex;flex-direction:column;align-items:center;gap:11px;flex:0 0 auto}
+      .au-glbl{display:flex;flex-direction:column;align-items:center;text-align:center;font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;font-weight:800;color:var(--ink)}
+      .au-glbl span{font-size:.62rem;letter-spacing:.01em;text-transform:none;color:var(--muted);font-weight:600;margin-top:3px}
       .au-verdict{flex:1;min-width:250px}
       .au-verdict .v-lbl{font-size:.64rem;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);font-weight:800}
       .au-verdict .v-title{font-size:1.22rem;font-weight:800;letter-spacing:-.012em;line-height:1.42;margin-top:9px;text-wrap:balance}
@@ -650,16 +653,30 @@
       <!-- result -->
       <div id="au-result" class="au-result" hidden>
         <div class="au-readout">
-          <div class="au-gauge" aria-hidden="true">
-            <svg width="136" height="136" viewBox="0 0 136 136">
-              <defs><linearGradient id="auGrad" x1="0" y1="0" x2="1" y2="1"><stop id="au-g0" offset="0" stop-color="#5b9bff"/><stop id="au-g1" offset="1" stop-color="#1a56ff"/></linearGradient></defs>
-              <circle cx="68" cy="68" r="58" fill="none" stroke="#e6eefc" stroke-width="12"/>
-              <circle id="au-arc" cx="68" cy="68" r="58" fill="none" stroke="url(#auGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="364.4" stroke-dashoffset="364.4" style="transition:stroke-dashoffset .85s cubic-bezier(.4,0,.2,1)"/>
-            </svg>
-            <div class="gv"><b id="au-num">0</b><span class="gg" id="au-grade">—</span></div>
+          <div class="au-gcol" aria-hidden="true">
+            <div class="au-gauge">
+              <svg width="136" height="136" viewBox="0 0 136 136">
+                <defs><linearGradient id="auGrad" x1="0" y1="0" x2="1" y2="1"><stop id="au-g0" offset="0" stop-color="#5b9bff"/><stop id="au-g1" offset="1" stop-color="#1a56ff"/></linearGradient></defs>
+                <circle cx="68" cy="68" r="58" fill="none" stroke="#e6eefc" stroke-width="12"/>
+                <circle id="au-arc" cx="68" cy="68" r="58" fill="none" stroke="url(#auGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="364.4" stroke-dashoffset="364.4" style="transition:stroke-dashoffset .85s cubic-bezier(.4,0,.2,1)"/>
+              </svg>
+              <div class="gv"><b id="au-num">0</b></div>
+            </div>
+            <div class="au-glbl">SEO<span data-en="rank on Google">ติดอันดับ Google</span></div>
+          </div>
+          <div class="au-gcol" aria-hidden="true">
+            <div class="au-gauge">
+              <svg width="136" height="136" viewBox="0 0 136 136">
+                <defs><linearGradient id="auGrad2" x1="0" y1="0" x2="1" y2="1"><stop id="au-g0b" offset="0" stop-color="#5b9bff"/><stop id="au-g1b" offset="1" stop-color="#1a56ff"/></linearGradient></defs>
+                <circle cx="68" cy="68" r="58" fill="none" stroke="#e6eefc" stroke-width="12"/>
+                <circle id="au-arc2" cx="68" cy="68" r="58" fill="none" stroke="url(#auGrad2)" stroke-width="12" stroke-linecap="round" stroke-dasharray="364.4" stroke-dashoffset="364.4" style="transition:stroke-dashoffset .85s cubic-bezier(.4,0,.2,1)"/>
+              </svg>
+              <div class="gv"><b id="au-num2">0</b></div>
+            </div>
+            <div class="au-glbl">AEO<span data-en="cited by AI">ถูก AI แนะนำ</span></div>
           </div>
           <div class="au-verdict">
-            <div class="v-lbl" data-en="AEO · AI-recommendation readiness">AEO · ความพร้อมถูก AI แนะนำ</div>
+            <div class="v-lbl" data-en="Website health · SEO + AEO">สุขภาพเว็บ · SEO + AEO</div>
             <div class="v-title" id="au-verdict"></div>
             <div class="au-metrics" id="au-tags"></div>
           </div>
@@ -692,7 +709,7 @@
     var API='https://app.imvisible.tech/api/site-check';
     var CIRC=364.4;
     var box=document.getElementById('au-result'),scan=document.getElementById('au-scan'),msg=document.getElementById('au-msg');
-    var arc=document.getElementById('au-arc'),num=document.getElementById('au-num'),grade=document.getElementById('au-grade');
+    var arc=document.getElementById('au-arc'),arc2=document.getElementById('au-arc2');
     var ICO={
       ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M4 12.5l5 5L20 6.5"/></svg>',
       warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3.5l9 15.5H3l9-15.5z"/><path d="M12 10v4.2"/><circle cx="12" cy="17.4" r=".5" fill="currentColor" stroke="none"/></svg>',
@@ -737,19 +754,21 @@
     });
 
     function render(d){
-      var HERO=(d.aeo_score!=null?d.aeo_score:d.score);
-      var HGRD=(d.aeo_grade!=null?d.aeo_grade:d.grade);
-      var c=col(HERO),gp=grad(HERO);
-      document.getElementById('au-g0').setAttribute('stop-color',gp[0]);
-      document.getElementById('au-g1').setAttribute('stop-color',gp[1]);
-      arc.style.strokeDashoffset=CIRC*(1-Math.max(0,Math.min(100,HERO))/100);
-      arc.style.filter='drop-shadow(0 2px 6px '+gp[1]+'66)';
-      num.textContent=HERO;
-      grade.textContent='AEO '+HGRD;grade.style.background=c;
-      document.getElementById('au-verdict').textContent=d.aeo_summary||d.summary||'';
-      // metric chips — โชว์ SEO เป็นตัวรอง
+      // ตั้งค่า 2 วงเท่ากัน — SEO (d.score) + AEO (d.aeo_score)
+      var SEO=(d.score!=null?d.score:0), AEO=(d.aeo_score!=null?d.aeo_score:SEO);
+      function setG(numId,g0id,g1id,arcEl,sc){
+        var gp=grad(sc);
+        document.getElementById(g0id).setAttribute('stop-color',gp[0]);
+        document.getElementById(g1id).setAttribute('stop-color',gp[1]);
+        arcEl.style.strokeDashoffset=CIRC*(1-Math.max(0,Math.min(100,sc))/100);
+        arcEl.style.filter='drop-shadow(0 2px 6px '+gp[1]+'66)';
+        var n=document.getElementById(numId); n.textContent=sc; n.style.color=col(sc);
+      }
+      setG('au-num','au-g0','au-g1',arc,SEO);
+      setG('au-num2','au-g0b','au-g1b',arc2,AEO);
+      document.getElementById('au-verdict').textContent=d.summary||'';
+      // สรุปสัญญาณ (ผ่าน/ควรปรับ/ต้องแก้)
       var mx=[];
-      if(d.score!=null){var st=d.score>=70?'ok':d.score>=55?'warn':'fail';mx.push('<span class="mx '+st+'"><b>SEO '+d.score+'</b>/100</span>');}
       if(d.passed)mx.push('<span class="mx ok"><b>'+d.passed+'</b>ผ่าน</span>');
       if(d.warns)mx.push('<span class="mx warn"><b>'+d.warns+'</b>ควรปรับ</span>');
       if(d.fails)mx.push('<span class="mx fail"><b>'+d.fails+'</b>ต้องแก้</span>');
@@ -788,10 +807,9 @@
           +(x.fix?'<div class="cf"><b>วิธีแก้:</b> '+esc(x.fix)+'</div>':'')+'</div></div>';
       }).join('');
       // sales headline
-      var aeoSc=(d.aeo_score!=null?d.aeo_score:d.score);
-      document.getElementById('au-cta-h').textContent = aeoSc>=85
-        ? ('เว็บคุณพร้อม AI มาก (AEO '+aeoSc+') — มาต่อยอดให้ติดอันดับ + ปิดการขายกัน')
-        : ('AEO '+aeoSc+'/100 — อยากให้ AI อย่าง ChatGPT แนะนำเว็บคุณมากขึ้นไหม? เราดันให้อัตโนมัติ');
+      document.getElementById('au-cta-h').textContent =
+        'เว็บคุณ SEO '+(d.score!=null?d.score:'—')+' · AEO '+(d.aeo_score!=null?d.aeo_score:'—')
+        +' — เราดันให้ทั้ง "ติดอันดับ Google" และ "ถูก AI แนะนำ" อัตโนมัติ';
       document.getElementById('au-foot').textContent=d.note||'';
       if(window.ivTrack)ivTrack('audit_result');
       box.hidden=false;

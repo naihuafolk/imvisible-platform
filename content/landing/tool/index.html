@@ -122,17 +122,16 @@
     if(!d||d.ok===false){ out.innerHTML='<div class="err">'+esc((d&&(d.detail||d.error))||"ตรวจไม่สำเร็จ ลองใหม่ หรือเช็ก URL")+'</div>'; return; }
     var aeo=Math.max(0,Math.min(100,Math.round(d.aeo_score||0)));
     var seo=Math.max(0,Math.min(100,Math.round(d.score||0)));
-    var html='<div class="aeo-hero"><div class="aeo-badge">⭐ AEO — ความพร้อมถูก AI แนะนำ</div>'
-      +'<div class="scores">'+scoreEl("AEO",aeo,"ถูก ChatGPT / Gemini แนะนำ","big")+scoreEl("SEO",seo,"พื้นฐานบน Google","sm")+'</div>'
-      +'<div class="aeo-sum" style="color:'+color(aeo)+'">'+esc(d.aeo_summary||d.summary||"")+'</div></div>';
+    var html='<div class="aeo-hero"><div class="aeo-badge">📊 สุขภาพเว็บ · SEO + AEO เท่ากัน</div>'
+      +'<div class="scores">'+scoreEl("SEO",seo,"ติดอันดับ Google","big")+scoreEl("AEO",aeo,"ถูก AI แนะนำ","big")+'</div>'
+      +'<div class="aeo-sum">'+esc(d.summary||"")+'</div>'
+      +'<div class="aeo-sum" style="color:'+color(aeo)+';margin-top:6px">'+esc(d.aeo_summary||"")+'</div></div>';
     html+=fixList("🤖 ทำให้ AI แนะนำคุณ (AEO)", d.aeo_fixes);
     html+=fixList("🔧 พื้นฐานบน Google (SEO)", d.top_fixes);
     if(d.note){ html+='<div class="hint" style="margin-top:12px">'+esc(d.note)+'</div>'; }
     out.innerHTML=html;
     var h=document.getElementById("cta-h");
-    if(h) h.textContent = aeo>=85
-      ? "เว็บคุณพร้อม AI มาก (AEO "+aeo+") — มาต่อยอดให้ติดอันดับ + ปิดการขายกัน"
-      : "เว็บคุณ AEO "+aeo+"/100 — อยากได้แผนดันให้ AI แนะนำคุณเต็ม ๆ ไหม?";
+    if(h) h.textContent = "เว็บคุณ SEO "+seo+" · AEO "+aeo+" — เราดันให้ทั้งติดอันดับ Google และถูก AI แนะนำ อัตโนมัติ";
     cta.style.display="block";
   }
   f.addEventListener("submit",function(e){
