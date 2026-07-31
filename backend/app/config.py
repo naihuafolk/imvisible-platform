@@ -86,8 +86,9 @@ class Settings(BaseSettings):
     cost_budget_thb: int = 0
     # 9d) เกณฑ์เตือนยอดคงเหลือ DataForSEO ต่ำ (USD) — ต่ำกว่านี้เด้ง LINE เตือนเติมเงิน
     cost_alert_low_usd: float = 5.0
-    # 9e) ประตูคุณภาพ: คะแนน AEO ขั้นต่ำที่จะ 'เผยแพร่อัตโนมัติ' (ต่ำกว่านี้ = เก็บร่าง+ปรับก่อน) — พรีเมียมเท่านั้น
-    min_publish_score: int = 82
+    # 9e) ประตูคุณภาพ: คะแนน AEO ขั้นต่ำที่จะ 'เผยแพร่อัตโนมัติ' (ต่ำกว่านี้ = เก็บร่าง+ปรับก่อน)
+    #     70 = บทความจริง (คุณภาพดี) ไหลเผยแพร่เอง · ต่ำกว่า 70 = อ่อนจริง เก็บปรับก่อน · ตั้ง MIN_PUBLISH_SCORE ใน .env เพื่อจูน
+    min_publish_score: int = 70
     # 9f) กราฟเทรนด์การค้นหาจริงในบทความ (ดึง search volume จาก DataForSEO) — true=เปิด · กินเครดิต DataForSEO ต่อบทความ
     trend_chart: bool = False
     # 9d) Google Indexing API (instant indexing) — วาง JSON ของ service account ทั้งก้อน
