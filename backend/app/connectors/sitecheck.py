@@ -34,6 +34,11 @@ _HAS_ALT = re.compile(r"""(?is)\balt\s*=\s*("|')""")
 _FAVICON = re.compile(r"""(?is)<link\b[^>]*\brel\s*=\s*("|')[^"']*icon[^"']*\1""")
 _TAGSTRIP = re.compile(r"<[^>]+>")
 _THAI = re.compile(r"[฀-๿]")
+# หัวข้อที่เป็น 'คำถาม' → AI ชอบหยิบเนื้อหาแบบถาม-ตอบไปแนะนำ (สัญญาณ AEO)
+_Q_WORDS = re.compile(r"(?i)(ไหม|อะไร|ยังไง|อย่างไร|ทำไม|เท่าไ|ที่ไหน|เมื่อไ|กี่|วิธี|how |what |why |where |when |which |\?)")
+# schema ที่บอก 'ตัวตนแบรนด์' → AI ยืนยันว่ามีตัวตนจริง (สัญญาณ AEO/entity)
+_AEO_ENTITY = {"Organization", "WebSite", "LocalBusiness", "Corporation", "ProfessionalService",
+               "Store", "OnlineStore", "OnlineBusiness", "NGO", "EducationalOrganization"}
 
 
 def _tag(html: str) -> str:
@@ -58,6 +63,16 @@ async def _fetch_home(url: str):
         if r.status_code != 200:
             return base, "", "เว็บตอบกลับสถานะ %d (ไม่ใช่หน้าปกติ)" % r.status_code
         return base, (r.text or "")[:600000], ""
+
+
+async def _has_llms_txt(base: str) -> bool:
+    """เช็กว่าเว็บมี /llms.txt (มาตรฐานใหม่บอก AI ว่าเนื้อหาสำคัญอยู่ตรงไหน) — best-effort ล้มเงียบ"""
+    try:
+        async with httpx.AsyncClient(timeout=8, headers=site._UA, follow_redirects=False) as c:
+            r = await site._get_guarded(c, base.rstrip("/") + "/llms.txt")
+        return bool(r is not None and r.status_code == 200 and (r.text or "").strip())
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _schema_types(html: str) -> tuple[bool, bool, set]:
@@ -265,6 +280,57 @@ async def check_url(url: str, keywords=None) -> dict:
     else:
         summary = "เว็บคุณได้เกรด %s — เจอ %d จุดที่แก้แล้วดันอันดับได้เร็วขึ้น" % (grade, issues)
 
+    # ================= AEO Readiness (พระเอก): 'พร้อมถูก AI แนะนำแค่ไหน' =================
+    has_org = bool(stypes & _AEO_ENTITY)
+    q_head = sum(1 for h in (h1s + h2s + h3s) if _Q_WORDS.search(h))
+    has_llms = await _has_llms_txt(base)
+    aeo_f = []
+
+    def aadd(key, label, weight, earned, detail, fix=""):
+        earned = max(0.0, min(1.0, earned))
+        tone = "ok" if earned >= 0.999 else ("warn" if earned >= 0.5 else "fail")
+        aeo_f.append({"key": key, "label": label, "weight": weight, "earned": round(earned, 2),
+                      "tone": tone, "points": round(weight * earned, 1),
+                      "detail": detail, "fix": fix if earned < 0.999 else ""})
+
+    aadd("aeo_schema", "ข้อมูลโครงสร้าง JSON-LD (AI อ่านเข้าใจ)", 22, 1.0 if schema_ok else 0.0,
+         ("มี schema: %s" % ", ".join(sorted(stypes))) if stypes else "ไม่มี JSON-LD — AI สรุปธุรกิจคุณได้ยาก",
+         "ฝัง JSON-LD (Organization + FAQPage) ให้ AI เข้าใจว่าคุณคือใคร ทำอะไร")
+    aadd("aeo_entity", "ตัวตนแบรนด์ (Organization schema)", 16, 1.0 if has_org else 0.0,
+         "ประกาศตัวตนแบรนด์แล้ว" if has_org else "ยังไม่ประกาศตัวตนแบรนด์ให้ AI",
+         "เพิ่ม Organization schema (ชื่อ โลโก้ โซเชียล) = AI ยืนยันแบรนด์คุณมีตัวตนจริง")
+    faq_full = has_faq and q_head >= 2
+    aadd("aeo_faq", "เนื้อหาแบบถาม-ตอบ (Q&A / FAQ)", 20, 1.0 if faq_full else (0.6 if (has_faq or q_head >= 2) else 0.0),
+         "FAQ schema %s · หัวข้อคำถาม %d จุด" % ("มี" if has_faq else "—", q_head),
+         "ทำส่วน 'คำถามที่พบบ่อย' + ฝัง FAQPage schema → AI ชอบหยิบคำตอบ Q&A ไปแนะนำ")
+    aadd("aeo_answer", "คำอธิบายแบบตอบคำถามได้ (meta)", 12, d3,
+         ("meta description %d ตัวอักษร" % dl) if desc else "ไม่มี meta description",
+         "เขียน meta ให้เป็น 'คำตอบสั้นกระชับ' ที่ AI หยิบไปตอบได้ทันที")
+    struct_ok = 1.0 if (n1 == 1 and n2 >= 3) else (0.5 if (n1 >= 1 and n2 >= 1) else 0.0)
+    aadd("aeo_struct", "โครงหัวข้อชัด (AI แยกประเด็นได้)", 14, struct_ok,
+         "H1 %d · H2 %d" % (n1, n2),
+         "จัด H1 เดียว + H2 หลายหัวข้อชัดเจน ให้ AI แยกประเด็นไปตอบเป็นข้อ ๆ")
+    aadd("aeo_depth", "เนื้อหาพอให้ AI อ้างอิง", 10, c12,
+         "%d %s ในหน้าแรก" % (depth, "อักษร" if thai else "คำ"),
+         "เพิ่มเนื้อหาเชิงลึก/ข้อเท็จจริงที่ AI เอาไปตอบได้ (ไม่ใช่แค่หน้าโฆษณาบาง ๆ)")
+    aadd("aeo_llms", "ไฟล์ llms.txt (มาตรฐาน AI ล่าสุด)", 6, 1.0 if has_llms else 0.0,
+         "มี /llms.txt แล้ว" if has_llms else "ยังไม่มี /llms.txt",
+         "เพิ่มไฟล์ llms.txt บอก AI ว่าเนื้อหาสำคัญอยู่ตรงไหน (คู่แข่งเกือบทั้งหมดยังไม่ทำ)")
+
+    aeo_w = sum(f["weight"] for f in aeo_f)
+    aeo_pts = sum(f["points"] for f in aeo_f)
+    aeo_score = int(round(aeo_pts / aeo_w * 100)) if aeo_w else 0
+    aeo_grade = "A" if aeo_score >= 85 else "B" if aeo_score >= 70 else "C" if aeo_score >= 55 else "D"
+    aeo_fixes = [{"label": f["label"], "fix": f["fix"], "gain": round(f["weight"] * (1 - f["earned"]), 1)}
+                 for f in aeo_f if f["tone"] != "ok" and f["fix"]]
+    aeo_fixes.sort(key=lambda x: x["gain"], reverse=True)
+    if aeo_score >= 85:
+        aeo_summary = "พร้อมมากที่จะถูก AI แนะนำ (AEO %d/100) — นำหน้าคู่แข่งส่วนใหญ่ในสนาม AI" % aeo_score
+    elif aeo_score >= 55:
+        aeo_summary = "มีพื้นฐาน AEO แล้ว (%d/100) แต่ยังเปิดช่องให้ AI หยิบไปแนะนำได้มากกว่านี้" % aeo_score
+    else:
+        aeo_summary = "ยังไม่พร้อมให้ AI แนะนำ (AEO %d/100) — นี่คือโอกาส blue-ocean ที่คู่แข่งยังไม่ทำ" % aeo_score
+
     return {
         "ok": True, "url": base, "title": title,
         "score": pct, "grade": grade,
@@ -273,6 +339,9 @@ async def check_url(url: str, keywords=None) -> dict:
         "factors": factors, "top_fixes": top_fixes[:6],
         "keywords": kw_rows,
         "summary": summary,
+        # AEO Readiness (ชูเป็นพระเอก) — 'พร้อมถูก AI แนะนำแค่ไหน'
+        "aeo_score": aeo_score, "aeo_grade": aeo_grade,
+        "aeo_factors": aeo_f, "aeo_fixes": aeo_fixes[:6], "aeo_summary": aeo_summary,
         "note": "คะแนนคำนวณจากปัจจัยที่วัดได้จริงจากหน้าแรกของเว็บคุณ (ไม่ใช่ค่าประเมินลอย ๆ) · "
                 "การครอบคลุมคีย์เวิร์ดเป็นการวัด 'บนหน้าเพจ' ไม่ใช่อันดับ Google จริง — "
                 "อันดับจริงเราวัดด้วยเครื่องมือระดับมืออาชีพให้ตอนเป็นลูกค้า",

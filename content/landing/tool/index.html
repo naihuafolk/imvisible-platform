@@ -35,6 +35,17 @@
   .score{width:118px;height:118px;border-radius:50%;display:grid;place-items:center;position:relative;flex:0 0 auto}
   .score .num{font-size:2.1rem;font-weight:800;line-height:1}
   .score .of{font-size:.72rem;color:var(--mut)}
+  .aeo-hero{background:linear-gradient(135deg,rgba(26,86,255,.07),rgba(91,79,240,.07));border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:4px}
+  .aeo-badge{display:inline-block;background:var(--bl);color:#fff;font-size:.72rem;font-weight:800;letter-spacing:.03em;padding:4px 12px;border-radius:999px;margin-bottom:15px}
+  .scores{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+  .scblock{display:flex;align-items:center;gap:12px}
+  .scblock.big .score{width:132px;height:132px}
+  .scblock.big .num{font-size:2.3rem}
+  .scblock.sm .score{width:90px;height:90px}
+  .scblock.sm .num{font-size:1.5rem}
+  .sclab{display:flex;flex-direction:column}
+  .sclab b{font-size:1.05rem}.sclab span{font-size:.82rem;color:var(--mut);max-width:150px}
+  .aeo-sum{margin-top:15px;font-size:1rem;font-weight:700;line-height:1.5}
   .grade{font-size:2.2rem;font-weight:800}
   .meta{flex:1;min-width:180px}
   .meta .g{font-size:.9rem;color:var(--mut)}
@@ -74,7 +85,7 @@
     </div>
 
     <div class="cta" id="cta" style="display:none">
-      <h3>อยากให้คะแนนขึ้น + ติดอันดับ Google และถูก AI แนะนำ?</h3>
+      <h3 id="cta-h">อยากให้คะแนนขึ้น + ติดอันดับ Google และถูก AI แนะนำ?</h3>
       <p>ImVisible ใช้ AI เขียน+ดันคอนเทนต์ให้เว็บคุณอัตโนมัติ วัดผลจริง โปร่งใส</p>
       <div class="row">
         <a class="btn btn-line" href="https://line.me/R/ti/p/%40imaiofficial" target="_blank" rel="noopener">💬 ปรึกษาฟรีทาง LINE</a>
@@ -97,26 +108,31 @@
   function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
   function color(sc){ return sc>=80?"var(--grn)":sc>=60?"var(--amb)":"var(--rd)"; }
   function fixText(x){ if(x==null)return ""; if(typeof x==="string")return x; return x.fix||x.label||x.name||x.text||JSON.stringify(x); }
+  function scoreEl(label, sc, sub, size){
+    var c=color(sc), ring='conic-gradient('+c+' '+(sc*3.6)+'deg, var(--line) 0deg)';
+    return '<div class="scblock '+(size||"big")+'"><div class="score" style="background:'+ring+'"><div style="position:absolute;inset:8px;border-radius:50%;background:var(--card);display:grid;place-items:center"><div class="num" style="color:'+c+'">'+sc+'</div><div class="of">/100</div></div></div>'
+      +'<div class="sclab"><b>'+esc(label)+'</b><span>'+esc(sub)+'</span></div></div>';
+  }
+  function fixList(title, arr){
+    var items=(arr||[]).map(fixText).filter(Boolean).slice(0,6);
+    if(!items.length) return '';
+    return '<h2>'+title+'</h2><ul class="fixes">'+items.map(function(x){return '<li><span class="ic">›</span><span>'+esc(x)+'</span></li>';}).join('')+'</ul>';
+  }
   function render(d){
     if(!d||d.ok===false){ out.innerHTML='<div class="err">'+esc((d&&(d.detail||d.error))||"ตรวจไม่สำเร็จ ลองใหม่ หรือเช็ก URL")+'</div>'; return; }
-    var sc=Math.max(0,Math.min(100,Math.round(d.score||0))), c=color(sc);
-    var grade=esc(d.grade||""), passed=(d.passed!=null?d.passed:"—"), total=(d.total!=null?d.total:"—");
-    var ring='conic-gradient('+c+' '+(sc*3.6)+'deg, var(--line) 0deg)';
-    var fixes=(d.top_fixes||d.fails||[]).slice(0,6).map(fixText).filter(Boolean);
-    var html=''
-      +'<div class="gauge">'
-      +  '<div class="score" style="background:'+ring+'"><div style="position:absolute;inset:9px;border-radius:50%;background:var(--card);display:grid;place-items:center"><div class="num" style="color:'+c+'">'+sc+'</div><div class="of">/100</div></div></div>'
-      +  '<div class="meta"><div class="g">เกรด</div><div class="grade" style="color:'+c+'">'+grade+'</div>'
-      +     '<div class="bar"><i style="width:'+sc+'%;background:'+c+'"></i></div>'
-      +     '<div class="g">ผ่าน '+passed+' / '+total+' สัญญาณ · '+esc(d.summary||"")+'</div></div>'
-      +'</div>';
-    if(fixes.length){
-      html+='<h2>🔧 จุดที่ควรแก้ก่อน</h2><ul class="fixes">'
-        +fixes.map(function(x){return '<li><span class="ic">›</span><span>'+esc(x)+'</span></li>';}).join('')
-        +'</ul>';
-    }
+    var aeo=Math.max(0,Math.min(100,Math.round(d.aeo_score||0)));
+    var seo=Math.max(0,Math.min(100,Math.round(d.score||0)));
+    var html='<div class="aeo-hero"><div class="aeo-badge">⭐ AEO — ความพร้อมถูก AI แนะนำ</div>'
+      +'<div class="scores">'+scoreEl("AEO",aeo,"ถูก ChatGPT / Gemini แนะนำ","big")+scoreEl("SEO",seo,"พื้นฐานบน Google","sm")+'</div>'
+      +'<div class="aeo-sum" style="color:'+color(aeo)+'">'+esc(d.aeo_summary||d.summary||"")+'</div></div>';
+    html+=fixList("🤖 ทำให้ AI แนะนำคุณ (AEO)", d.aeo_fixes);
+    html+=fixList("🔧 พื้นฐานบน Google (SEO)", d.top_fixes);
     if(d.note){ html+='<div class="hint" style="margin-top:12px">'+esc(d.note)+'</div>'; }
     out.innerHTML=html;
+    var h=document.getElementById("cta-h");
+    if(h) h.textContent = aeo>=85
+      ? "เว็บคุณพร้อม AI มาก (AEO "+aeo+") — มาต่อยอดให้ติดอันดับ + ปิดการขายกัน"
+      : "เว็บคุณ AEO "+aeo+"/100 — อยากได้แผนดันให้ AI แนะนำคุณเต็ม ๆ ไหม?";
     cta.style.display="block";
   }
   f.addEventListener("submit",function(e){
