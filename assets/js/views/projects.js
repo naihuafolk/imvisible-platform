@@ -32,6 +32,7 @@
 
   function projectCard(p) {
     var real = RP.isReal();
+    var paused = p.active === false;
     var numId = String(p.id).replace(/^db/, '');
     var setup = p.status === 'setup';
     var connected = (p.health.gsc ? 1 : 0) + (p.health.serp ? 1 : 0) + (p.health.ai ? 1 : 0) + (p.health.publish ? 1 : 0);
@@ -39,7 +40,8 @@
       '<div class="row between wrap" style="gap:8px;align-items:flex-start">' +
       '<div style="min-width:0"><div class="bb" style="font-size:16px">' + esc(p.name) + '</div>' +
       '<div class="soft small" style="margin-top:2px">🌐 ' + esc(p.domain) + ' · ' + esc(p.country) +
-      ' · ' + (p.mode === 'auto' ? 'Full-Auto' : 'Human Approve') + ' · Freshness ' + esc(p.freshnessDays) + ' วัน</div></div>' +
+      ' · ' + (p.mode === 'auto' ? 'Full-Auto' : 'Human Approve') + ' · Freshness ' + esc(p.freshnessDays) + ' วัน' +
+      (paused ? ' · <b style="color:#b45309">⏸ พักอยู่</b>' : '') + '</div></div>' +
       '<div class="row gap-s wrap" style="justify-content:flex-end;gap:6px">' +
       '<span class="proj-pack" data-pid="' + esc(numId) + '"></span>' +
       '<span class="proj-status" data-pid="' + esc(numId) + '">' + (real ? '<span class="soft small">…</span>' : (p.plan ? ui.badge('แพ็กเกจ ' + p.plan, 'purple') : '')) + '</span>' +
@@ -56,7 +58,9 @@
       '<button class="btn btn-sm sms-alert" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '">🔔 SMS</button>' +
       '<button class="btn btn-sm conv-fb" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '" title="ลูกค้ามีแค่เพจ Facebook? แปลงให้โฮสต์บล็อก+CTA ทัก FB">📘 Facebook</button>' +
       '<button class="btn btn-sm cfg-proj" data-id="' + esc(p.id) + '">⚙️ ตั้งค่า</button>' +
-      '<button class="btn btn-sm del-proj" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '" style="margin-left:auto;color:var(--red-600,#dc2626)">🗑 ลบ</button>' +
+      '<button class="btn btn-sm edit-proj" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '" data-domain="' + esc(p.domain) + '">✏️ แก้ไข</button>' +
+      '<button class="btn btn-sm pause-proj" data-id="' + esc(p.id) + '" data-active="' + (paused ? '0' : '1') + '" style="margin-left:auto">' + (paused ? '▶️ เปิดใช้' : '⏸ พัก') + '</button>' +
+      '<button class="btn btn-sm del-proj" data-id="' + esc(p.id) + '" data-name="' + esc(p.name) + '" style="color:var(--red-600,#dc2626)">🗑 ลบ</button>' +
       '</div></div>';
   }
 
@@ -78,6 +82,31 @@
         if (RP.data.project.current === id) RP.data.project.current = '';
         if (RP.loadRealData) RP.loadRealData(function () { mountNow(); }); else mountNow();
       }).catch(function (e) { go.disabled = false; go.textContent = 'ลบถาวร'; ui.toast('ลบไม่ได้: ' + esc(e.message || String(e))); });
+    };
+  }
+
+  /* ✏️ แก้ชื่อ/โดเมน (ลิงก์) ของโปรเจ็ค */
+  function editProjectModal(id, name, domain) {
+    var pid = String(id).replace(/^db/, '');
+    ui.modal({ title: '✏️ แก้ไขโปรเจ็ค', sub: esc(name), width: 480, body:
+      field('ชื่อโปรเจ็ค', '<input class="input" id="ep_name" value="' + esc(name) + '" style="width:100%">') +
+      field('โดเมน / ลิงก์เว็บ', '<input class="input" id="ep_domain" value="' + esc(domain) + '" placeholder="เช่น yoursite.com" style="width:100%">') +
+      '<div class="hint">โดเมนใหม่มีผลกับการวัดอันดับรอบถัดไป · บทความที่ผลิตไว้ไม่หาย</div>' +
+      '<div class="row between" style="margin-top:14px"><button class="btn btn-sm" id="ep_cancel">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="ep_save">บันทึก</button></div>' });
+    var cc = document.getElementById('ep_cancel'), go = document.getElementById('ep_save');
+    if (cc) cc.onclick = function () { ui.closeModal(); };
+    if (go) go.onclick = function () {
+      var nm = (document.getElementById('ep_name').value || '').trim();
+      var dm = (document.getElementById('ep_domain').value || '').trim();
+      if (!nm && !dm) { ui.toast('กรอกชื่อหรือโดเมนก่อน'); return; }
+      if (!RP.api.reachable()) { ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'); return; }
+      go.disabled = true; go.textContent = 'กำลังบันทึก…';
+      RP.api.updateProject(pid, { name: nm, domain: dm }).then(function () {
+        ui.closeModal();
+        ui.toast('บันทึกแล้ว ✓');
+        if (RP.loadRealData) RP.loadRealData(function () { mountNow(); }); else mountNow();
+      }).catch(function (e) { go.disabled = false; go.textContent = 'บันทึก'; ui.toast('บันทึกไม่ได้: ' + esc(e.message || String(e))); });
     };
   }
 
@@ -468,7 +497,7 @@
             if (!res.projects || !res.projects.length) { RP.ui.toast('ยังไม่มีโปรเจ็คใน DB — ลองรัน scripts/seed.py'); return; }
             RP.data.project.list = res.projects.map(function (p) {
               // plan ว่างไว้ตั้งใจ — backend ยังไม่ส่งแพ็กเกจจริงมา จึงไม่เดาว่าเป็น "Pro"
-              return { id: 'db' + p.id, name: p.name, domain: p.domain, mode: p.mode, country: p.country || 'ไทย', lang: 'ภาษาไทย', plan: '', status: 'active', created: 'จากฐานข้อมูล', keywords: 0, clusters: 0, competitors: [], brandTerms: [], promptSet: 0, freshnessDays: p.freshness_days || 120, authors: 0, health: { gsc: false, serp: false, ai: false, publish: false } };
+              return { id: 'db' + p.id, name: p.name, domain: p.domain, mode: p.mode, active: p.active !== false, country: p.country || 'ไทย', lang: 'ภาษาไทย', plan: '', status: 'active', created: 'จากฐานข้อมูล', keywords: 0, clusters: 0, competitors: [], brandTerms: [], promptSet: 0, freshnessDays: p.freshness_days || 120, authors: 0, health: { gsc: false, serp: false, ai: false, publish: false } };
             });
             RP.data.project.current = RP.data.project.list[0].id;
             RP.ui.toast('โหลด ' + res.projects.length + ' โปรเจ็คจากฐานข้อมูลแล้ว ✓');
@@ -501,6 +530,21 @@
         });
         Array.prototype.forEach.call(root.querySelectorAll('.del-proj'), function (b) {
           b.onclick = function () { confirmDelete(b.getAttribute('data-id'), b.getAttribute('data-name') || ''); };
+        });
+        Array.prototype.forEach.call(root.querySelectorAll('.edit-proj'), function (b) {
+          b.onclick = function () { editProjectModal(b.getAttribute('data-id'), b.getAttribute('data-name') || '', b.getAttribute('data-domain') || ''); };
+        });
+        Array.prototype.forEach.call(root.querySelectorAll('.pause-proj'), function (b) {
+          b.onclick = function () {
+            var pid = String(b.getAttribute('data-id')).replace(/^db/, '');
+            var makeActive = b.getAttribute('data-active') === '0';   // ตอนนี้พัก(0) → เปิด · ตอนนี้เปิด(1) → พัก
+            if (!RP.api.reachable()) { RP.ui.toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'); return; }
+            b.disabled = true;
+            RP.api.setActive(pid, makeActive).then(function () {
+              RP.ui.toast(makeActive ? 'เปิดใช้โปรเจ็คแล้ว ▶️' : 'พักโปรเจ็คแล้ว ⏸ (หยุดผลิต/วัดอัตโนมัติ · ข้อมูลอยู่ครบ)');
+              if (RP.loadRealData) RP.loadRealData(function () { mountNow(); }); else mountNow();
+            }).catch(function (e) { b.disabled = false; RP.ui.toast('ทำไม่ได้: ' + esc(e.message || String(e))); });
+          };
         });
         // เติมสถานะทำงานจริง + ตัวเลขจริง ลงการ์ด (จาก /api/projects/overview)
         if (RP.isReal() && RP.api.enabled()) {

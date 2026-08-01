@@ -872,7 +872,7 @@ async def _boost_rankings(lo: int, hi: int, per_project: int) -> str:
         return "DB not configured"
     n = 0
     async with db.session() as s:
-        pids = (await s.execute(select(Project.id))).scalars().all()
+        pids = (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
         for pid in pids:
             snaps = (await s.execute(
                 select(RankSnapshot.keyword, RankSnapshot.rank, RankSnapshot.on_page1)
@@ -929,7 +929,7 @@ async def _paa_boost(per_project: int) -> str:
         return "DB not configured"
     n = 0
     async with db.session() as s:
-        pids = (await s.execute(select(Project.id))).scalars().all()
+        pids = (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
     for pid in pids:
         async with db.session() as s:
             snaps = (await s.execute(
@@ -1019,7 +1019,7 @@ async def _link_push_striking(per_project: int, links_each: int) -> str:
         return "DB not configured"
     n = 0
     async with db.session() as s:
-        pids = (await s.execute(select(Project.id))).scalars().all()
+        pids = (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
     for pid in pids:
         async with db.session() as s:
             snaps = (await s.execute(
@@ -1071,7 +1071,7 @@ async def _assess_easy_wins(project_id: int, cap: int) -> str:
         return "DB not configured"
     async with db.session() as s:
         ids = [project_id] if project_id else \
-            (await s.execute(select(Project.id))).scalars().all()
+            (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
     scored = 0
     for pid in ids:
         async with db.session() as s:
@@ -1239,7 +1239,7 @@ async def _grow_clusters(batch: int) -> str:
     if not db.enabled():
         return "DB not configured"
     async with db.session() as s:
-        ids = (await s.execute(select(Project.id))).scalars().all()
+        ids = (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
     for pid in ids:
         produce_for_project.delay(pid, batch)   # โควตายังบังคับใน produce → ไม่ผลิตเกินแพ็กเกจ
     return "queued cluster wave (batch=%d) for %d projects" % (batch, len(ids))
@@ -1258,7 +1258,7 @@ async def _refresh_interlinks(per_project: int) -> str:
         return "DB not configured"
     n = 0
     async with db.session() as s:
-        pids = (await s.execute(select(Project.id))).scalars().all()
+        pids = (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
     for pid in pids:
         async with db.session() as s:
             arts = (await s.execute(
@@ -1294,7 +1294,7 @@ async def _ensure_schema(per_project: int) -> str:
         return "DB not configured"
     n = 0
     async with db.session() as s:
-        pids = (await s.execute(select(Project.id))).scalars().all()
+        pids = (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
         for pid in pids:
             rows = (await s.execute(
                 select(Article.id).where(
@@ -1373,7 +1373,7 @@ async def _backfill_schema(project_id: int, cap: int) -> str:
     if not db.enabled():
         return "DB not configured"
     async with db.session() as s:
-        ids = [project_id] if project_id else (await s.execute(select(Project.id))).scalars().all()
+        ids = [project_id] if project_id else (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
     fixed = 0
     for pid in ids:
         async with db.session() as s:
@@ -1416,7 +1416,7 @@ async def _backfill_covers(project_id: int, cap: int, force: bool = False) -> st
     can_img = media.enabled()                              # รูป (ปก/ในเนื้อ) ต้องมี fal/ARK · ภาพสรุปใช้แค่ LLM
     trend_on = bool(getattr(_cfg, "trend_chart", False))   # กราฟเทรนด์ = opt-in (กินเครดิต DataForSEO)
     async with db.session() as s:
-        ids = [project_id] if project_id else (await s.execute(select(Project.id))).scalars().all()
+        ids = [project_id] if project_id else (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
     fixed = 0
     for pid in ids:
         if fixed >= cap:
@@ -1600,7 +1600,7 @@ async def _grow_all_projects() -> str:
     if not db.enabled():
         return "DB not configured"
     async with db.session() as s:
-        ids = (await s.execute(select(Project.id))).scalars().all()
+        ids = (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
     # ทยอยผลิตห่างกัน 7 นาที/โปรเจ็ค — กันเครื่องตันจากงานหนัก (Fable 5 + รูป) พร้อมกันหลายตัว → บทความออกครบ
     for i, pid in enumerate(ids):
         produce_for_project.apply_async((pid, 1), countdown=i * 420)
@@ -1801,7 +1801,7 @@ async def _sample_all_citations() -> str:
     if not _available_engines():
         return "no AI keys configured — skip prompt sampling"
     async with db.session() as s:
-        ids = (await s.execute(select(Project.id))).scalars().all()
+        ids = (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
     for pid in ids:
         sample_citations_for_project.delay(pid)
     return "queued prompt sampling for %d projects" % len(ids)
@@ -2106,7 +2106,7 @@ async def _learning_loop() -> str:
     if not db.enabled():
         return "DB not configured"
     async with db.session() as s:
-        ids = (await s.execute(select(Project.id))).scalars().all()
+        ids = (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
     tuned, total_insights = 0, 0
     for pid in ids:
         try:
@@ -2161,7 +2161,7 @@ async def _social_push(project_id: int, per_project: int) -> str:
         if project_id:
             pids = [project_id] if await s.get(Project, project_id) else []
         else:
-            pids = list((await s.execute(select(Project.id))).scalars().all())
+            pids = list((await s.execute(select(Project.id).where(Project.active == True))).scalars().all())
     total = 0
     for pid in pids:
         try:

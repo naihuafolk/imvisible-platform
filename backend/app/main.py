@@ -25,7 +25,7 @@ if settings.sentry_dsn:
 from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
-    RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ChannelUpdate, DraftRequest,
+    RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, ChannelUpdate, DraftRequest,
     BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
@@ -585,7 +585,8 @@ def _proj_dict(p):
     from app import plans
     pack = plans.normalize_pack(getattr(p, "keyword_pack", plans.DEFAULT_PACK))
     return {"id": p.id, "name": p.name, "domain": p.domain, "country": p.country,
-            "language": p.language, "mode": p.mode, "freshness_days": p.freshness_days,
+            "language": p.language, "mode": p.mode, "active": bool(getattr(p, "active", True)),
+            "freshness_days": p.freshness_days,
             "slug": p.slug, "publish_mode": p.publish_mode, "custom_domain": p.custom_domain,
             "public_home": project_public_home(p),
             "keyword_pack": pack, "keywords_used": _topic_count(p),   # โควตาแพ็ก + ที่ใช้ไปแล้ว
@@ -1129,22 +1130,57 @@ async def grow_project(project_id: int, user=Depends(get_current_user)):
         raise HTTPException(502, "ต่อคิวงานไม่ได้ (backend/worker/redis พร้อมไหม): " + str(e))
 
 
+@app.put("/api/projects/{project_id}")
+async def update_project(project_id: int, req: ProjectUpdate, user=Depends(get_current_user)):
+    """✏️ แก้ชื่อ/โดเมน (ลิงก์) ของโปรเจ็ค — เจ้าของเท่านั้น · ไม่กระทบบทความที่ผลิตไว้ (โดเมนใหม่มีผลกับการวัดอันดับรอบถัดไป)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project
+    name = (req.name or "").strip()
+    domain = (req.domain or "").strip().lower().replace("https://", "").replace("http://", "").strip("/").split("/")[0]
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        if name:
+            p.name = name[:200]
+        if domain:
+            p.domain = domain[:255]
+        await s.commit()
+        return {"ok": True, "id": p.id, "name": p.name, "domain": p.domain}
+
+
+@app.put("/api/projects/{project_id}/active")
+async def set_project_active(project_id: int, req: ProjectActiveUpdate, user=Depends(get_current_user)):
+    """⏸/▶️ พัก/เปิดใช้โปรเจ็ค — พัก = หยุดผลิต/วัดอันดับ/citation อัตโนมัติ (ข้อมูลเดิมอยู่ครบ) · เจ้าของเท่านั้น"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Project
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        p.active = bool(req.active)
+        await s.commit()
+        return {"ok": True, "id": p.id, "active": p.active}
+
+
 @app.delete("/api/projects/{project_id}")
 async def delete_project(project_id: int, user=Depends(get_current_user)):
     """ลบโปรเจ็คถาวร + ข้อมูลลูกทั้งหมด (บทความ/อันดับ/citation/ช่องทาง/คีย์/ล็อก) — เจ้าของเท่านั้น"""
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from sqlalchemy import delete as sa_delete
-    from app.db.models import (Project, Article, RankSnapshot, CitationSnapshot,
-                               DistributionChannel, ProjectCredential, DistributionEvent)
+    from app.db.models import (Project, Article, RankSnapshot, CitationSnapshot, CitationExample,
+                               DistributionChannel, ProjectCredential, DistributionEvent, LeadMagnet, Lead)
     async with db.session() as s:
         p = await s.get(Project, project_id)
         if not p or p.user_id != user["id"]:
             raise HTTPException(404, "ไม่พบโปรเจ็ค")
         name = p.name
-        # ลบลูกก่อน (DistributionEvent อ้าง article_id → ต้องลบก่อน Article)
-        for model in (DistributionEvent, RankSnapshot, CitationSnapshot,
-                      DistributionChannel, ProjectCredential, Article):
+        # ลบลูกก่อน (DistributionEvent อ้าง article_id → ก่อน Article · Lead อ้าง magnet_id → ก่อน LeadMagnet)
+        for model in (DistributionEvent, Lead, RankSnapshot, CitationSnapshot, CitationExample,
+                      DistributionChannel, ProjectCredential, LeadMagnet, Article):
             await s.execute(sa_delete(model).where(model.project_id == project_id))
         await s.delete(p)
         await s.commit()

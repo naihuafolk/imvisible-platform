@@ -58,6 +58,7 @@ class Project(Base):
     country: Mapped[str] = mapped_column(String(50), default="ไทย")
     language: Mapped[str] = mapped_column(String(50), default="th")
     mode: Mapped[str] = mapped_column(String(20), default="auto")   # auto (เผยแพร่เอง — ค่าเริ่มต้น) | approve (รออนุมัติ — เปิดเมื่อลูกค้าต้องการรีวิวก่อน เช่น เนื้อหาการแพทย์)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)      # true = ทำงานอัตโนมัติ | false = พักไว้ (หยุดผลิต/วัดอันดับ/citation · ข้อมูลเดิมอยู่ครบ)
     freshness_days: Mapped[int] = mapped_column(Integer, default=120)
     keyword_pack: Mapped[int] = mapped_column(Integer, default=50)      # โควตาคีย์เวิร์ดของลูกค้ารายนี้ (10/30/50) — แอดมินตั้ง
     sms_enabled: Mapped[bool] = mapped_column(Boolean, default=False)   # แจ้งเตือน SMS เมื่อคีย์ติด/ขยับขึ้น

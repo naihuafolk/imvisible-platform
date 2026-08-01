@@ -64,6 +64,8 @@
     projectsOverview: function () { return api._get('/api/projects/overview'); },
     createProject: function (o) { return api._post('/api/projects', o); },
     deleteProject: function (pid) { return api._del('/api/projects/' + pid); },
+    updateProject: function (pid, o) { return api._put('/api/projects/' + pid, o); },
+    setActive: function (pid, active) { return api._put('/api/projects/' + pid + '/active', { active: !!active }); },
     suggestKeywords: function (o) { return api._post('/api/keywords/suggest', o); },
     addKeywords: function (pid, kws) { return api._post('/api/projects/' + pid + '/keywords', { keywords: kws }); },
     getAeoQuestions: function (pid) { return api._get('/api/projects/' + pid + '/aeo-questions'); },

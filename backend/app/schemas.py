@@ -156,6 +156,15 @@ class ProjectModeUpdate(BaseModel):
     mode: str = "approve"            # auto (Full-Auto เผยแพร่เอง) | approve (ร่างรออนุมัติก่อนเผยแพร่)
 
 
+class ProjectUpdate(BaseModel):
+    name: str = ""                   # แก้ชื่อ/โดเมน (ลิงก์) ของโปรเจ็ค — ว่าง = ไม่เปลี่ยนฟิลด์นั้น
+    domain: str = ""
+
+
+class ProjectActiveUpdate(BaseModel):
+    active: bool = True              # true = เปิดใช้ (ทำงานอัตโนมัติ) | false = พักไว้
+
+
 class BacklinkOutreachRequest(BaseModel):
     url: str = ""                    # เว็บเป้าหมายที่จะติดต่อ
     title: str = ""                  # ชื่อหน้า/เว็บ (ประกอบการร่าง)

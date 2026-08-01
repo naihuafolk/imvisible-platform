@@ -25,7 +25,7 @@
   /* ---------- แผนที่โปรเจ็คจริง → view model ---------- */
   function mapProj(p) {
     return {
-      id: 'db' + p.id, _dbid: p.id, name: p.name, domain: p.domain, mode: p.mode,
+      id: 'db' + p.id, _dbid: p.id, name: p.name, domain: p.domain, mode: p.mode, active: p.active !== false,
       country: p.country || 'ไทย', lang: (p.language === 'en' ? 'English' : 'ภาษาไทย'),
       plan: 'Pro', status: 'active', created: 'จากระบบจริง',
       keywords: 0, clusters: 0, competitors: [], brandTerms: [], promptSet: 0,
