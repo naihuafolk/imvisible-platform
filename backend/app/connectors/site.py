@@ -117,6 +117,42 @@ def _norm(domain: str) -> str:
     return d
 
 
+_META_TAG = re.compile(r"(?is)<meta\b[^>]*>")
+
+
+def _meta_attr(tag: str, name: str) -> str:
+    m = re.search(r'(?is)\b' + re.escape(name) + r'\s*=\s*("|\')(.*?)\1', tag or "")
+    return (m.group(2).strip() if m else "")
+
+
+def _meta_signals(html: str) -> str:
+    """สกัดสัญญาณจาก <head> (meta description / og / keywords / หัวข้อ) — สำคัญมากกับเว็บ SPA
+    ที่ body แทบว่าง (React/Vue) เพราะเนื้อหาจริงมักอยู่ใน meta description + og tags"""
+    out = []
+    for mt in _META_TAG.finditer(html or ""):
+        tag = mt.group(0)
+        key = (_meta_attr(tag, "name") or _meta_attr(tag, "property")).lower()
+        val = _strip_html(_meta_attr(tag, "content")).strip()
+        if not val:
+            continue
+        if key in ("description", "og:description", "twitter:description"):
+            out.append("คำโปรยเว็บ: " + val[:400])
+        elif key in ("og:title", "twitter:title", "apple-mobile-web-app-title", "application-name", "og:site_name"):
+            out.append("ชื่อ/แบรนด์: " + val[:200])
+        elif key == "keywords":
+            out.append("คีย์เวิร์ดในเว็บ: " + val[:300])
+    for h in re.findall(r"(?is)<h[1-3][^>]*>(.*?)</h[1-3]>", html or "")[:8]:
+        t = _strip_html(h).strip()
+        if t:
+            out.append("หัวข้อ: " + t[:200])
+    seen, ded = set(), []
+    for x in out:
+        k = x.lower()
+        if k not in seen:
+            seen.add(k); ded.append(x)
+    return "\n".join(ded)
+
+
 async def fetch_site(domain: str, max_pages: int = 4, timeout: int = 20) -> dict:
     """ดึงหน้าแรก + หน้าที่น่าจะบอกว่าธุรกิจทำอะไร · คืน {ok, text, title, pages}"""
     host = _clean_host(domain)
@@ -135,7 +171,8 @@ async def fetch_site(domain: str, max_pages: int = 4, timeout: int = 20) -> dict
             return {"ok": False, "text": "", "title": "", "pages": []}
         m = re.search(r"(?is)<title[^>]*>(.*?)</title>", home)
         title = _strip_html(m.group(1)) if m else ""
-        texts.append(_strip_html(home)[:6000])
+        meta = _meta_signals(home)          # ⭐ สัญญาณจาก head (meta/og/หัวข้อ) — กู้เว็บ SPA ที่ body ว่าง
+        texts.append((meta + "\n\n" if meta else "") + _strip_html(home)[:6000])
         pages.append(base)
         seen.add(base.rstrip("/"))
 
