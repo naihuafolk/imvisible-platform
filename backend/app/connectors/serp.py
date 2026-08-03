@@ -159,6 +159,54 @@ async def keyword_volume(keyword: str, creds: dict | None = None,
         return None
 
 
+async def keyword_ideas(seeds, limit: int = 30, creds: dict | None = None,
+                        location_code: int | None = None,
+                        language_code: str | None = None) -> list[dict]:
+    """💼 ดึง 'คีย์เวิร์ดที่เกี่ยวข้อง' จาก seed (คีย์+ธุรกิจ) พร้อม 'ปริมาณค้นหาจริง + ความยาก' — DataForSEO Labs Keyword Ideas
+    ได้ทั้ง volume (Google Ads) + keyword_difficulty (0-100) + เทรนด์รายเดือน ใน 1 call · ตัวเลขจริง 100% (no-faking)
+    คืน [{keyword, volume(/เดือน), daily, difficulty(0-100), competition, monthly:[{y,m,v}]}] เรียงจาก volume มาก→น้อย · crash-safe คืน []"""
+    ks = [str(s).strip() for s in (seeds if isinstance(seeds, (list, tuple)) else [seeds]) if str(s).strip()][:20]
+    if not ks:
+        return []
+    loc = location_code or settings.serp_location_code
+    lang = language_code or settings.serp_language_code
+    try:
+        async with httpx.AsyncClient(timeout=45) as c:
+            r = await c.post(
+                "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_ideas/live",
+                headers=_auth_header(creds),
+                json=[{"keywords": ks, "location_code": loc, "language_code": lang,
+                       "limit": max(20, min(int(limit or 30), 100)),
+                       "order_by": ["keyword_info.search_volume,desc"]}])
+            data = r.json()
+        if r.status_code >= 400 or data.get("status_code") not in (20000, None):
+            return []
+        items = (((data.get("tasks") or [{}])[0].get("result") or [{}])[0] or {}).get("items") or []
+        out = []
+        for it in items:
+            kw = (it.get("keyword") or "").strip()
+            if not kw:
+                continue
+            ki = it.get("keyword_info") or {}
+            kp = it.get("keyword_properties") or {}
+            vol = ki.get("search_volume")
+            monthly = [{"y": m.get("year"), "m": m.get("month"), "v": int(m.get("search_volume") or 0)}
+                       for m in (ki.get("monthly_searches") or []) if m.get("search_volume") is not None]
+            monthly.sort(key=lambda x: ((x["y"] or 0), (x["m"] or 0)))
+            out.append({
+                "keyword": kw,
+                "volume": int(vol) if isinstance(vol, (int, float)) else None,
+                "daily": round(vol / 30) if isinstance(vol, (int, float)) else None,
+                "difficulty": kp.get("keyword_difficulty"),
+                "competition": ki.get("competition"),
+                "monthly": monthly[-12:],
+            })
+        out.sort(key=lambda x: (x["volume"] is None, -(x["volume"] or 0)))
+        return out
+    except Exception:  # noqa: BLE001
+        return []
+
+
 async def rank_check(keyword: str, domain: str,
                      location_code: int | None = None,
                      language_code: str | None = None,

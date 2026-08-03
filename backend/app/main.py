@@ -25,7 +25,7 @@ if settings.sentry_dsn:
 from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
-    RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, ChannelUpdate, DraftRequest,
+    RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, KeywordReportRequest, ChannelUpdate, DraftRequest,
     BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
@@ -980,6 +980,38 @@ async def keywords_suggest(req: KeywordSuggestRequest, user=Depends(get_current_
         kws = [{"kw": t, "intent": "", "why": ""} for t in _starter_topics(req.name or domain, lang)]
         source = "starter"
     return {"domain": domain, "keywords": kws, "source": source}
+
+
+@app.post("/api/keyword-report")
+async def keyword_report(req: KeywordReportRequest, user=Depends(get_current_user)):
+    """💼 รายงานวิจัยคีย์เวิร์ด 'สำหรับขายลูกค้า' — ใส่คีย์+ธุรกิจ → ดึงคีย์ที่เกี่ยว 20+ คำ
+    พร้อมปริมาณค้นหาจริง/เดือน+วัน (Google Ads) + % ความยากติดหน้า 1 (KD 0-100) · ตัวเลขจริงจาก DataForSEO"""
+    from app.connectors import serp
+    from app.config import settings as S
+    if not (S.dataforseo_login and S.dataforseo_password):
+        raise HTTPException(503, "ยังไม่ได้ตั้งคีย์ DataForSEO — ต้องมีเพื่อดึงปริมาณค้นหา/ความยาก 'จริง'")
+    seed = (req.keyword or "").strip()
+    biz = (req.business or "").strip()
+    if not seed and not biz:
+        raise HTTPException(422, "กรุณาใส่คีย์เวิร์ดหลัก หรือชื่อธุรกิจ")
+    try:
+        rows = await serp.keyword_ideas([x for x in (seed, biz) if x], limit=req.limit or 30)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ดึงคีย์เวิร์ดไม่ได้ (ตรวจเครดิต/คีย์ DataForSEO): " + str(e)[:150])
+    rows = [r for r in rows if r.get("volume")]              # เอาเฉพาะที่มีปริมาณค้นหาจริง
+    total_vol = sum(r["volume"] for r in rows)
+    diffs = [r["difficulty"] for r in rows if isinstance(r.get("difficulty"), (int, float))]
+    summary = {
+        "count": len(rows),
+        "total_monthly": total_vol,
+        "total_daily": round(total_vol / 30),
+        "avg_difficulty": round(sum(diffs) / len(diffs)) if diffs else None,
+        "easy": sum(1 for d in diffs if d < 30),
+        "medium": sum(1 for d in diffs if 30 <= d < 60),
+        "hard": sum(1 for d in diffs if d >= 60),
+    }
+    return {"keyword": seed, "business": biz, "keywords": rows, "summary": summary,
+            "note": "ปริมาณค้นหา = Google Ads (DataForSEO) · ความยาก = Keyword Difficulty 0-100 (ต่ำ=ง่ายติดหน้า 1) · ตัวเลขจริง ตรวจย้อนได้"}
 
 
 @app.put("/api/projects/{project_id}/publish")

@@ -165,6 +165,12 @@ class ProjectActiveUpdate(BaseModel):
     active: bool = True              # true = เปิดใช้ (ทำงานอัตโนมัติ) | false = พักไว้
 
 
+class KeywordReportRequest(BaseModel):
+    keyword: str = ""                # คีย์เวิร์ดหลัก/หัวข้อ (สำหรับรายงานขายลูกค้า)
+    business: str = ""               # บริบทธุรกิจ (ช่วยให้คีย์ที่ดึงมาตรงขึ้น)
+    limit: int = 30
+
+
 class BacklinkOutreachRequest(BaseModel):
     url: str = ""                    # เว็บเป้าหมายที่จะติดต่อ
     title: str = ""                  # ชื่อหน้า/เว็บ (ประกอบการร่าง)
