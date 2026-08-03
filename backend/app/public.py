@@ -753,13 +753,16 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
     def stage_pill(k):
         return '<span class="pill %s">%s</span>' % (_stage_tone.get(k.get("stage"), "slate"), _esc(k.get("stage_label") or ""))
 
+    def _pg(k):   # หน้าผลค้นหา Google = ceil(อันดับ/10)
+        return (t("หน้า %d", "Page %d") % ((k["rank"] - 1) // 10 + 1)) if k["rank"] is not None else "—"
     rank_rows = "".join(
-        '<tr><td>%s%s</td><td>%s</td><td class="n">%s</td><td class="n">%s</td><td class="n">%s</td></tr>'
+        '<tr><td>%s%s</td><td>%s</td><td class="n">%s</td><td class="n">%s</td><td class="n">%s</td><td class="n">%s</td></tr>'
         % (_esc(k["keyword"]), (' <span class="pill green">%s</span>' % t("หน้า 1", "Page 1")) if k["on_page1"] else '',
            stage_pill(k),
            ('#%d' % k["rank"]) if k["rank"] is not None else ('<span class="pending">%s</span>' % t("รอวัด", "Pending")),
+           _pg(k),
            ('#%d' % k["best"]) if k["best"] is not None else '—', mv(k))
-        for k in data["kws"]) or ('<tr><td colspan="5" class="center muted">%s</td></tr>' % t("ยังไม่มีข้อมูลอันดับ", "No ranking data yet"))
+        for k in data["kws"]) or ('<tr><td colspan="6" class="center muted">%s</td></tr>' % t("ยังไม่มีข้อมูลอันดับ", "No ranking data yet"))
 
     _pl = data.get("pipeline", {}) or {}
     _writing = _pl.get("drafting", 0) + _pl.get("scheduled", 0)
@@ -908,7 +911,7 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
         '<div class="card"><div class="kpis">%s</div></div>'
         '%s%s%s'
         '<h2>%s</h2><div class="card" style="overflow-x:auto">%s'
-        '<table><thead><tr><th>%s</th><th>%s</th><th class="n">%s</th><th class="n">%s</th><th class="n">%s</th></tr></thead>'
+        '<table><thead><tr><th>%s</th><th>%s</th><th class="n">%s</th><th class="n">%s</th><th class="n">%s</th><th class="n">%s</th></tr></thead>'
         '<tbody>%s</tbody></table></div>'
         '<h2>%s</h2><div class="card"><div class="engs">%s</div><div class="note">%s</div></div>'
         '%s%s%s%s<div class="foot">%s</div>'
@@ -917,7 +920,7 @@ def render_report_page(data: dict, period_label: str, generated: str) -> str:
            t(" · รายงานผลงาน", " · Performance Report"), name, sub, exec_html, kpi_html,
            aeo_spotlight_html, stage_html, trends_html,
            t("อันดับ Google (ต่อคีย์เวิร์ด)", "Google Rankings (by keyword)"), pl_html,
-           t("คีย์เวิร์ด", "Keyword"), t("สถานะ", "Stage"), t("อันดับ", "Rank"), t("ดีสุด", "Best"), t("เปลี่ยนแปลง", "Change"),
+           t("คีย์เวิร์ด", "Keyword"), t("สถานะ", "Stage"), t("อันดับ", "Rank"), t("หน้า", "Page"), t("ดีสุด", "Best"), t("เปลี่ยนแปลง", "Change"),
            rank_rows, t("🤖 AI แนะนำเราหรือยัง", "🤖 Is AI recommending you?"), engs,
            t("วัดจริงโดยถาม ChatGPT / Gemini / Perplexity แล้วเช็คว่าคำตอบอ้างอิงแบรนด์/เว็บของคุณ (Share of Voice)",
              "Measured by actually querying ChatGPT / Gemini / Perplexity and checking whether the answer cites your brand/site (Share of Voice)"),

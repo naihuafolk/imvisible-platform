@@ -18,6 +18,12 @@
   function rDbId(p) { var m = /^db(\d+)$/.exec(String(p && p.id || '')); return m ? parseInt(m[1], 10) : null; }
   function gradeTone(g) { return g === 'A' ? 'green' : g === 'B' ? 'blue' : g === 'C' ? 'amber' : 'red'; }
   function rankLabel(r) { return r == null ? '<span class="soft">ไม่ติด (>100)</span>' : '#' + r; }
+  function pageLabel(r) {   /* หน้าผลค้นหา Google = ceil(อันดับ/10) · หน้า 1 = ติด Top 10 */
+    if (r == null) return '<span class="soft">—</span>';
+    var pg = Math.ceil(r / 10);
+    var c = pg === 1 ? 'var(--green-700,#15803d)' : (pg <= 2 ? 'var(--amber-700,#b45309)' : 'var(--text-soft,#64748b)');
+    return '<span style="font-weight:700;color:' + c + '">หน้า ' + pg + '</span>';
+  }
   function diffChip(k) {   /* ป้ายความยากในการติดอันดับ (Easy-Win Radar · ประเมินจาก SERP) */
     var lb = k && k.difficulty_label;
     if (!lb) return '';
@@ -300,6 +306,7 @@
             '<td><span class="t">' + esc(k.keyword) + '</span> ' + badge + diffChip(k) + '</td>' +
             '<td>' + stageChip(k) + '</td>' +
             '<td class="num bb">' + rl + '</td>' +
+            '<td class="num">' + (k.pending ? '<span class="soft">—</span>' : pageLabel(k.rank)) + '</td>' +
             '<td class="num soft">' + (k.best_rank != null ? ('#' + k.best_rank) : '—') + '</td>' +
             '<td class="num">' + (k.pending ? '<span class="soft">รอวัด</span>' : moveCell(k)) + '</td></tr>';
         }).join('');
@@ -309,7 +316,7 @@
           '✍️ เผยแพร่แล้ว <b>' + (pl.published || 0) + '</b> · 📝 กำลังเขียน/รออนุมัติ <b>' + writing + '</b> · 🕒 รอคิวเขียน <b>' + (pl.queued || 0) + '</b>' +
           ' — คีย์ที่ยัง "ไม่ติด" ส่วนใหญ่คือ<b>เขียน+เผยแพร่แล้ว กำลังรอ Google จัดอันดับ</b> หรืออยู่ในคิวเขียนรอบถัดไป</div>';
         rk.innerHTML = ui.card({ title: 'อันดับ Google (ต่อคีย์เวิร์ด)', sub: 'อันดับจริงจาก SERP · คอลัมน์ "สถานะระบบ" = ระบบทำถึงไหนต่อคีย์ · แถวเหลือง = จ่อหน้า 1 (กำลังดัน)', flush: true,
-          body: plBanner + '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>คีย์เวิร์ด</th><th>สถานะระบบ</th><th class="right">อันดับ</th><th class="right">ดีสุด</th><th class="right">เปลี่ยนแปลง</th></tr></thead><tbody>' + rows + '</tbody></table></div>' });
+          body: plBanner + '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>คีย์เวิร์ด</th><th>สถานะระบบ</th><th class="right">อันดับ</th><th class="right">หน้า</th><th class="right">ดีสุด</th><th class="right">เปลี่ยนแปลง</th></tr></thead><tbody>' + rows + '</tbody></table></div>' });
       }
     }
     var av = root.querySelector('#rp_aeo');
