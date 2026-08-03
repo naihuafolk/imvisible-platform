@@ -123,7 +123,7 @@
     var aeo=Math.max(0,Math.min(100,Math.round(d.aeo_score||0)));
     var seo=Math.max(0,Math.min(100,Math.round(d.score||0)));
     var html='<div class="aeo-hero"><div class="aeo-badge">📊 สุขภาพเว็บ · SEO + AEO เท่ากัน</div>'
-      +'<div class="scores">'+scoreEl("SEO",seo,"ติดอันดับ Google","big")+scoreEl("AEO",aeo,"ถูก AI แนะนำ","big")+'</div>'
+      +'<div class="scores">'+scoreEl("SEO",seo,"ติดอันดับ Google","big")+scoreEl("AEO / GEO",aeo,"ถูก AI แนะนำ","big")+'</div>'
       +'<div class="aeo-sum">'+esc(d.summary||"")+'</div>'
       +'<div class="aeo-sum" style="color:'+color(aeo)+';margin-top:6px">'+esc(d.aeo_summary||"")+'</div></div>';
     html+=fixList("🤖 ทำให้ AI แนะนำคุณ (AEO)", d.aeo_fixes);
