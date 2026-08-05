@@ -271,6 +271,31 @@ def _broaden_seed(seed: str) -> str:
     return s
 
 
+# ── แยก 'เจตนาเชิงธุรกิจ' ของคีย์เวิร์ด เพื่อทำรายงานขายที่ใช้ได้จริง (ไม่ใช่ดั๊มพ์ดิบ) ──
+_INTENT_COMMERCIAL = ("รับทำ", "รับผลิต", "รับออกแบบ", "รับขึ้น", "รับงาน", "สั่งทำ", "สั่งผลิต",
+                      "สั่งซื้อ", "ราคา", "ที่ไหนดี", "เจ้าไหนดี", "ที่ไหน", "แนะนำ", "รีวิว",
+                      "pantip", "ถูก", "บริการ", "ขายส่ง", "โรงงาน", "ใกล้ฉัน", "จ้าง", "หาที่",
+                      "รับทํา", "ทําเอง", "ทำเอง")
+_INTENT_PROBLEM = ("คืออะไร", "คือ", "ยังไง", "อย่างไร", "วิธี", "ทำไม", "ประเภท", "ชนิด",
+                   "ตัวอย่าง", "ไอเดีย", "idea", "ความหมาย", "หมายถึง", "แปลว่า", "ภาษาอังกฤษ",
+                   "เขียนยังไง", "มีอะไรบ้าง", "ข้อดี", "ข้อเสีย", "ต่างกัน", "ขั้นตอน",
+                   "เริ่มต้น", "มีกี่", "ควร", "?")
+_INTENT_BRAND = ("บริษัท", "จำกัด", "จก.", "co.,ltd", "co.ltd", " ltd", "มหาชน", "(ประเทศไทย)")
+
+
+def classify_intent(kw: str) -> str:
+    """แยกเจตนาเชิงธุรกิจของคีย์เวิร์ด → commercial(พร้อมจ้าง) / problem(คำถาม) / brand(คู่แข่ง) / generic
+    ลำดับ: commercial ก่อน (คำว่า 'รับทำ/ราคา' สำคัญกว่า) → problem → brand(ชื่อบริษัท) → generic"""
+    k = (kw or "").lower()
+    if any(w in k for w in _INTENT_COMMERCIAL):
+        return "commercial"
+    if any(w in k for w in _INTENT_PROBLEM):
+        return "problem"
+    if any(w in k for w in _INTENT_BRAND):
+        return "brand"
+    return "generic"
+
+
 async def keyword_research(seeds, limit: int = 30, creds: dict | None = None,
                            location_code: int | None = None,
                            language_code: str | None = None) -> list[dict]:
@@ -302,6 +327,8 @@ async def keyword_research(seeds, limit: int = 30, creds: dict | None = None,
                 merged[k] = row
     out = list(merged.values())
     out.sort(key=lambda x: (x["volume"] is None, -(x["volume"] or 0)))
+    for row in out:
+        row["intent"] = classify_intent(row["keyword"])
     return out[:60]
 
 

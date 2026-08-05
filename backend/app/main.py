@@ -1003,19 +1003,51 @@ async def keyword_report(req: KeywordReportRequest, user=Depends(get_current_use
         bal = await serp.account_balance()
         if bal is not None and bal < 0.05:
             raise HTTPException(402, "เครดิต DataForSEO หมด (เหลือ $%.2f) — เติมเงินก่อนใช้งาน" % bal)
-    total_vol = sum(r["volume"] for r in rows)
-    diffs = [r["difficulty"] for r in rows if isinstance(r.get("difficulty"), (int, float))]
+    # ── จัดกลุ่ม 'เชิงธุรกิจ' ตามเจตนาการค้นหา → รายงานที่เอาไปขายได้จริง ──
+    _LABELS = {
+        "commercial": ("🔥", "เชิงแนะนำ / พร้อมจ้าง",
+                       "คนกำลังหา 'คนทำ · ราคา · ที่ไหนดี' = ลูกค้าพร้อมจ่าย ปิดการขายง่ายสุด"),
+        "problem":    ("💡", "เชิงปัญหา / คำถาม",
+                       "คนมีคำถาม/ปัญหา = ทำคอนเทนต์ดักไว้ให้ Google + AI หยิบไปตอบ (SEO/AEO)"),
+        "generic":    ("📦", "หมวดสินค้า / บริการ",
+                       "ค้นชื่อสินค้า/บริการตรง ๆ = ดัน SEO ให้ติดหน้าแรก กินทราฟฟิกกว้าง"),
+        "brand":      ("🏢", "แบรนด์ / คู่แข่ง (ไม่นับรวม)",
+                       "ชื่อบริษัทคู่แข่ง — ไว้ดูว่าใครครองตลาด ไม่ใช่คีย์ที่เราปั้นให้ลูกค้า"),
+    }
+
+    def _sub(rs):
+        vol = sum(r["volume"] for r in rs)
+        ds = [r["difficulty"] for r in rs if isinstance(r.get("difficulty"), (int, float))]
+        return {"count": len(rs), "monthly": vol, "daily": round(vol / 30),
+                "avg_difficulty": round(sum(ds) / len(ds)) if ds else None}
+
+    groups = []
+    for key in ("commercial", "problem", "generic", "brand"):
+        rs = [r for r in rows if r.get("intent") == key]
+        if not rs:
+            continue
+        emoji, title, desc = _LABELS[key]
+        groups.append({"key": key, "emoji": emoji, "title": title, "desc": desc,
+                       "summary": _sub(rs), "keywords": rs})
+
+    sellable = [r for r in rows if r.get("intent") != "brand"]   # ที่ปั้นให้ลูกค้าได้จริง (ตัดคู่แข่ง)
+    diffs = [r["difficulty"] for r in sellable if isinstance(r.get("difficulty"), (int, float))]
+    total_vol = sum(r["volume"] for r in sellable)
     summary = {
-        "count": len(rows),
+        "count": len(sellable),
         "total_monthly": total_vol,
         "total_daily": round(total_vol / 30),
         "avg_difficulty": round(sum(diffs) / len(diffs)) if diffs else None,
         "easy": sum(1 for d in diffs if d < 30),
         "medium": sum(1 for d in diffs if 30 <= d < 60),
         "hard": sum(1 for d in diffs if d >= 60),
+        "commercial": sum(1 for r in rows if r.get("intent") == "commercial"),
+        "problem": sum(1 for r in rows if r.get("intent") == "problem"),
     }
-    return {"keyword": seed, "business": biz, "keywords": rows, "summary": summary,
-            "note": "ปริมาณค้นหา = Google Ads (DataForSEO) · ความยาก = Keyword Difficulty 0-100 (ต่ำ=ง่ายติดหน้า 1) · ตัวเลขจริง ตรวจย้อนได้"}
+    return {"keyword": seed, "business": biz,
+            "keywords": sellable, "groups": groups, "summary": summary,
+            "note": "แยกตามเจตนาการค้นหา · ปริมาณค้นหา = Google Ads (DataForSEO) · "
+                    "ความยาก = Keyword Difficulty 0-100 (ต่ำ=ง่ายติดหน้า 1) · ตัวเลขจริง ตรวจย้อนได้"}
 
 
 @app.put("/api/projects/{project_id}/publish")
