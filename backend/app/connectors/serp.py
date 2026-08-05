@@ -183,25 +183,7 @@ async def keyword_ideas(seeds, limit: int = 30, creds: dict | None = None,
         if r.status_code >= 400 or data.get("status_code") not in (20000, None):
             return []
         items = (((data.get("tasks") or [{}])[0].get("result") or [{}])[0] or {}).get("items") or []
-        out = []
-        for it in items:
-            kw = (it.get("keyword") or "").strip()
-            if not kw:
-                continue
-            ki = it.get("keyword_info") or {}
-            kp = it.get("keyword_properties") or {}
-            vol = ki.get("search_volume")
-            monthly = [{"y": m.get("year"), "m": m.get("month"), "v": int(m.get("search_volume") or 0)}
-                       for m in (ki.get("monthly_searches") or []) if m.get("search_volume") is not None]
-            monthly.sort(key=lambda x: ((x["y"] or 0), (x["m"] or 0)))
-            out.append({
-                "keyword": kw,
-                "volume": int(vol) if isinstance(vol, (int, float)) else None,
-                "daily": round(vol / 30) if isinstance(vol, (int, float)) else None,
-                "difficulty": kp.get("keyword_difficulty"),
-                "competition": ki.get("competition"),
-                "monthly": monthly[-12:],
-            })
+        out = [x for x in (_parse_kw_item(it) for it in items) if x]
         out.sort(key=lambda x: (x["volume"] is None, -(x["volume"] or 0)))
         return out
     except Exception:  # noqa: BLE001
@@ -215,6 +197,7 @@ def _parse_kw_item(it: dict) -> dict | None:
         return None
     ki = it.get("keyword_info") or {}
     kp = it.get("keyword_properties") or {}
+    sii = it.get("search_intent_info") or {}          # เจตนาการค้นหาจริงจาก DataForSEO (ML)
     vol = ki.get("search_volume")
     monthly = [{"y": m.get("year"), "m": m.get("month"), "v": int(m.get("search_volume") or 0)}
                for m in (ki.get("monthly_searches") or []) if m.get("search_volume") is not None]
@@ -225,6 +208,7 @@ def _parse_kw_item(it: dict) -> dict | None:
         "daily": round(vol / 30) if isinstance(vol, (int, float)) else None,
         "difficulty": kp.get("keyword_difficulty"),
         "competition": ki.get("competition"),
+        "df_intent": sii.get("main_intent"),          # informational/navigational/commercial/transactional
         "monthly": monthly[-12:],
     }
 
@@ -283,13 +267,24 @@ _INTENT_PROBLEM = ("คืออะไร", "คือ", "ยังไง", "อ
 _INTENT_BRAND = ("บริษัท", "จำกัด", "จก.", "co.,ltd", "co.ltd", " ltd", "มหาชน", "(ประเทศไทย)")
 
 
-def classify_intent(kw: str) -> str:
-    """แยกเจตนาเชิงธุรกิจของคีย์เวิร์ด → commercial(พร้อมจ้าง) / problem(คำถาม) / brand(คู่แข่ง) / generic
-    ลำดับ: commercial ก่อน (คำว่า 'รับทำ/ราคา' สำคัญกว่า) → problem → brand(ชื่อบริษัท) → generic"""
+def classify_intent(kw: str, df_intent: str | None = None) -> str:
+    """แยกเจตนาเชิงธุรกิจ → commercial(พร้อมจ้าง)/problem(คำถาม)/brand(คู่แข่ง)/generic(หมวดสินค้า)
+    ใช้ 'search intent จริงจาก DataForSEO' ก่อน (navigational=หาแบรนด์เฉพาะ=คู่แข่ง) แม่นกว่าเดาจากคำมาก
+    แล้ว fallback เป็น heuristic คำ เมื่อ DataForSEO ไม่ส่ง intent มา"""
     k = (kw or "").lower()
-    if any(w in k for w in _INTENT_COMMERCIAL):
+    has_q = any(w in k for w in _INTENT_PROBLEM)
+    has_buy = any(w in k for w in _INTENT_COMMERCIAL)
+    di = (df_intent or "").lower()
+    if di == "navigational":                       # ค้นหาชื่อแบรนด์/บริษัทเฉพาะ = คู่แข่ง (กรองออก)
+        return "brand"
+    if di in ("commercial", "transactional"):
+        return "problem" if (has_q and not has_buy) else "commercial"
+    if di == "informational":
+        return "problem" if has_q else "generic"
+    # ── DataForSEO ไม่ส่ง intent → ใช้ heuristic คำ ──
+    if has_buy:
         return "commercial"
-    if any(w in k for w in _INTENT_PROBLEM):
+    if has_q:
         return "problem"
     if any(w in k for w in _INTENT_BRAND):
         return "brand"
@@ -328,7 +323,7 @@ async def keyword_research(seeds, limit: int = 30, creds: dict | None = None,
     out = list(merged.values())
     out.sort(key=lambda x: (x["volume"] is None, -(x["volume"] or 0)))
     for row in out:
-        row["intent"] = classify_intent(row["keyword"])
+        row["intent"] = classify_intent(row["keyword"], row.get("df_intent"))
     return out[:60]
 
 
