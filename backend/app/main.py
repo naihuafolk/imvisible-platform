@@ -995,10 +995,14 @@ async def keyword_report(req: KeywordReportRequest, user=Depends(get_current_use
     if not seed and not biz:
         raise HTTPException(422, "กรุณาใส่คีย์เวิร์ดหลัก หรือชื่อธุรกิจ")
     try:
-        rows = await serp.keyword_ideas([x for x in (seed, biz) if x], limit=req.limit or 30)
+        rows = await serp.keyword_research([x for x in (seed, biz) if x], limit=req.limit or 30)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, "ดึงคีย์เวิร์ดไม่ได้ (ตรวจเครดิต/คีย์ DataForSEO): " + str(e)[:150])
     rows = [r for r in rows if r.get("volume")]              # เอาเฉพาะที่มีปริมาณค้นหาจริง
+    if not rows:                                             # ว่างจริง → แยก 'เครดิตหมด' ออกจาก 'ไม่มีคำ' (โปร่งใส)
+        bal = await serp.account_balance()
+        if bal is not None and bal < 0.05:
+            raise HTTPException(402, "เครดิต DataForSEO หมด (เหลือ $%.2f) — เติมเงินก่อนใช้งาน" % bal)
     total_vol = sum(r["volume"] for r in rows)
     diffs = [r["difficulty"] for r in rows if isinstance(r.get("difficulty"), (int, float))]
     summary = {

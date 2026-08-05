@@ -3,6 +3,7 @@ SERP connector — ดึงผลอันดับ Google จริงผ่�
 เอกสาร: https://docs.dataforseo.com/v3/serp/google/organic/live/advanced/
 ใช้วัด "อันดับ / ติดหน้า 1" (M5) และประกอบการขุดคำถาม (M1)
 """
+import asyncio
 import base64
 import httpx
 
@@ -205,6 +206,103 @@ async def keyword_ideas(seeds, limit: int = 30, creds: dict | None = None,
         return out
     except Exception:  # noqa: BLE001
         return []
+
+
+def _parse_kw_item(it: dict) -> dict | None:
+    """แปลง item จาก DataForSEO Labs → แถวคีย์เวิร์ดมาตรฐานของเรา (ใช้ร่วมทุก endpoint)"""
+    kw = (it.get("keyword") or "").strip()
+    if not kw:
+        return None
+    ki = it.get("keyword_info") or {}
+    kp = it.get("keyword_properties") or {}
+    vol = ki.get("search_volume")
+    monthly = [{"y": m.get("year"), "m": m.get("month"), "v": int(m.get("search_volume") or 0)}
+               for m in (ki.get("monthly_searches") or []) if m.get("search_volume") is not None]
+    monthly.sort(key=lambda x: ((x["y"] or 0), (x["m"] or 0)))
+    return {
+        "keyword": kw,
+        "volume": int(vol) if isinstance(vol, (int, float)) else None,
+        "daily": round(vol / 30) if isinstance(vol, (int, float)) else None,
+        "difficulty": kp.get("keyword_difficulty"),
+        "competition": ki.get("competition"),
+        "monthly": monthly[-12:],
+    }
+
+
+async def keyword_suggestions(seed, limit: int = 30, creds: dict | None = None,
+                              location_code: int | None = None,
+                              language_code: str | None = None) -> list[dict]:
+    """💡 คีย์เวิร์ดที่ 'มีคำ seed อยู่ข้างใน' (full-text) — recall สูงกับคีย์ไทยหางยาว
+    ต่างจาก keyword_ideas ที่อิง 'หมวดหมู่' (คืน 0 ถ้า seed แคบ/เฉพาะเกิน) · crash-safe คืน []"""
+    seed = str(seed or "").strip()
+    if not seed:
+        return []
+    loc = location_code or settings.serp_location_code
+    lang = language_code or settings.serp_language_code
+    try:
+        async with httpx.AsyncClient(timeout=45) as c:
+            r = await c.post(
+                "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_suggestions/live",
+                headers=_auth_header(creds),
+                json=[{"keyword": seed, "location_code": loc, "language_code": lang,
+                       "include_seed_keyword": True,
+                       "limit": max(20, min(int(limit or 30), 100)),
+                       "order_by": ["keyword_info.search_volume,desc"]}])
+            data = r.json()
+        if r.status_code >= 400 or data.get("status_code") not in (20000, None):
+            return []
+        items = (((data.get("tasks") or [{}])[0].get("result") or [{}])[0] or {}).get("items") or []
+        return [x for x in (_parse_kw_item(it) for it in items) if x]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+# คำนำหน้าเชิงบริการ (ไทย) ที่ทำให้ seed แคบเกินจน Labs หาไม่เจอ → ตัดออกเหลือ 'คำแก่น'
+_SEED_PREFIX = ("บริการรับทำ", "รับทำ", "รับทํา", "บริการ", "ราคา", "โรงงาน",
+                "จำหน่าย", "ขาย", "ร้าน", "หา")
+
+
+def _broaden_seed(seed: str) -> str:
+    """ตัดคำนำหน้าเชิงบริการออก เหลือคำแก่น เช่น 'รับทำแพ็คเกจจิ้ง' → 'แพ็คเกจจิ้ง'"""
+    s = (seed or "").strip()
+    for w in sorted(_SEED_PREFIX, key=len, reverse=True):
+        if s.startswith(w) and len(s) > len(w) + 1:
+            return s[len(w):].strip()
+    return s
+
+
+async def keyword_research(seeds, limit: int = 30, creds: dict | None = None,
+                           location_code: int | None = None,
+                           language_code: str | None = None) -> list[dict]:
+    """💼 วิจัยคีย์เวิร์ดสำหรับขาย — รวมหลายแหล่งให้ได้ผลจริงเสมอ:
+    (1) Keyword Suggestions ของ seed เต็ม (2) ของ 'คำแก่น' หลังตัดคำนำหน้า (3) Keyword Ideas เชิงหมวด
+    → merge + dedupe + เรียงตาม volume · ตัวเลขจริง 100% (no-faking) · crash-safe คืน []"""
+    raw = [str(s).strip() for s in (seeds if isinstance(seeds, (list, tuple)) else [seeds]) if str(s).strip()]
+    if not raw:
+        return []
+    seedset: list[str] = []
+    for s in raw:
+        for cand in (s, _broaden_seed(s)):
+            if cand and cand.lower() not in [x.lower() for x in seedset]:
+                seedset.append(cand)
+    jobs = [keyword_suggestions(s, limit=limit, creds=creds,
+                                location_code=location_code, language_code=language_code)
+            for s in seedset[:4]]
+    jobs.append(keyword_ideas(raw, limit=limit, creds=creds,
+                              location_code=location_code, language_code=language_code))
+    results = await asyncio.gather(*jobs, return_exceptions=True)
+    merged: dict[str, dict] = {}
+    for res in results:
+        if isinstance(res, BaseException) or not res:
+            continue
+        for row in res:
+            k = row["keyword"].lower()
+            prev = merged.get(k)
+            if prev is None or (row.get("volume") or 0) > (prev.get("volume") or 0):
+                merged[k] = row
+    out = list(merged.values())
+    out.sort(key=lambda x: (x["volume"] is None, -(x["volume"] or 0)))
+    return out[:60]
 
 
 async def rank_check(keyword: str, domain: str,
