@@ -325,13 +325,16 @@ def _article_jsonld(proj, art, canonical, home, lang):
         out.append(raw)
     else:
         dt = getattr(art, "updated_at", None)
+        _org = {"@type": "Organization", "name": proj.name or proj.domain, "url": home}
         article = {
             "@context": "https://schema.org", "@type": "Article",
             "headline": art.title, "description": _desc(art),
             "inLanguage": lang, "mainEntityOfPage": canonical,
-            "author": {"@type": "Organization", "name": proj.name or proj.domain},
-            "publisher": {"@type": "Organization", "name": proj.name or proj.domain},
+            "author": _org, "publisher": _org,
         }
+        _cov = getattr(art, "cover_url", "") or ""
+        if _cov:
+            article["image"] = [_cov]              # Article.image → rich result ใน Google
         if dt:
             article["datePublished"] = dt.isoformat()
             article["dateModified"] = dt.isoformat()
@@ -342,6 +345,21 @@ def _article_jsonld(proj, art, canonical, home, lang):
             {"@type": "ListItem", "position": 1, "name": proj.name or proj.domain, "item": home},
             {"@type": "ListItem", "position": 2, "name": art.title, "item": canonical},
         ]}, ensure_ascii=False))
+    # Entity: WebSite + Organization — บอก Google/AI ว่า 'เราคือใคร' (E-E-A-T / entity recognition → ดัน GEO)
+    out.append(json.dumps({"@context": "https://schema.org", "@type": "WebSite",
+                           "name": proj.name or proj.domain, "url": home, "inLanguage": lang},
+                          ensure_ascii=False))
+    _org_entity = {"@context": "https://schema.org", "@type": "Organization",
+                   "name": proj.name or proj.domain, "url": home}
+    _bc = (getattr(proj, "business_context", "") or "").strip()
+    if _bc:
+        _org_entity["description"] = _bc[:200]
+    _sameas = [u for u in re.findall(r"https?://[^\s,;]+", getattr(proj, "brand_terms", "") or "")
+               if any(s in u for s in ("facebook.com", "instagram.com", "linkedin.com", "youtube.com",
+                                       "twitter.com", "x.com", "tiktok.com", "line.me"))][:6]
+    if _sameas:
+        _org_entity["sameAs"] = _sameas            # ลิงก์โซเชียลจริง (ถ้ามีใน brand_terms) → ยืนยันตัวตน
+    out.append(json.dumps(_org_entity, ensure_ascii=False))
     return out
 
 
@@ -417,7 +435,7 @@ def render_article_page(proj, art, related=None) -> str:
 
     header = "" if has_h1 else "<h1>%s</h1>" % _esc(art.title)
     cover = getattr(art, "cover_url", "") or ""
-    cover_html = ('<figure class="cover"><img src="%s" alt="%s" loading="lazy"></figure>'
+    cover_html = ('<figure class="cover"><img src="%s" alt="%s" fetchpriority="high" decoding="async" width="1200" height="675"></figure>'
                   % (_esc(cover), _esc(art.title))) if cover else ""
     return (
         _head(art.title, _desc(art), canonical, lang,
@@ -1040,7 +1058,7 @@ def render_lead_magnet_gate(magnet, proj) -> str:
           'else{b.disabled=false;b.textContent=L.unlock;alert((d&&d.detail)||L.err);}})'
           '.catch(function(){b.disabled=false;b.textContent=L.unlock;alert(L.err);});};})();</script>'
           % cfg)
-    cover_html = ('<img class="cover" src="%s" alt="%s" loading="lazy">' % (cover, title)) if cover else ""
+    cover_html = ('<img class="cover" src="%s" alt="%s" loading="lazy" decoding="async" width="1200" height="675">' % (cover, title)) if cover else ""
     gate_html = (
         '<div class="gate" id="lm-gate"><h3>%s</h3><p>%s</p>'
         '<form id="lm-form">%s'
@@ -1094,7 +1112,8 @@ def render_index_page(proj, arts) -> str:
             '<a class="card" href="%s">%s<div class="ey">%s</div><div class="t">%s</div>'
             '<div class="x">%s</div><div class="mt">%s</div></a>'
             % (_esc(a.url or public_url_for(proj, a)),
-               ('<img class="thumb" src="%s" alt="" loading="lazy">' % _esc(getattr(a, "cover_url", "") or ""))
+               ('<img class="thumb" src="%s" alt="%s" loading="lazy" decoding="async" width="400" height="225">'
+                % (_esc(getattr(a, "cover_url", "") or ""), _esc(a.title)))
                if getattr(a, "cover_url", "") else "",
                _esc(getattr(a, "cluster", "") or ("Articles" if en else "บทความ")),
                _esc(a.title), _esc(_desc(a)),
@@ -1152,8 +1171,8 @@ def _latest_cards(proj, arts) -> str:
     for a in arts:
         url = _esc(a.url or public_url_for(proj, a))
         cover = getattr(a, "cover_url", "") or ""
-        thumb = ('<img src="%s" alt="" loading="lazy" style="width:100%%;height:150px;object-fit:cover;display:block">'
-                 % _esc(cover)) if cover else ""
+        thumb = ('<img src="%s" alt="%s" loading="lazy" decoding="async" width="400" height="150" style="width:100%%;height:150px;object-fit:cover;display:block">'
+                 % (_esc(cover), _esc(a.title))) if cover else ""
         out.append(
             '<a href="%s" style="display:block;text-decoration:none;color:inherit;border:1px solid #e5e9f2;'
             'border-radius:14px;overflow:hidden;background:#fff;transition:transform .15s">%s'
