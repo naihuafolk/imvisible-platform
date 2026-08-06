@@ -48,19 +48,24 @@ def indexnow_key_for(host: str) -> str:
     return hashlib.sha256(("%s:%s" % (_INDEXNOW_SALT, h)).encode()).hexdigest()[:32]
 
 
-async def indexnow_submit(url: str, host: str | None = None, key: str | None = None) -> dict:
-    """แจ้ง IndexNow ให้ Bing/Yandex/AI-search มาเก็บ index ทันที (ต่อโดเมน)
+async def indexnow_submit(url: str | None = None, host: str | None = None,
+                          key: str | None = None, urls: list | None = None) -> dict:
+    """แจ้ง IndexNow ให้ Bing/Yandex/AI-search มาเก็บ index ทันที (ต่อโดเมน · รับได้ทั้ง 1 URL หรือหลาย URL)
     ต้องมีไฟล์ {key}.txt ที่ root ของโดเมนนั้น (ถ้าไม่มี IndexNow ปฏิเสธ = ล้มเงียบ ไม่เสียหาย)
     เอกสาร: https://www.indexnow.org/documentation"""
     from urllib.parse import urlparse
-    h = (host or urlparse(url).hostname or "").lower().lstrip(".")
+    lst = [u for u in (urls if urls is not None else ([url] if url else [])) if u][:10000]
+    if not lst:
+        raise RuntimeError("IndexNow: ต้องมี url อย่างน้อย 1 รายการ")
+    h = (host or urlparse(lst[0]).hostname or "").lower().lstrip(".")
     k = key or indexnow_key_for(h)
-    if not (url and h and k):
-        raise RuntimeError("IndexNow: ต้องมี url + host + key")
-    payload = {"host": h, "key": k, "keyLocation": "https://%s/%s.txt" % (h, k), "urlList": [url]}
+    if not (h and k):
+        raise RuntimeError("IndexNow: ต้องมี host + key")
+    payload = {"host": h, "key": k, "keyLocation": "https://%s/%s.txt" % (h, k), "urlList": lst}
     async with httpx.AsyncClient(timeout=30) as c:
         r = await c.post("https://api.indexnow.org/indexnow", json=payload)
-    return {"status_code": r.status_code, "ok": r.status_code in (200, 202), "host": h, "key": k}
+    return {"status_code": r.status_code, "ok": r.status_code in (200, 202),
+            "host": h, "key": k, "count": len(lst)}
 
 
 async def publish_and_index(title: str, html: str, status: str, url_path: str | None,

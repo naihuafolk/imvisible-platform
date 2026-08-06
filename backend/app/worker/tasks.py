@@ -2210,6 +2210,52 @@ async def _social_push_one(project_id: int, per_project: int) -> int:
     return posted
 
 
+@celery_app.task(name="app.worker.tasks.submit_sitemaps")
+def submit_sitemaps() -> str:
+    """♻️ (beat) บอก Google/Bing ให้มาเก็บบทความ 'ครบทุกชิ้น' อัตโนมัติ — แก้รูรั่ว 'ผลิตแล้ว Google ไม่เห็น'"""
+    return _run(_submit_sitemaps())
+
+
+async def _submit_sitemaps() -> str:
+    """ส่ง sitemap ของทุกโปรเจกต์ active เข้า Google (GSC ถ้าต่อไว้) + ยิง IndexNow ทุก URL (Bing/AI-search)"""
+    from app.db.models import Project, Article
+    from app.public import project_public_home
+    from app.connectors import gsc as _gsc, publish as _pub
+    from app import creds as _creds
+    if not db.enabled():
+        return "DB not configured"
+    async with db.session() as s:
+        pids = list((await s.execute(select(Project.id).where(Project.active == True))).scalars().all())
+    gsc_ok = idx_urls = 0
+    for pid in pids:
+        try:
+            async with db.session() as s:
+                proj = await s.get(Project, pid)
+                if not proj or not proj.domain:
+                    continue
+                home = project_public_home(proj)
+                urls = list((await s.execute(select(Article.url).where(
+                    Article.project_id == pid, Article.status == "published",
+                    Article.url != ""))).scalars().all())
+            sitemap_url = home.rstrip("/") + "/sitemap.xml"
+            g = await _creds.get_creds(pid, "gsc")           # 1) Google Search Console (ตัวหลักฝั่ง Google)
+            if g:
+                try:
+                    await _gsc.submit_sitemap("sc-domain:" + proj.domain, sitemap_url, creds=g)
+                    gsc_ok += 1
+                except Exception:  # noqa: BLE001
+                    pass
+            if urls:                                         # 2) IndexNow (Bing/AI) — ยิงทุก URL ในคำขอเดียว
+                try:
+                    await _pub.indexnow_submit(urls=urls)
+                    idx_urls += len(urls)
+                except Exception:  # noqa: BLE001
+                    pass
+        except Exception:  # noqa: BLE001
+            continue
+    return "sitemaps auto: GSC %d proj · IndexNow %d url" % (gsc_ok, idx_urls)
+
+
 # ============================================================
 # 🩺 Self-Check — เฝ้าระบบ + ซ่อมเบา ๆ อัตโนมัติทุกวัน → เตือน LINE เมื่อมีปัญหา
 # ============================================================

@@ -35,6 +35,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.grow_all_projects",
         "schedule": crontab(hour=2, minute=0),
     },
+    "submit-sitemaps-daily": {       # ⚡ ออโต้บอก Google(GSC)+Bing(IndexNow) ให้เก็บบทความครบทุกวัน 02:45 (หลังผลิต 02:00)
+        "task": "app.worker.tasks.submit_sitemaps",
+        "schedule": crontab(hour=2, minute=45),
+    },
     "measure-rank-daily": {          # M5 · เช็กอันดับทุกวัน 06:00
         "task": "app.worker.tasks.measure_all_ranks",
         "schedule": crontab(hour=6, minute=0),

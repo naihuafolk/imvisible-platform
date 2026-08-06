@@ -79,7 +79,7 @@
       : '<div class="soft small center" style="padding:14px">ทุกหน้ายังสดใหม่ (ไม่เกิน ' + dd.freshness_days + ' วัน) 🎉</div>';
     return ui.card({
       title: '📊 สุขภาพ SEO/AEO (จากข้อมูลจริง)', sub: 'คำนวณจากบทความจริงในโปรเจ็คนี้ · ' + esc(dd.note || ''),
-      action: '<button class="btn btn-sm" id="sm_submit" title="ส่ง sitemap เข้า Google Search Console (ต้องเชื่อม GSC + โดเมนถูก verify)">↗ ส่ง sitemap เข้า Google</button>',
+      action: '<span class="soft small" title="ระบบส่ง sitemap เข้า Google (GSC) + Bing/AI (IndexNow) ให้อัตโนมัติทุกวัน">⚙️ ส่ง sitemap: <b>อัตโนมัติทุกวัน</b></span>',
       cls: 'mb', body: kpis + fresh
     });
   }
@@ -351,18 +351,7 @@
         var aslot = root.querySelector('#seo_audit_slot');
         if (aslot) RP.api.seoAudit(pid).then(function (au) {
           if (au && au.articles) {
-            aslot.innerHTML = seoAuditCard(au);
-            var sm = aslot.querySelector('#sm_submit');
-            if (sm) sm.onclick = function () {
-              sm.disabled = true; sm.textContent = 'กำลังส่ง…';
-              RP.api.submitSitemap(pid).then(function (r) {
-                sm.disabled = false; sm.textContent = '↗ ส่ง sitemap เข้า Google';
-                RP.ui.toast(r && r.ok ? 'ส่ง sitemap เข้า Google แล้ว ✓' : 'ส่งแล้ว (สถานะ ' + ((r && r.status_code) || '?') + ') — โดเมนต้องถูก verify ใน GSC');
-              }).catch(function (e) {
-                sm.disabled = false; sm.textContent = '↗ ส่ง sitemap เข้า Google';
-                RP.ui.toast('ส่งไม่สำเร็จ: ' + RP.esc((e && e.message) || String(e)));
-              });
-            };
+            aslot.innerHTML = seoAuditCard(au);   // ส่ง sitemap = อัตโนมัติทุกวัน (beat: submit_sitemaps) ไม่มีปุ่มมือแล้ว
           }
         }).catch(function () {});
 
