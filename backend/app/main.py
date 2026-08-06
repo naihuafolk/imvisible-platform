@@ -1090,6 +1090,45 @@ async def pantip_reply(req: PantipReplyRequest, user=Depends(get_current_user)):
             "note": "ตรวจให้เข้ากับกระทู้ก่อนโพสต์เอง · ตอบให้ตรงคำถาม ห้ามยัดลิงก์/โฆษณา"}
 
 
+@app.get("/api/projects/{project_id}/indexnow")
+async def indexnow_info(project_id: int, user=Depends(get_current_user)):
+    """⚡ คีย์ IndexNow 'ต่อโดเมน' ของโปรเจกต์ + ไฟล์ที่ต้องวาง — วางครั้งเดียว → ทุกบทความใหม่
+    ถูกแจ้ง index ทันที (Bing/Yandex + AI-search ที่ใช้ Bing เช่น ChatGPT/Copilot) = ติดไวขึ้นมาก"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from urllib.parse import urlparse
+    from app.db.models import Project
+    from app.connectors import publish as pub
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p or p.user_id != user["id"]:
+            raise HTTPException(404, "ไม่พบโปรเจ็ค")
+        domain = (getattr(p, "custom_domain", "") or p.domain or "").strip()
+    host = (urlparse(domain if "://" in domain else "https://" + domain).hostname or "").lower().lstrip(".")
+    if not host:
+        raise HTTPException(422, "โปรเจ็คนี้ยังไม่มีโดเมน — เพิ่มโดเมนก่อน")
+    key = pub.indexnow_key_for(host)
+    managed = bool(pub_settings_indexnow_host() and host == pub_settings_indexnow_host())
+    return {
+        "host": host, "key": key,
+        "file_name": key + ".txt",
+        "file_content": key,
+        "file_url": "https://%s/%s.txt" % (host, key),
+        "managed": managed,   # true = โดเมนที่เราโฮสต์ให้ (วางไฟล์ให้แล้ว ไม่ต้องทำอะไร)
+        "instructions": (
+            "โดเมนนี้เราโฮสต์ให้ — วางไฟล์คีย์ให้เรียบร้อยแล้ว บทความใหม่จะถูกเร่ง index อัตโนมัติ ✅"
+            if managed else
+            "สร้างไฟล์ชื่อ “%s.txt” ข้างในพิมพ์ “%s” แล้ววางที่ root ของ %s (เปิดได้ที่ https://%s/%s.txt) "
+            "→ จากนั้นทุกบทความใหม่จะถูกแจ้ง index อัตโนมัติทันที · ทำครั้งเดียวใช้ยาว" % (key, key, host, host, key)
+        ),
+    }
+
+
+def pub_settings_indexnow_host() -> str:
+    from app.config import settings as _s
+    return (getattr(_s, "indexnow_host", "") or "").lower()
+
+
 @app.put("/api/projects/{project_id}/publish")
 async def set_publish_target(project_id: int, req: PublishTargetUpdate, user=Depends(get_current_user)):
     """ตั้งปลายทางเผยแพร่ของโปรเจ็ค: managed (เราโฮสต์ให้) / wordpress / none + custom domain"""

@@ -3,9 +3,13 @@
 - WordPress REST API (Application Password)
 - IndexNow (Bing/Yandex) แจ้ง URL ทันทีที่เผยแพร่
 """
+import hashlib
+
 import httpx
 
 from app.config import settings
+
+_INDEXNOW_SALT = "imvisible-indexnow-v1"   # salt คงที่ → คีย์ 'ต่อโดเมน' เสถียร (วางไฟล์ครั้งเดียวใช้ยาว)
 
 
 async def wordpress_publish(title: str, html: str, status: str = "draft",
@@ -33,35 +37,44 @@ async def wordpress_publish(title: str, html: str, status: str = "draft",
     return {"id": data.get("id"), "link": data.get("link"), "status": data.get("status")}
 
 
-async def indexnow_submit(url: str) -> dict:
-    """
-    แจ้ง IndexNow ให้ Search Engine มาเก็บ index ทันที
-    เอกสาร: https://www.indexnow.org/documentation
-    ต้องวางไฟล์ {key}.txt ไว้ที่ root ของเว็บก่อน
-    """
-    if not (settings.indexnow_key and settings.indexnow_host):
-        raise RuntimeError("ยังไม่ได้ตั้งค่า INDEXNOW_KEY / INDEXNOW_HOST")
-    payload = {
-        "host": settings.indexnow_host,
-        "key": settings.indexnow_key,
-        "keyLocation": f"https://{settings.indexnow_host}/{settings.indexnow_key}.txt",
-        "urlList": [url],
-    }
+def indexnow_key_for(host: str) -> str:
+    """คีย์ IndexNow แบบ 'ต่อโดเมน' (deterministic) — วางไฟล์ {key}.txt บนโดเมนนั้นครั้งเดียวใช้ยาว
+    โดเมน managed กลาง = ใช้คีย์เดิมจาก settings (ไฟล์เดิมใช้ได้) · โดเมนอื่น = คำนวณใหม่ต่อ host"""
+    h = (host or "").strip().lower().lstrip(".")
+    if not h:
+        return ""
+    if settings.indexnow_host and h == settings.indexnow_host.lower() and settings.indexnow_key:
+        return settings.indexnow_key
+    return hashlib.sha256(("%s:%s" % (_INDEXNOW_SALT, h)).encode()).hexdigest()[:32]
+
+
+async def indexnow_submit(url: str, host: str | None = None, key: str | None = None) -> dict:
+    """แจ้ง IndexNow ให้ Bing/Yandex/AI-search มาเก็บ index ทันที (ต่อโดเมน)
+    ต้องมีไฟล์ {key}.txt ที่ root ของโดเมนนั้น (ถ้าไม่มี IndexNow ปฏิเสธ = ล้มเงียบ ไม่เสียหาย)
+    เอกสาร: https://www.indexnow.org/documentation"""
+    from urllib.parse import urlparse
+    h = (host or urlparse(url).hostname or "").lower().lstrip(".")
+    k = key or indexnow_key_for(h)
+    if not (url and h and k):
+        raise RuntimeError("IndexNow: ต้องมี url + host + key")
+    payload = {"host": h, "key": k, "keyLocation": "https://%s/%s.txt" % (h, k), "urlList": [url]}
     async with httpx.AsyncClient(timeout=30) as c:
         r = await c.post("https://api.indexnow.org/indexnow", json=payload)
-        return {"status_code": r.status_code, "ok": r.status_code in (200, 202)}
+    return {"status_code": r.status_code, "ok": r.status_code in (200, 202), "host": h, "key": k}
 
 
 async def publish_and_index(title: str, html: str, status: str, url_path: str | None,
                             creds: dict | None = None) -> dict:
+    from urllib.parse import urlparse
     result: dict = {"wordpress": await wordpress_publish(title, html, status, creds)}
     link = result["wordpress"].get("link")
     ping_url = link or (
-        f"https://{settings.indexnow_host}{url_path}" if (settings.indexnow_host and url_path) else None
+        "https://%s%s" % (settings.indexnow_host, url_path) if (settings.indexnow_host and url_path) else None
     )
-    if ping_url and settings.indexnow_key and settings.indexnow_host:
-        try:
-            result["indexnow"] = await indexnow_submit(ping_url)
+    if ping_url:
+        host = (urlparse(ping_url).hostname or "").lower()
+        try:                                    # ยิงด้วยคีย์ 'ต่อโดเมน' ของ URL นั้น · ล้มเงียบถ้ายังไม่วางไฟล์คีย์
+            result["indexnow"] = await indexnow_submit(ping_url, host=host)
         except Exception as e:  # noqa: BLE001
             result["indexnow"] = {"error": str(e)}
     return result

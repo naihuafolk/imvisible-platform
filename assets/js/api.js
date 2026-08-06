@@ -110,6 +110,7 @@
     siteHealthFix: function (pid) { return api._post('/api/projects/' + pid + '/site-health/fix', {}); },
     perfAudit: function (pid) { return api._post('/api/projects/' + pid + '/audit/performance', {}); },
     submitSitemap: function (pid) { return api._post('/api/projects/' + pid + '/sitemap/submit', {}); },
+    indexnowInfo: function (pid) { return api._get('/api/projects/' + pid + '/indexnow'); },
     articleAeo: function (aid) { return api._get('/api/articles/' + aid + '/aeo'); },
     articleOptimize: function (aid) { return api._post('/api/articles/' + aid + '/optimize', {}); },
     // ---- M4 approve workflow ----
