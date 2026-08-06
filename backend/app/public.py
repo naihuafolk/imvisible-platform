@@ -1256,6 +1256,17 @@ async def host_robots(request: Request):
     return PlainTextResponse(render_robots(proj))
 
 
+@router.get("/{key}.txt", response_class=PlainTextResponse)
+async def host_indexnow_key(key: str, request: Request):
+    """เสิร์ฟไฟล์คีย์ IndexNow อัตโนมัติ สำหรับโดเมนที่เราโฮสต์ root (custom domain / subdomain)
+    → IndexNow ยืนยันได้เอง ไม่ต้องวางไฟล์มือ · ต้องมาหลัง route .txt เฉพาะ (robots/llms) เพื่อไม่ชนกัน"""
+    from app.connectors.publish import indexnow_key_for
+    host = _host(request)
+    if host and key and len(key) == 32 and key == indexnow_key_for(host):
+        return PlainTextResponse(key)
+    return PlainTextResponse("not found", status_code=404)
+
+
 def Response_xml(body: str):
     from fastapi.responses import Response
     return Response(content=body, media_type="application/xml")
