@@ -23,17 +23,22 @@ def _headers() -> dict:
 
 
 async def _fal_image(prompt: str, image_size: str = "landscape_16_9") -> str:
-    """fal.ai (FLUX) — text→image · sync endpoint fal.run · auth 'Key id:secret' · คืน URL รูป"""
-    model = settings.fal_image_model or "fal-ai/flux/schnell"
+    """fal.ai (FLUX) — text→image · sync endpoint fal.run · auth 'Key id:secret' · คืน URL รูป
+    default = flux/dev (คุณภาพดี คุ้มราคา) · อยากพรีเมียมสุด ตั้ง FAL_IMAGE_MODEL=fal-ai/flux-pro/v1.1 (หรือ v1.1-ultra)"""
+    model = settings.fal_image_model or "fal-ai/flux/dev"
     headers = {"Authorization": "Key " + settings.fal_key, "Content-Type": "application/json"}
     body = {"prompt": prompt, "num_images": 1}
     if "seedream" in model:                        # Seedream: image_size = object {width,height} 16:9 HD + enhance
         body["image_size"] = {"width": 1920, "height": 1080}
         body["enhance_prompt_mode"] = "standard"
-    elif "flux-pro" in model or "ultra" in model:  # flux-pro/ultra ใช้ aspect_ratio
+    elif "flux-pro" in model or "ultra" in model:  # flux-pro/ultra ใช้ aspect_ratio (คุณภาพสูงสุด)
         body["aspect_ratio"] = "16:9"
     else:                                          # flux schnell/dev ใช้ image_size (enum string)
         body["image_size"] = image_size
+        if "schnell" not in model:                 # flux/dev รับ step/guidance → คมขึ้นชัด (schnell distilled ไม่รับ)
+            body["num_inference_steps"] = 30
+            body["guidance_scale"] = 3.5
+            body["enable_safety_checker"] = True
     async with httpx.AsyncClient(timeout=120) as c:
         r = await c.post("https://fal.run/" + model, headers=headers, json=body)
         r.raise_for_status()
