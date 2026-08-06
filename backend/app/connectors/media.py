@@ -22,24 +22,29 @@ def _headers() -> dict:
     return {"Authorization": "Bearer " + settings.ark_api_key, "Content-Type": "application/json"}
 
 
-async def _fal_image(prompt: str, image_size: str = "landscape_16_9") -> str:
-    """fal.ai (FLUX) — text→image · sync endpoint fal.run · auth 'Key id:secret' · คืน URL รูป
-    default = flux/dev (คุณภาพดี คุ้มราคา) · อยากพรีเมียมสุด ตั้ง FAL_IMAGE_MODEL=fal-ai/flux-pro/v1.1 (หรือ v1.1-ultra)"""
-    model = settings.fal_image_model or "fal-ai/flux/dev"
+async def _fal_image(prompt: str, image_size: str = "landscape_16_9", model: str | None = None) -> str:
+    """fal.ai — text→image · sync endpoint fal.run · auth 'Key id:secret' · คืน URL รูป
+    รองรับ gpt-image-1 (OpenAI ผ่าน fal · BYOK), seedream, flux-pro/ultra/imagen/recraft/ideogram, flux dev/schnell"""
+    model = model or settings.fal_image_model or "fal-ai/gpt-image-1"
     headers = {"Authorization": "Key " + settings.fal_key, "Content-Type": "application/json"}
     body = {"prompt": prompt, "num_images": 1}
-    if "seedream" in model:                        # Seedream: image_size = object {width,height} 16:9 HD + enhance
+    if "gpt-image" in model:                       # GPT-Image-1 (OpenAI ผ่าน fal) — คุณภาพสายจริงสูงสุด · ใช้คีย์ OpenAI เดิม (BYOK)
+        body["image_size"] = "1536x1024"
+        body["quality"] = "high"
+        if settings.openai_api_key:
+            body["openai_api_key"] = settings.openai_api_key
+    elif "seedream" in model:                      # Seedream: image_size = object {width,height} 16:9 HD + enhance
         body["image_size"] = {"width": 1920, "height": 1080}
         body["enhance_prompt_mode"] = "standard"
-    elif "flux-pro" in model or "ultra" in model:  # flux-pro/ultra ใช้ aspect_ratio (คุณภาพสูงสุด)
-        body["aspect_ratio"] = "16:9"
+    elif any(k in model for k in ("flux-pro", "ultra", "imagen", "recraft", "ideogram")):
+        body["aspect_ratio"] = "16:9"             # โมเดลพรีเมียมกลุ่มนี้ใช้ aspect_ratio
     else:                                          # flux schnell/dev ใช้ image_size (enum string)
         body["image_size"] = image_size
         if "schnell" not in model:                 # flux/dev รับ step/guidance → คมขึ้นชัด (schnell distilled ไม่รับ)
             body["num_inference_steps"] = 30
             body["guidance_scale"] = 3.5
             body["enable_safety_checker"] = True
-    async with httpx.AsyncClient(timeout=120) as c:
+    async with httpx.AsyncClient(timeout=180) as c:
         r = await c.post("https://fal.run/" + model, headers=headers, json=body)
         r.raise_for_status()
         data = r.json()
@@ -61,9 +66,19 @@ async def _fal_image(prompt: str, image_size: str = "landscape_16_9") -> str:
 
 
 async def generate_image(prompt: str, size: str = "2K") -> str:
-    """text→image · ใช้ fal.ai (FLUX) ถ้าตั้ง FAL_KEY ไว้ ไม่งั้นใช้ Seedream (ModelArk) · คืน URL รูป"""
+    """text→image · fal.ai ก่อน (ลองโมเดลหลัก → fallback อัตโนมัติกัน error) ไม่งั้น Seedream (ModelArk) · คืน URL รูป"""
     if settings.fal_key:
-        return await _fal_image(prompt, "landscape_16_9")
+        primary = settings.fal_image_model or "fal-ai/gpt-image-1"
+        tries = [primary] + (["fal-ai/flux-pro/v1.1"] if "flux-pro/v1.1" not in primary else [])
+        for m in tries:                            # ลองโมเดลหลักก่อน (เช่น GPT-Image) ล้ม→ตกไป flux-pro
+            try:
+                url = await _fal_image(prompt, "landscape_16_9", model=m)
+                if url:
+                    return url
+            except Exception:  # noqa: BLE001
+                continue
+        if not settings.ark_api_key:               # fal ล้มหมด + ไม่มี ModelArk → คืนว่าง (caller crash-safe)
+            return ""
     url = settings.ark_base_url.rstrip("/") + "/images/generations"
     payload = {"model": settings.ark_image_model, "prompt": prompt,
                "size": size, "output_format": "png", "watermark": False}

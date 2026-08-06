@@ -77,7 +77,7 @@ class Settings(BaseSettings):
     ark_video_model: str = ""
     # 9b) fal.ai (FLUX) — ผู้ให้บริการรูปทางเลือก · คีย์รูปแบบ id:secret · ถ้าตั้งไว้จะใช้ fal ก่อน ModelArk
     fal_key: str = ""
-    fal_image_model: str = "fal-ai/bytedance/seedream/v4/text-to-image"   # Seedream v4 (ByteDance) — รูปสวยสุดสำหรับ editorial · ทางเลือก: flux-pro/v1.1-ultra
+    fal_image_model: str = "fal-ai/gpt-image-1"   # GPT-Image-1 (OpenAI ผ่าน fal · BYOK ด้วย OPENAI_API_KEY) — คุณภาพสายจริงสูงสุด · fallback อัตโนมัติเป็น flux-pro/v1.1
     fal_video_model: str = ""   # เปิดวิดีโอ hero 'ในบทความ' ผ่าน fal.ai (เว้นว่าง=ปิด) · ช้า+แพงกว่ารูปมาก
     # วิดีโอ hero 'ในสื่อแจกฟรี/คอร์ส' — เปิดไว้ (ใช้โมเดลวิดีโอดีสุด fal Kling) · แยกจากบทความเพื่อไม่ให้ทุกบทความช้า
     lead_magnet_video: bool = True
