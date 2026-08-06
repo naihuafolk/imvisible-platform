@@ -177,6 +177,19 @@ class BacklinkOutreachRequest(BaseModel):
     kind: str = "mention"            # mention | resource | guest
 
 
+class PantipRadarRequest(BaseModel):
+    keyword: str = ""                # หัวข้อ/คีย์เวิร์ดที่อยากหากระทู้ Pantip ติดหน้า 1
+    business: str = ""               # บริบทธุรกิจ (เสริม query ให้ตรงขึ้น)
+
+
+class PantipReplyRequest(BaseModel):
+    url: str = ""                    # ลิงก์กระทู้
+    title: str = ""                  # หัวข้อกระทู้ (ใช้ร่างคำตอบ)
+    snippet: str = ""                # ข้อความย่อจาก SERP (บริบท)
+    brand: str = ""                  # แบรนด์ (ห้ามโฆษณาโต้ง ๆ) — ว่าง= ImVisible
+    reference: str = ""              # ลิงก์อ้างอิงที่จะแนบถ้าเกี่ยวจริง (ว่างได้)
+
+
 class LeadMagnetCreate(BaseModel):
     kind: str = "guide"              # course | guide | checklist | template
     topic: str = ""                  # หัวข้อสื่อที่อยากแจก

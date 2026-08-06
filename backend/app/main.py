@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, KeywordReportRequest, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
+    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -1048,6 +1048,46 @@ async def keyword_report(req: KeywordReportRequest, user=Depends(get_current_use
             "keywords": sellable, "groups": groups, "summary": summary,
             "note": "แยกตามเจตนาการค้นหา · ปริมาณค้นหา = Google Ads (DataForSEO) · "
                     "ความยาก = Keyword Difficulty 0-100 (ต่ำ=ง่ายติดหน้า 1) · ตัวเลขจริง ตรวจย้อนได้"}
+
+
+@app.post("/api/pantip-radar")
+async def pantip_radar(req: PantipRadarRequest, user=Depends(get_current_user)):
+    """🎯 เรดาร์ Pantip — หากระทู้ที่ 'ติดหน้า 1 Google' สำหรับหัวข้อเรา (SERP จริง)
+    ไปตอบให้มีประโยชน์ = ยืมทราฟฟิก+ความน่าเชื่อถือที่กระทู้นั้นมีอยู่แล้ว (ต้องโพสต์เอง ห้ามสแปม/auto)"""
+    from app.connectors import serp
+    from app.config import settings as S
+    if not (S.dataforseo_login and S.dataforseo_password):
+        raise HTTPException(503, "ยังไม่ได้ตั้งคีย์ DataForSEO — ต้องมีเพื่อดึงผลอันดับ Google จริง")
+    kw = (req.keyword or "").strip()
+    if not kw:
+        raise HTTPException(422, "ใส่คีย์เวิร์ด/หัวข้อก่อน")
+    biz = (req.business or "").strip()
+    # สร้างชุด query ที่ Pantip มักติดหน้า 1 (คำถาม/รีวิว/ความเห็น)
+    queries = [kw, kw + " pantip", kw + " ดีไหม", kw + " รีวิว", kw + " ที่ไหนดี pantip"]
+    if biz:
+        queries += [biz + " pantip", biz + " ดีไหม pantip"]
+    try:
+        threads = await serp.pantip_page1(queries)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ดึงผล SERP ไม่ได้ (ตรวจเครดิต/คีย์ DataForSEO): " + str(e)[:150])
+    return {"keyword": kw, "business": biz, "threads": threads, "count": len(threads),
+            "note": "กระทู้ Pantip ที่ติดหน้า 1 Google สำหรับหัวข้อนี้ · ไปตอบให้ 'มีประโยชน์จริง' "
+                    "= ยืมทราฟฟิก+ความน่าเชื่อถือที่มีอยู่แล้ว · ต้องรีวิว+โพสต์เอง (ขาว ไม่สแปม ไม่ auto)"}
+
+
+@app.post("/api/pantip-reply")
+async def pantip_reply(req: PantipReplyRequest, user=Depends(get_current_user)):
+    """✍️ ร่างคำตอบกระทู้แบบ 'ช่วยจริง ไม่ขายของ' ให้เอาไปตรวจ+โพสต์เอง (ไม่โพสต์อัตโนมัติ = ไม่โดนแบน)"""
+    from app.connectors import discovery
+    brand = (req.brand or "ImVisible").strip()
+    ref = (req.reference or "").strip()
+    try:
+        out = await discovery.draft_reply(req.title or "", req.snippet or "", ref, brand)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ร่างคำตอบไม่ได้: " + str(e)[:150])
+    return {"reply": (out or {}).get("text", ""), "provider": (out or {}).get("provider"),
+            "url": req.url or "",
+            "note": "ตรวจให้เข้ากับกระทู้ก่อนโพสต์เอง · ตอบให้ตรงคำถาม ห้ามยัดลิงก์/โฆษณา"}
 
 
 @app.put("/api/projects/{project_id}/publish")

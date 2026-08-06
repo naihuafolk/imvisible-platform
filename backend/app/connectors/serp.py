@@ -414,6 +414,31 @@ async def search(query: str, n: int = 8,
     } for it in organic[:n]]
 
 
+async def pantip_page1(keywords, creds: dict | None = None,
+                       location_code: int | None = None,
+                       language_code: str | None = None) -> list[dict]:
+    """🎯 หากระทู้ Pantip ที่ 'ติดหน้า 1 Google' สำหรับหัวข้อของเรา — ไปตอบให้มีประโยชน์ = ยืมทราฟฟิก
+    + ความน่าเชื่อถือที่กระทู้นั้นมีอยู่แล้ว · คืน [{query, rank(1-10), title, url, snippet}] · crash-safe คืน []"""
+    qs = [str(k).strip() for k in (keywords or []) if str(k).strip()][:8]
+    seen, out = set(), []
+    for q in qs:
+        try:
+            rows = await search(q, n=10, creds=creds,
+                                location_code=location_code, language_code=language_code)
+        except Exception:  # noqa: BLE001
+            continue
+        for i, r in enumerate(rows):
+            url = (r.get("url") or "").strip()
+            dom = (r.get("domain") or "").lower()
+            if "pantip.com" not in dom or not url or url in seen:
+                continue
+            seen.add(url)
+            out.append({"query": q, "rank": i + 1, "title": r.get("title") or url,
+                        "url": url, "snippet": r.get("snippet") or ""})
+    out.sort(key=lambda x: (x["rank"], x["query"]))
+    return out
+
+
 async def top_competitors(keyword: str, n: int = 5,
                           location_code: int | None = None,
                           language_code: str | None = None,
