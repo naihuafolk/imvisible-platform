@@ -226,3 +226,26 @@ class DraftRequest(BaseModel):
     question: str                    # กระทู้/คำถามในชุมชนที่จะร่างคำตอบให้
     snippet: str = ""
     url: str = ""                    # ลิงก์บทความอ้างอิง (ใส่ถ้าเกี่ยวข้องจริง)
+
+
+class SocialRadarRequest(BaseModel):
+    keyword: str = ""                # หัวข้อ/คีย์เวิร์ดที่อยากหาหน้า Reddit/Quora/Medium ติดหน้า 1
+    business: str = ""               # บริบทธุรกิจ (เสริม query ให้ตรงขึ้น)
+    sites: list[str] = ["reddit.com", "quora.com", "medium.com"]  # แพลตฟอร์มที่จะสแกน (GEO)
+
+
+class BacklinkGapsRequest(BaseModel):
+    competitors: list[str] = []      # โดเมนคู่แข่ง (เช่น competitor.com) — หาว่าใครลิงก์หาพวกเขา
+    domain: str = ""                 # โดเมนเราเอง (ตัดออกจากผล ไม่นับเป็นโอกาส) — ว่างได้
+    limit: int = 100                 # จำนวน referring domains ต่อคู่แข่งที่ดึงมาวิเคราะห์
+
+
+class ContentGapRequest(BaseModel):
+    domain: str = ""                 # โดเมนเว็บของเรา (ตัดออกจากช่องว่าง = คีย์ที่เราติดแล้ว)
+    competitors: list[str] = []      # โดเมนคู่แข่ง (สูงสุด 5 ราย — คุมเครดิต)
+    limit: int = 100                 # จำนวนคีย์ต่อโดเมนที่ดึงมาเทียบ
+
+
+class SnippetSniperRequest(BaseModel):
+    keyword: str = ""                # คีย์เวิร์ดเดี่ยว (สะดวกกรณียิงคำเดียว)
+    keywords: list[str] = []         # หลายคีย์พร้อมกัน (สูงสุด 8 คำ/รอบ = 8 SERP calls)

@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, KeywordReportRequest, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
+    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -1127,6 +1127,191 @@ async def indexnow_info(project_id: int, user=Depends(get_current_user)):
 def pub_settings_indexnow_host() -> str:
     from app.config import settings as _s
     return (getattr(_s, "indexnow_host", "") or "").lower()
+
+
+# ---- reddit_quora_radar ----
+# import ที่ต้องเพิ่ม: ไม่มี — main.py มี HTTPException/Depends/get_current_user อยู่แล้ว
+#   ต้องเพิ่ม SocialRadarRequest ใน import จาก app.schemas ที่หัว main.py (ดู schema_code)
+#   วางต่อจาก endpoint pantip_reply (~บรรทัด 1091)
+
+@app.post("/api/social-radar")
+async def social_radar(req: SocialRadarRequest, user=Depends(get_current_user)):
+    """🌐 เรดาร์ GEO — หาหน้า Reddit · Quora · Medium ที่ 'ติดหน้า 1 Google' สำหรับหัวข้อเรา (SERP จริง)
+    AI (ChatGPT/Perplexity) อ้างอิงชุมชนพวกนี้หนักมาก → ไปตอบให้มีประโยชน์ = ดัน GEO
+    (ต้องรีวิว+โพสต์เอง ห้ามสแปม/auto)"""
+    from app.connectors import growth
+    from app.config import settings as S
+    if not (S.dataforseo_login and S.dataforseo_password):
+        raise HTTPException(503, "ยังไม่ได้ตั้งคีย์ DataForSEO — ต้องมีเพื่อดึงผลอันดับ Google จริง")
+    kw = (req.keyword or "").strip()
+    if not kw:
+        raise HTTPException(422, "ใส่คีย์เวิร์ด/หัวข้อก่อน")
+    biz = (req.business or "").strip()
+    sites = tuple(s.strip().lower() for s in (req.sites or []) if s.strip()) or \
+        ("reddit.com", "quora.com", "medium.com")
+    # สร้างชุด query ที่ชุมชนต่างชาติมักติดหน้า 1 (คำถาม/รีวิว/แนะนำ — reddit/quora ส่วนใหญ่อังกฤษ)
+    queries = [kw, kw + " reddit", kw + " quora", kw + " review",
+               kw + " best", kw + " recommendations"]
+    if biz:
+        queries += [biz + " reddit", biz + " review"]
+    try:
+        threads = await growth.social_radar(queries, sites=sites)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ดึงผล SERP ไม่ได้ (ตรวจเครดิต/คีย์ DataForSEO): " + str(e)[:150])
+    return {"keyword": kw, "business": biz, "sites": list(sites),
+            "threads": threads, "count": len(threads),
+            "note": "หน้า Reddit/Quora/Medium ที่ติดหน้า 1 Google สำหรับหัวข้อนี้ · AI อ้างอิงชุมชนพวกนี้บ่อย "
+                    "→ ไปตอบให้ 'มีประโยชน์จริง' = ดัน GEO + ยืมความน่าเชื่อถือที่มีอยู่แล้ว · "
+                    "ต้องรีวิว+โพสต์เอง (ขาว ไม่สแปม ไม่ auto)"}
+
+
+# ---- competitor_backlink ----
+# import ที่ต้องเพิ่มบนหัว main.py: from app.schemas import BacklinkGapsRequest
+#   (เพิ่มชื่อ BacklinkGapsRequest เข้าไปใน import schemas ที่มีอยู่แล้ว — pattern เดียวกับ KeywordReportRequest/PantipRadarRequest)
+# วางต่อท้าย main.py ใกล้ ๆ keyword_report/pantip_radar (~บรรทัด 1076)
+
+@app.post("/api/backlink-gaps")
+async def backlink_gaps(req: BacklinkGapsRequest, user=Depends(get_current_user)):
+    """🔗 Backlink Gap Mining (#10) — ใส่โดเมนคู่แข่ง → หา 'ใครลิงก์หาคู่แข่งหลายเจ้า' = แหล่งที่เราควรไปขอลิงก์ (outreach)
+    ตัวเลข/โดเมนจริงจาก DataForSEO Backlinks API · ตัดโดเมนเราเอง+ตัวคู่แข่งเองออกให้ · คนเอาไปติดต่อเอง (white-hat ไม่ซื้อ ไม่สแปม)"""
+    from app.connectors import growth
+    from app.config import settings as S
+    if not (S.dataforseo_login and S.dataforseo_password):
+        raise HTTPException(503, "ยังไม่ได้ตั้งคีย์ DataForSEO — ต้องมีเพื่อดึงข้อมูล backlink 'จริง' (Backlinks API เป็นแพ็กเกจแยก)")
+    comps = [str(c).strip() for c in (req.competitors or []) if str(c).strip()]
+    if not comps:
+        raise HTTPException(422, "ใส่โดเมนคู่แข่งอย่างน้อย 1 โดเมนก่อน (เช่น competitor.com)")
+    our = (req.domain or "").strip()
+    try:
+        opportunities = await growth.backlink_gaps(comps, our_domain=our, limit=req.limit or 100)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ขุด backlink gap ไม่ได้ (ตรวจเครดิต/สิทธิ์ Backlinks API ของ DataForSEO): " + str(e)[:150])
+    return {"competitors": comps, "domain": our,
+            "opportunities": opportunities, "count": len(opportunities),
+            "note": "โดเมนที่ลิงก์ให้คู่แข่งหลายเจ้า = โอกาสได้ลิงก์สูงสุด (จัดอันดับตามจำนวนคู่แข่ง→rank) · "
+                    "ตัวเลขจริงจาก DataForSEO Backlinks · ไปติดต่อขอลิงก์เอง (white-hat ไม่ซื้อ ไม่สแปม)"}
+
+
+# ---- content_gap ----
+# วางต่อท้าย backend/app/main.py (หลัง endpoint pantip_radar/pantip_reply)
+# import ที่ต้องเพิ่ม: เพิ่ม ContentGapRequest เข้าใน 'from app.schemas import (...)' บล็อกบนหัวไฟล์ (บรรทัด ~25)
+@app.post("/api/content-gaps")
+async def content_gaps(req: ContentGapRequest, user=Depends(get_current_user)):
+    """🎯 Content Gap Capture — คีย์ที่ 'คู่แข่งติดหน้า 1-2 แต่เราไม่มี' = ช่องว่างผลิตคอนเทนต์แซงได้
+    ดึงคีย์ที่คู่แข่งติดจริง (DataForSEO Labs) ลบคีย์ที่เราติดแล้ว → คืนพร้อมปริมาณค้นหา/ความยาก 'จริง'"""
+    from app.connectors import growth
+    from app.config import settings as S
+    if not (S.dataforseo_login and S.dataforseo_password):
+        raise HTTPException(503, "ยังไม่ได้ตั้งคีย์ DataForSEO — ต้องมีเพื่อดึงคีย์ที่ติดอันดับ 'จริง'")
+    our = (req.domain or "").strip()
+    comps = [c for c in (req.competitors or []) if str(c).strip()]
+    if not our:
+        raise HTTPException(422, "กรุณาระบุโดเมนเว็บของเราก่อน")
+    if not comps:
+        raise HTTPException(422, "กรุณาระบุโดเมนคู่แข่งอย่างน้อย 1 ราย")
+    try:
+        gaps = await growth.content_gaps(our, comps, limit=req.limit or 100)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ดึง Content Gap ไม่ได้ (ตรวจเครดิต/คีย์ DataForSEO): " + str(e)[:150])
+    if not gaps:                                    # ว่างจริง → แยก 'เครดิตหมด' ออกจาก 'ไม่มีช่องว่าง' (โปร่งใส)
+        from app.connectors import serp
+        bal = await serp.account_balance()
+        if bal is not None and bal < 0.05:
+            raise HTTPException(402, "เครดิต DataForSEO หมด (เหลือ $%.2f) — เติมเงินก่อนใช้งาน" % bal)
+    total_vol = sum(g["volume"] for g in gaps if g.get("volume"))
+    diffs = [g["difficulty"] for g in gaps if isinstance(g.get("difficulty"), (int, float))]
+    summary = {
+        "count": len(gaps),
+        "total_monthly": total_vol,
+        "total_daily": round(total_vol / 30) if total_vol else 0,
+        "avg_difficulty": round(sum(diffs) / len(diffs)) if diffs else None,
+        "easy": sum(1 for d in diffs if d < 30),
+        "medium": sum(1 for d in diffs if 30 <= d < 60),
+        "hard": sum(1 for d in diffs if d >= 60),
+    }
+    return {"domain": our, "competitors": comps, "gaps": gaps, "summary": summary,
+            "note": "คีย์ที่คู่แข่งติดหน้า 1-2 (อันดับ ≤20) แต่เรายังไม่ติด · เอาไปผลิตคอนเทนต์แซงได้ · "
+                    "ปริมาณค้นหา/ความยาก = DataForSEO Labs (ตัวเลขจริง ตรวจย้อนได้)"}
+
+
+# ---- featured_snippet ----
+# วางต่อท้าย main.py (หลัง endpoint pantip_radar) · import ที่ต้องเพิ่ม: from app.schemas import SnippetSniperRequest (ถ้า main.py import schema แบบ per-class — ดูว่าไฟล์ import KeywordReportRequest ยังไงแล้วเพิ่มชื่อนี้ต่อ)
+
+@app.post("/api/snippet-opportunities")
+async def snippet_opportunities(req: SnippetSniperRequest, user=Depends(get_current_user)):
+    """🎯 Featured Snippet Sniper — ใส่คีย์ (เดี่ยว/หลายคีย์) → ดู SERP จริงว่ามี Featured Snippet / People-Also-Ask ไหม
+    เพื่อ 'ชิง Position 0' · คืนช่องว่าง+เจ้าของ Snippet ปัจจุบัน+คำถาม PAA จริง + คำแนะนำจัดรูปแบบ (ตัวเลขจริง ไม่กุ)"""
+    from app.connectors import growth
+    from app.config import settings as S
+    if not (S.dataforseo_login and S.dataforseo_password):
+        raise HTTPException(503, "ยังไม่ได้ตั้งคีย์ DataForSEO — ต้องมีเพื่อดึงผล SERP (Featured Snippet/PAA) 'จริง'")
+    # รวมคีย์จาก keyword (เดี่ยว) + keywords (ลิสต์) แล้ว dedupe รักษาลำดับ
+    raw = list(req.keywords or [])
+    if (req.keyword or "").strip():
+        raw.insert(0, req.keyword.strip())
+    kws, seen = [], set()
+    for k in raw:
+        k = str(k).strip()
+        if k and k.lower() not in seen:
+            seen.add(k.lower())
+            kws.append(k)
+    if not kws:
+        raise HTTPException(422, "ใส่คีย์เวิร์ดอย่างน้อย 1 คำ")
+    try:
+        opportunities = await growth.snippet_opportunities(kws)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ดึงผล SERP ไม่ได้ (ตรวจเครดิต/คีย์ DataForSEO): " + str(e)[:150])
+    return {"keywords": kws, "opportunities": opportunities, "count": len(opportunities),
+            "note": "Featured Snippet/People-Also-Ask จาก SERP จริง (DataForSEO) · ชิง Position 0 โดยตอบตรง 40-55 คำ "
+                    "ใต้ H2 ที่เป็นคำถาม + ทำ list/table ตอบ PAA · ตัวเลขจริง ตรวจย้อนได้"}
+
+
+# ---- ai_citation_engine ----
+# วางต่อท้าย main.py · ไม่ต้องเพิ่ม import บนหัวไฟล์ (db, HTTPException, Depends, get_current_user,
+# _own_project มีอยู่แล้ว · ที่เหลือ import ในฟังก์ชันตามแบบ endpoint อื่น ๆ)
+
+@app.post("/api/projects/{project_id}/ai-citation-audit")
+async def project_ai_citation_audit(project_id: int, user=Depends(get_current_user)):
+    """#9 · AI-Citation Engine (GEO core) — วัด 'AI แนะนำเราแค่ไหน' (Share of Voice เทียบคู่แข่ง)
+    + 'AI/Google ดึงคำตอบจากแหล่งไหนที่เรายังไม่อยู่' (source gaps) → รู้ว่าต้องไปแทรกตรงไหน
+    โหลด brand_terms/domain/คำถาม AEO ของโปรเจ็คเอง · ผลเป็นค่าประมาณเชิงสถิติจากการสุ่มถามจริง (no-faking)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import creds
+    from app.connectors import growth
+    from app.worker.tasks import _brand_terms_of, _project_questions, _available_engines
+    engines = _available_engines()
+    if not engines:                          # ไม่มีคีย์ AI = ไม่ยิง = ไม่เดาผล (โปร่งใส)
+        raise HTTPException(503, "ยังไม่ได้ตั้งคีย์ AI (OpenAI/Gemini/Perplexity/Anthropic) — ต้องมีเพื่อสุ่มถาม AI จริง")
+    async with db.session() as s:
+        proj = await _own_project(s, project_id, user)      # กันตรวจ/ยิงให้โปรเจ็คคนอื่น (เสียเครดิต AI/SERP จริง)
+        domain = proj.domain
+        brand_terms = _brand_terms_of(proj)                 # คำแบรนด์ที่ Site Intelligence สกัดไว้ (fallback ชื่อ+โดเมน)
+        lang = "English" if str(getattr(proj, "language", "") or "").lower().startswith("en") else "ภาษาไทย"
+        # คู่แข่งที่ AI เคยแนะนำในหมวดเรา (สะสมจาก Prompt Sampling) → ใช้เป็นชื่อคู่แข่งที่ต้องนับ
+        import json as _json
+        comp_raw = getattr(proj, "ai_competitors", "") or ""
+        try:
+            competitor_terms = [(c.get("name") if isinstance(c, dict) else str(c))
+                                for c in (_json.loads(comp_raw) if comp_raw.strip() else [])]
+            competitor_terms = [c for c in competitor_terms if c]
+        except Exception:  # noqa: BLE001
+            competitor_terms = []
+        questions = await _project_questions(proj, project_id)   # คำถาม AEO ลูกค้าก่อน → เติมอัตโนมัติ
+    if not domain:
+        raise HTTPException(422, "โปรเจ็คนี้ยังไม่ได้ตั้งโดเมน")
+    if not questions:
+        raise HTTPException(422, "ยังไม่มีชุดคำถาม AEO — ตั้งคำถามก่อน หรือรอระบบวิเคราะห์เว็บ")
+    dfs = await creds.get_creds(project_id, "dataforseo")   # คีย์ SERP ของลูกค้า (สำหรับหา source gaps · ไม่มีก็ยังได้ SoV)
+    try:
+        res = await growth.ai_citation_audit(questions, brand_terms, competitor_terms,
+                                             domain, creds=dfs or None, language=lang)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, str(e))
+    res["questions_used"] = questions
+    res["engines_used"] = engines
+    return res
+
 
 
 @app.put("/api/projects/{project_id}/publish")
