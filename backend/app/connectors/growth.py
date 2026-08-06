@@ -460,3 +460,137 @@ async def ai_citation_audit(questions, brand_terms, competitor_terms, domain: st
                          "kind": "ugc" if any(u in dom for u in _UGC_SOURCE) else "web"})
     result["source_gaps"] = gaps[:20]
     return result
+
+
+# ========== aeo_study (Data Study / Digital PR #12) ==========
+# 'สำรวจความพร้อม AEO ของเว็บไทย' — linkable asset: สแกนเว็บไทยจริงเก็บลง DB แล้ว aggregate เป็นสถิติ
+# imports ที่มีบนหัว growth.py แล้ว: asyncio (พอ) · ส่วน sitecheck/db/models/select ใช้ inline import กัน circular
+#
+# seed เว็บไทยสาธารณะตั้งต้น (แก้/เพิ่มได้) — ต้องเป็นเว็บจริงที่เปิด https ได้เท่านั้น (sitecheck กัน SSRF ให้)
+# ไม่ใช่ตัวเลข/ผล — เป็นแค่ 'รายชื่อเว็บที่จะไปสแกนจริง' → ค่าสถิติมาจากผลสแกนล้วน ๆ (no-faking)
+AEO_STUDY_SEEDS = (
+    "sanook.com", "kapook.com", "pantip.com", "thairath.co.th", "mgronline.com",
+    "posttoday.com", "dek-d.com", "wongnai.com", "blockdit.com", "mthai.com",
+    "longdo.com", "sabuy.com", "trueid.net", "workpointtoday.com", "thansettakij.com",
+)
+
+
+def _study_factor_earned(res: dict, key: str) -> float:
+    """ดึงค่า earned (0-1) ของปัจจัย AEO ตาม key จากผล sitecheck.check_url — ไม่มี=0 (crash-safe)"""
+    for f in (res.get("aeo_factors") or []):
+        if f.get("key") == key:
+            v = f.get("earned")
+            return float(v) if isinstance(v, (int, float)) else 0.0
+    return 0.0
+
+
+async def scan_and_store_study(seeds, delay: float = 1.5) -> dict:
+    """สแกนเว็บไทยจริงทีละเว็บ (sitecheck.check_url) → เก็บผลลง AeoStudySnapshot
+    crash-safe รายเว็บ (เว็บล้ม 1 ตัวไม่ล้มทั้งชุด · เก็บ ok=False ไว้บอก coverage)
+    delay = เว้นจังหวะระหว่างเว็บ (สุภาพ ไม่ถล่มปลายทาง) · คืน {scanned, stored, ok}"""
+    from app.db import session as db
+    from app.connectors import sitecheck
+    if not db.enabled():
+        return {"scanned": 0, "stored": 0, "ok": 0, "note": "DB not configured"}
+    doms, seen = [], set()
+    for sd in (seeds or []):
+        d = _clean_domain(str(sd))
+        if d and d not in seen:
+            seen.add(d)
+            doms.append(d)
+    if not doms:
+        return {"scanned": 0, "stored": 0, "ok": 0, "note": "no seeds"}
+    from app.db.models import AeoStudySnapshot
+    stored = ok = 0
+    for d in doms:
+        try:
+            res = await sitecheck.check_url(d, [])
+        except Exception:  # noqa: BLE001 — เว็บล่ม/timeout → บันทึกเป็นสแกนไม่สำเร็จ
+            res = {"ok": False, "note": "สแกนล้มเหลว"}
+        try:
+            is_ok = bool(res.get("ok"))
+            aeo = res.get("aeo_score")
+            seo = res.get("score")
+            row = AeoStudySnapshot(
+                domain=d,
+                ok=is_ok,
+                aeo_score=int(aeo) if isinstance(aeo, (int, float)) else None,
+                aeo_grade=str(res.get("aeo_grade") or "")[:2],
+                seo_score=int(seo) if isinstance(seo, (int, float)) else None,
+                has_schema=_study_factor_earned(res, "aeo_schema") >= 0.999,
+                has_faq=_study_factor_earned(res, "aeo_faq") >= 0.6,       # 0.6=มีสัญญาณ Q&A/FAQ, 1.0=ครบ
+                has_entity=_study_factor_earned(res, "aeo_entity") >= 0.999,
+                has_llms=_study_factor_earned(res, "aeo_llms") >= 0.999,
+                note=str(res.get("note") or "")[:300],
+            )
+            async with db.session() as s:
+                s.add(row)
+                await s.commit()
+            stored += 1
+            if is_ok:
+                ok += 1
+        except Exception:  # noqa: BLE001 — บันทึกล้ม 1 เว็บ ไม่ล้มทั้งรอบ
+            pass
+        try:
+            await asyncio.sleep(delay)
+        except Exception:  # noqa: BLE001
+            pass
+    return {"scanned": len(doms), "stored": stored, "ok": ok}
+
+
+async def aeo_study(max_age_days: int = 120) -> dict:
+    """aggregate ผลสแกนใน DB → สถิติ 'ความพร้อม AEO ของเว็บไทย' (linkable asset สาธารณะ)
+    ใช้ 'ผลล่าสุดต่อโดเมน' ในช่วง max_age_days (กันสแกนซ้ำทำสถิติเพี้ยน) · นับเฉพาะ ok=True
+    ไม่มีดาต้า/DB ยังไม่ตั้ง → ready=False (ไม่กุตัวเลข) · ตัวเลขจริงจากการสแกนล้วน · crash-safe"""
+    base = {"ready": False, "sites": 0,
+            "note": "ยังไม่มีข้อมูลผลสำรวจ — รอรอบสแกนแรก (ระบบสแกนเว็บไทยจริงแล้วรวมสถิติ ไม่กุตัวเลข)"}
+    from app.db import session as db
+    if not db.enabled():
+        return base
+    try:
+        from datetime import datetime, timezone, timedelta
+        from sqlalchemy import select
+        from app.db.models import AeoStudySnapshot
+        cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+        async with db.session() as s:
+            rows = (await s.execute(
+                select(AeoStudySnapshot)
+                .where(AeoStudySnapshot.scanned_at >= cutoff)
+                .order_by(AeoStudySnapshot.scanned_at.desc()))).scalars().all()
+    except Exception:  # noqa: BLE001
+        return base
+    latest: dict = {}
+    for r in rows:                                   # rows เรียงใหม่→เก่า → ตัวแรกต่อโดเมน = ล่าสุด
+        if r.domain not in latest:
+            latest[r.domain] = r
+    ok_rows = [r for r in latest.values() if r.ok]
+    n = len(ok_rows)
+    if n == 0:
+        return base
+
+    def _avg(vals):
+        vals = [v for v in vals if isinstance(v, (int, float))]
+        return round(sum(vals) / len(vals), 1) if vals else None
+
+    def _pct(flags):
+        return round(sum(1 for f in flags if f) / n * 100, 1)
+
+    grades: dict = {}
+    for r in ok_rows:
+        g = (r.aeo_grade or "?")
+        grades[g] = grades.get(g, 0) + 1
+    return {
+        "ready": True,
+        "sites": n,                                  # จำนวนเว็บที่สแกน 'สำเร็จ' (ฐานของสถิติ · นับจริง)
+        "scanned_total": len(latest),                # รวมเว็บที่พยายามสแกน (รวมที่เปิดไม่ได้)
+        "avg_aeo_score": _avg([r.aeo_score for r in ok_rows]),
+        "avg_seo_score": _avg([r.seo_score for r in ok_rows]),
+        "pct_has_schema": _pct([r.has_schema for r in ok_rows]),
+        "pct_has_faq": _pct([r.has_faq for r in ok_rows]),
+        "pct_has_entity": _pct([r.has_entity for r in ok_rows]),
+        "pct_has_llms": _pct([r.has_llms for r in ok_rows]),
+        "grade_distribution": dict(sorted(grades.items())),
+        "updated_at": max(r.scanned_at for r in ok_rows).isoformat(),
+        "note": ("สถิติจากการสแกนหน้าแรกของเว็บไทยจริง %d เว็บ (ปัจจัย AEO ที่วัดได้จาก HTML จริง) "
+                 "— ตัวเลขจริงทั้งหมด ไม่ใช่ค่าประเมินลอย ๆ" % n),
+    }

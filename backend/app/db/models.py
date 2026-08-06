@@ -220,3 +220,24 @@ class Lead(Base):
     shared: Mapped[bool] = mapped_column(Boolean, default=False)
     source: Mapped[str] = mapped_column(String(160), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ---- เพิ่มต่อท้าย backend/app/db/models.py (คลาสใหม่ · ตาราง auto-create ตอน startup ผ่าน create_all) ----
+class AeoStudySnapshot(Base):
+    """#12 Data Study / Digital PR — 'สำรวจความพร้อม AEO ของเว็บไทย' (linkable asset)
+    เก็บผลสแกนหน้าแรกของเว็บไทย 'จริง' (จาก sitecheck.check_url) 1 แถวต่อการสแกน 1 เว็บ 1 รอบ
+    แล้ว aggregate เป็นสถิติสาธารณะที่นักข่าว/บล็อกอ้างอิงได้ (= backlink) · ตัวเลขจริงล้วน ไม่กุ
+    ok=False = เปิดเว็บ/สแกนไม่ได้ (เก็บไว้บอก coverage แต่ไม่นับในค่าเฉลี่ย)"""
+    __tablename__ = "aeo_study_snapshots"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    domain: Mapped[str] = mapped_column(String(255), index=True)          # โดเมนล้วน (ตัด scheme/www/path)
+    ok: Mapped[bool] = mapped_column(Boolean, default=False)              # สแกนสำเร็จไหม (อ่าน HTML หน้าแรกได้)
+    aeo_score: Mapped[int | None] = mapped_column(Integer, nullable=True) # คะแนน AEO 0-100 (None ถ้าสแกนล้ม)
+    aeo_grade: Mapped[str] = mapped_column(String(2), default="")         # A/B/C/D
+    seo_score: Mapped[int | None] = mapped_column(Integer, nullable=True) # คะแนน SEO 0-100 (None ถ้าสแกนล้ม)
+    has_schema: Mapped[bool] = mapped_column(Boolean, default=False)      # มี JSON-LD ที่ valid
+    has_faq: Mapped[bool] = mapped_column(Boolean, default=False)         # มีสัญญาณ Q&A/FAQ (FAQPage หรือหัวข้อคำถาม)
+    has_entity: Mapped[bool] = mapped_column(Boolean, default=False)      # ประกาศตัวตนแบรนด์ (Organization schema)
+    has_llms: Mapped[bool] = mapped_column(Boolean, default=False)        # มีไฟล์ /llms.txt
+    note: Mapped[str] = mapped_column(String(300), default="")           # เหตุผลกรณีล้ม / หมายเหตุ
+    scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

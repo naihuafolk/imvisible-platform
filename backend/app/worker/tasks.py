@@ -2363,3 +2363,13 @@ async def _maybe_alert_rank(proj, kw: str, prev, cur, on_p1: bool):
         return
     from app.connectors import notify
     await notify.send_sms(to, msg)
+
+
+# ---- เพิ่มใน backend/app/worker/tasks.py (beat task · growth import แบบ inline กัน circular) ----
+@celery_app.task(name="app.worker.tasks.scan_aeo_study")
+def scan_aeo_study() -> dict:
+    """📊 #12 Data Study / Digital PR — 'สำรวจความพร้อม AEO ของเว็บไทย' (linkable asset)
+    สแกนเว็บไทยจริงเก็บลง DB → aggregate เป็นสถิติที่นักข่าว/บล็อกอ้างอิงได้ (= backlink)
+    สัปดาห์ละครั้งพอ (สแกน HTML หน้าแรก + llms.txt จริง) · ตัวเลขจริงล้วน (no-faking)"""
+    from app.connectors import growth
+    return _run(growth.scan_and_store_study(growth.AEO_STUDY_SEEDS))

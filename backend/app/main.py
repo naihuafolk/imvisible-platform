@@ -1129,6 +1129,16 @@ def pub_settings_indexnow_host() -> str:
     return (getattr(_s, "indexnow_host", "") or "").lower()
 
 
+# ---- เพิ่มใน backend/app/main.py (public endpoint · rate_limit_auth · growth import แบบ inline) ----
+@app.get("/api/aeo-study")
+async def get_aeo_study(_rl=Depends(rate_limit_auth)):
+    """#12 Data Study (สาธารณะ) — สถิติ 'ความพร้อม AEO ของเว็บไทย' จากการสแกนเว็บจริง (linkable asset)
+    ตัวเลขจริงจาก DB · ไม่มีดาต้า = คืน ready=False (ไม่กุ) · rate-limit กันสแปม"""
+    from app.connectors import growth
+    return await growth.aeo_study()
+
+
+
 # ---- reddit_quora_radar ----
 # import ที่ต้องเพิ่ม: ไม่มี — main.py มี HTTPException/Depends/get_current_user อยู่แล้ว
 #   ต้องเพิ่ม SocialRadarRequest ใน import จาก app.schemas ที่หัว main.py (ดู schema_code)

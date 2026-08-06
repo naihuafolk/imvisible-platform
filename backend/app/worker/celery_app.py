@@ -39,6 +39,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.submit_sitemaps",
         "schedule": crontab(hour=2, minute=45),
     },
+    "aeo-study-weekly": {            # 📊 #12 Data Study · สแกนเว็บไทยจริง → สถิติ AEO (linkable asset) ทุกเสาร์ 08:30
+        "task": "app.worker.tasks.scan_aeo_study",
+        "schedule": crontab(hour=8, minute=30, day_of_week=6),
+    },
     "measure-rank-daily": {          # M5 · เช็กอันดับทุกวัน 06:00
         "task": "app.worker.tasks.measure_all_ranks",
         "schedule": crontab(hour=6, minute=0),
