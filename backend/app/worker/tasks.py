@@ -69,12 +69,16 @@ async def _visual_concept(topic: str, section: str = "") -> str:
     """แปลงหัวข้อ (อาจเป็นไทย) → คำบรรยาย 'ฉากภาพจริง' สั้น ๆ เป็นภาษาอังกฤษ ที่สื่อถึงเนื้อหา
     → ป้อนให้ fal.ai (เข้าใจอังกฤษดีกว่าไทย) ได้ภาพที่ 'ตรงเรื่อง' ไม่ใช่นามธรรมมั่ว · crash-safe"""
     try:
-        sysmsg = ("You are an art director. Turn an article topic into ONE short vivid ENGLISH description of a "
-                  "concrete, photorealistic scene that visually communicates that topic to a reader "
-                  "(real people, objects, setting, action, mood). The image must contain NO text or words. "
-                  "Reply with ONLY the scene description — one sentence, no quotes, no preface.")
-        usermsg = ("Article topic: %s%s\nBest single photo scene that conveys this topic:"
-                   % (topic, (" · specific section: " + section) if section else ""))
+        sysmsg = ("You are the photo editor at a premium magazine choosing a cover shot. "
+                  "Turn an article topic into ONE vivid ENGLISH description of a single striking, real-life PHOTOGRAPH "
+                  "that makes a reader stop scrolling. Choose a concrete focal subject — a real person mid-action, "
+                  "a specific place, or a hero product/object — in a specific setting, with specific lighting, time of day and mood. "
+                  "Think authentic editorial/documentary photography with real human warmth and a clear story. "
+                  "Avoid cliches: NO generic 'person at a laptop', no charts/graphs/dashboards, no abstract concepts, "
+                  "no floating icons or holograms, no glowing blue tech backgrounds. Keep it grounded and real. "
+                  "The photo must contain NO text. Reply with ONLY the scene — one rich, specific sentence, no quotes, no preface.")
+        usermsg = ("Article topic: %s%s\nThe single most beautiful, on-topic REAL photograph to use as the cover:"
+                   % (topic, (" · section: " + section) if section else ""))
         _p, txt = await content._llm(sysmsg, usermsg, tier="fast")
         return (txt or "").strip().strip('"').replace("\n", " ")[:320]
     except Exception:  # noqa: BLE001
@@ -87,9 +91,12 @@ async def _gen_cover(topic: str) -> str:
         if not media.enabled():
             return ""
         scene = (await _visual_concept(topic)) or ("a scene that represents: " + topic)
-        prompt = ("Professional editorial hero photo. Scene: %s. "
-                  "Photorealistic, high-end magazine photography, natural cinematic lighting, shallow depth of field, "
-                  "modern and tasteful, crisp 4K, rich fine detail, beautiful color grading, elegant composition. "
+        prompt = ("Editorial magazine cover photograph. Scene: %s. "
+                  "Authentic documentary/editorial style shot on a full-frame camera with a 35mm lens, "
+                  "natural and cinematic lighting, photorealistic with lifelike skin, textures and true-to-life color, "
+                  "shallow depth of field, elegant rule-of-thirds composition, sharp focus on the subject, "
+                  "high dynamic range, rich fine detail, 4K. "
+                  "It must look like a REAL photograph — not an illustration, not a 3D render, not CGI, not a flat stock photo. "
                   "Absolutely no text, no letters, no words, no numbers, no logos, no watermark, no signature, no UI." % scene)
         return await media.generate_image(prompt) or ""
     except Exception:  # noqa: BLE001
