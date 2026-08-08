@@ -409,8 +409,12 @@ async def _analyze_project(project_id: int) -> dict:
     async with db.session() as s:
         p = await s.get(Project, project_id)
         if p:
-            p.business_context = ctx_text
-            p.brand_terms = brands_txt
+            # ไม่ทับบริบท/คำแบรนด์ที่ 'ป้อนมาตอน onboard' (เช่น เว็บที่สร้างจาก IM WEB carry brief เข้ามา)
+            # — เขียนเฉพาะตอนยังว่าง เพื่อไม่ให้ analyze ของเว็บที่ไม่มี URL จริงมาล้างข้อมูลดี ๆ ทิ้ง
+            if ctx_text and not (getattr(p, "business_context", "") or "").strip():
+                p.business_context = ctx_text
+            if brands_txt and not (getattr(p, "brand_terms", "") or "").strip():
+                p.brand_terms = brands_txt
             # ไม่ทับแผนหัวข้อที่ลูกค้าเลือกไว้ตอนสร้าง (คีย์เวิร์ดที่ AI ช่วยคิด/ติ๊กเอง)
             if plan and not (getattr(p, "topic_plan", "") or "").strip():
                 p.topic_plan = json.dumps(plan, ensure_ascii=False)

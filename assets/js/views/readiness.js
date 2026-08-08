@@ -48,7 +48,7 @@
     return out;
   }
 
-  function render(out, d) {
+  function render(out, d, ctx) {
     if (!d || !d.ok) {
       out.innerHTML = ui.card({ body: RP.noData('อ่านเว็บไม่ได้', esc((d && d.note) || 'ใส่โดเมนเว็บสาธารณะที่รองรับ https')) });
       return;
@@ -89,10 +89,41 @@
         factorList(d.factors) }) +
 
       '<div class="hint" style="margin-top:6px">' + esc(d.note || '') + '</div>' +
-      '<div class="row" style="margin-top:12px;gap:8px"><button class="btn btn-sm" id="rd_copy">📋 คัดลอกรายงาน (ส่งลูกค้า)</button></div>';
+      '<div class="row wrap" style="margin-top:12px;gap:8px">' +
+        '<button class="btn btn-sm" id="rd_copy">📋 คัดลอกรายงาน (ข้อความ)</button>' +
+        '<button class="btn btn-sm btn-primary" id="rd_link">📤 สร้างลิงก์รายงานส่งลูกค้า (เก็บลีด)</button>' +
+      '</div><div id="rd_linkbox" style="margin-top:10px"></div>';
 
     var cp = document.getElementById('rd_copy');
     if (cp) cp.onclick = function () { copyText(buildReport(d)); };
+
+    var lk = document.getElementById('rd_link');
+    if (lk) lk.onclick = function () {
+      if (!(RP.api && RP.api.reachable())) { ui.toast('เชื่อมต่อ backend ไม่ได้ — เปิดโหมด Live'); return; }
+      lk.disabled = true; lk.textContent = 'กำลังสร้างลิงก์…';
+      RP.api.createSiteReport({
+        url: (ctx && ctx.url) || d.url || '',
+        keywords: (ctx && ctx.kw) || [],
+        business_name: (ctx && ctx.biz) || ''
+      }).then(function (r) {
+        var link = r.public_url || r.path || '';
+        var box = document.getElementById('rd_linkbox');
+        box.innerHTML = ui.card({ body:
+          '<div class="bb" style="font-size:15px;margin-bottom:6px">✅ ลิงก์รายงานพร้อมส่งลูกค้าแล้ว</div>' +
+          '<div class="row wrap" style="gap:8px;align-items:center">' +
+            '<input class="input" id="rd_linkval" readonly value="' + esc(link) + '" style="flex:1;min-width:220px">' +
+            '<button class="btn btn-sm" id="rd_copylink">📋 คัดลอก</button>' +
+            '<a class="btn btn-sm" href="' + esc(link) + '" target="_blank" rel="noopener">👁️ เปิดดู</a>' +
+          '</div>' +
+          '<div class="soft small" style="margin-top:8px;line-height:1.6">ส่งลิงก์นี้ให้ลูกค้า → เขาเห็นคะแนน + ปัญหาเว็บ แล้วกรอกเบอร์เพื่อดู "แผนแก้เต็ม" → คุณได้ลีดเด้งเข้า LINE ทันที 🔔</div>' });
+        var cb = document.getElementById('rd_copylink');
+        if (cb) cb.onclick = function () { copyText(link); };
+        lk.textContent = '✅ สร้างลิงก์แล้ว';
+      }).catch(function (e) {
+        lk.disabled = false; lk.textContent = '📤 สร้างลิงก์รายงานส่งลูกค้า (เก็บลีด)';
+        ui.toast('สร้างลิงก์ไม่ได้: ' + esc(e.message || String(e)));
+      });
+    };
   }
 
   RP.views.readiness = function () {
@@ -101,7 +132,8 @@
     var form = ui.card({ cls: 'mb', body:
       '<div class="row wrap" style="gap:10px;align-items:flex-end">' +
       '<div style="flex:3;min-width:220px"><div class="soft small" style="margin-bottom:4px">ลิงก์เว็บลูกค้า</div><input class="input" id="rd_url" placeholder="เช่น yourclient.com หรือ https://yourclient.com" style="width:100%"></div>' +
-      '<div style="flex:2;min-width:180px"><div class="soft small" style="margin-bottom:4px">คีย์เวิร์ดที่อยากติด (ไม่บังคับ · คั่นด้วย ,)</div><input class="input" id="rd_kw" placeholder="เช่น รับทำเว็บ, คลินิก" style="width:100%"></div>' +
+      '<div style="flex:2;min-width:170px"><div class="soft small" style="margin-bottom:4px">คีย์เวิร์ดที่อยากติด (ไม่บังคับ · คั่นด้วย ,)</div><input class="input" id="rd_kw" placeholder="เช่น รับทำเว็บ, คลินิก" style="width:100%"></div>' +
+      '<div style="flex:2;min-width:170px"><div class="soft small" style="margin-bottom:4px">ชื่อธุรกิจลูกค้า (ไม่บังคับ)</div><input class="input" id="rd_biz" placeholder="เช่น ร้านกาแฟบ้านหอม" style="width:100%"></div>' +
       '<button class="btn btn-primary" id="rd_go">🔎 เช็กสุขภาพ</button></div>' +
       '<div class="hint" style="margin-top:8px">อ่านหน้าแรกของเว็บจริง (สาธารณะ · https) → คะแนน SEO + AEO/GEO + เช็กลิสต์ต้องทำอะไร</div>' });
 
@@ -110,12 +142,13 @@
       function run() {
         var url = (root.querySelector('#rd_url').value || '').trim();
         var kw = (root.querySelector('#rd_kw').value || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 3);
+        var biz = (root.querySelector('#rd_biz').value || '').trim();
         if (!url) { ui.toast('ใส่ลิงก์เว็บก่อน'); return; }
         if (!(RP.api && RP.api.reachable())) { ui.toast('เชื่อมต่อ backend ไม่ได้ — เปิดโหมด Live ในหน้าตั้งค่า'); return; }
         go.disabled = true; go.textContent = 'กำลังตรวจ…';
         out.innerHTML = '<div class="hint">⏳ กำลังอ่านหน้าเว็บจริง + ให้คะแนน SEO/AEO/GEO… (5–15 วิ)</div>';
         RP.api.siteCheck(url, kw).then(function (d) {
-          render(out, d);
+          render(out, d, { url: url, kw: kw, biz: biz });
         }).catch(function (e) {
           out.innerHTML = ui.card({ body: RP.noData('ตรวจไม่ได้', esc(e.message || String(e))) });
         }).then(function () { go.disabled = false; go.textContent = '🔎 เช็กสุขภาพ'; });

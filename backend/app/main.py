@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, KeywordReportRequest, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, ImwebSaveRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
+    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, ImwebSaveRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, SiteReportCreate, ReportLeadCreate, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -1129,26 +1129,138 @@ def pub_settings_indexnow_host() -> str:
     return (getattr(_s, "indexnow_host", "") or "").lower()
 
 
+_GOAL_TH = {"booking": "รับการจอง/นัดหมาย", "order": "ขาย/สั่งซื้อสินค้า", "call": "โทรหาเรา",
+            "chat": "แชท/ทักสอบถาม", "leads": "เก็บรายชื่อผู้สนใจ (ลีด)"}
+_GOAL_BTN = {"booking": "📅 จองเลย", "order": "🛒 สั่งซื้อ", "call": "📞 โทรเลย",
+             "chat": "💬 ทักแชท", "leads": "✉️ ติดต่อเรา"}
+
+
+def _brief_line_url(line: str) -> str:
+    ln = (line or "").strip()
+    if not ln:
+        return ""
+    if ln.startswith("http"):
+        return ln
+    if ln.startswith("@"):
+        return "https://line.me/R/ti/p/%40" + ln[1:]
+    return "https://line.me/ti/p/" + ln
+
+
+def _brief_to_imweb(b) -> dict:
+    """ประกอบ brief ที่ 'รวย' ส่ง IM WEB — ทั้ง key มีโครงสร้าง + description ข้อความ (IM WEB อ่าน brief แบบอิสระ)"""
+    def cl(x):
+        return (x or "").strip()
+    contact = {k: v for k, v in {
+        "line": cl(b.line), "phone": cl(b.phone), "email": cl(b.email),
+        "facebook": cl(b.facebook), "instagram": cl(b.instagram),
+        "address": cl(b.address), "serviceArea": cl(b.service_area),
+        "hours": cl(b.hours), "mapUrl": cl(b.map_url)}.items() if v}
+    faqs = [{"q": cl(f.q), "a": cl(f.a)} for f in (b.faqs or []) if cl(f.q)]
+    segs = []
+    if cl(b.brand_name):
+        segs.append("สร้างเว็บสำหรับ '%s'%s" % (cl(b.brand_name), (" (%s)" % cl(b.biz_type)) if cl(b.biz_type) else ""))
+    if cl(b.about):
+        segs.append("รายละเอียด: " + cl(b.about))
+    if cl(b.usp):
+        segs.append("จุดเด่นที่ต้องชูให้เด่น: " + cl(b.usp))
+    if cl(b.audience):
+        segs.append("กลุ่มลูกค้าเป้าหมาย: " + cl(b.audience))
+    if cl(b.products):
+        segs.append("สินค้า/บริการ: " + cl(b.products))
+    if cl(b.price_info):
+        segs.append("ราคา/แพ็กเกจ: " + cl(b.price_info))
+    if cl(b.goal):
+        segs.append("เป้าหมายหลักของเว็บ (ปุ่ม CTA ต้องพาไปทำสิ่งนี้): " + _GOAL_TH.get(cl(b.goal), cl(b.goal)))
+    if contact:
+        bits = [x for x in [cl(b.phone) and ("โทร " + cl(b.phone)), cl(b.line) and ("LINE " + cl(b.line)),
+                            cl(b.address) and ("ที่อยู่ " + cl(b.address)), cl(b.hours) and ("เวลาทำการ " + cl(b.hours))] if x]
+        if bits:
+            segs.append("ช่องทางติดต่อ/ข้อมูลร้าน: " + " · ".join(bits))
+    if faqs:
+        segs.append("ใส่ส่วน 'คำถามที่พบบ่อย (FAQ)' ด้วยคำถาม: " + " / ".join(f["q"] for f in faqs[:8]))
+    return {
+        "brandName": cl(b.brand_name), "bizType": cl(b.biz_type), "about": cl(b.about),
+        "usp": cl(b.usp), "audience": cl(b.audience), "products": cl(b.products),
+        "pricing": cl(b.price_info), "vibe": cl(b.vibe), "goal": cl(b.goal),
+        "brandColor": cl(b.brand_color), "logoUrl": cl(b.logo_url),
+        "keywords": [k for k in (b.keywords or []) if str(k).strip()][:12],
+        "faqs": faqs, "contact": contact,
+        "description": " \n".join(segs),
+    }
+
+
+def _brief_context(b) -> str:
+    """business_context ป้อนเครื่องยนต์คอนเทนต์ (ข้อความล้วน)"""
+    def cl(x):
+        return (x or "").strip()
+    parts = []
+    if cl(b.brand_name):
+        parts.append("ธุรกิจ: %s%s" % (cl(b.brand_name), (" (%s)" % cl(b.biz_type)) if cl(b.biz_type) else ""))
+    for lbl, v in [("", cl(b.about)), ("จุดเด่น", cl(b.usp)), ("กลุ่มลูกค้า", cl(b.audience)),
+                   ("สินค้า/บริการ", cl(b.products)), ("ราคา", cl(b.price_info)),
+                   ("พื้นที่บริการ", cl(b.service_area)), ("ที่ตั้ง", cl(b.address))]:
+        if v:
+            parts.append(("%s: %s" % (lbl, v)) if lbl else v)
+    return " · ".join(parts)[:2000]
+
+
+def _brief_brand_terms(b) -> str:
+    """brand_terms (คั่น ,) → ใช้ตรวจ AI citation + ดึง URL โซเชียลเป็น sameAs"""
+    def cl(x):
+        return (x or "").strip()
+    terms = []
+    if cl(b.brand_name):
+        terms.append(cl(b.brand_name))
+    for u in (cl(b.facebook), cl(b.instagram)):
+        if u.startswith("http"):
+            terms.append(u)
+    lu = _brief_line_url(b.line)
+    if lu.startswith("http"):
+        terms.append(lu)
+    out, seen = [], set()
+    for t in terms:
+        if t and t not in seen:
+            seen.add(t); out.append(t)
+    return ", ".join(out)[:1000]
+
+
+def _brief_cta(b) -> dict | None:
+    """cta_json ท้ายบทความ (เนียนขาย/เก็บลีด) จากเป้าหมาย + ช่องทางติดต่อ"""
+    def cl(x):
+        return (x or "").strip()
+    goal = cl(b.goal).lower()
+    url = ""
+    if goal == "call" and cl(b.phone):
+        url = "tel:" + cl(b.phone)
+    elif cl(b.line):
+        url = _brief_line_url(b.line)
+    elif cl(b.phone):
+        url = "tel:" + cl(b.phone)
+    elif cl(b.facebook).startswith("http"):
+        url = cl(b.facebook)
+    elif cl(b.map_url).startswith("http"):
+        url = cl(b.map_url)
+    if not url:
+        return None
+    return {"enabled": True,
+            "headline": ("สนใจบริการ%s?" % ((" " + cl(b.brand_name)) if cl(b.brand_name) else "")),
+            "text": "ติดต่อเราได้เลย ยินดีให้คำปรึกษาฟรี",
+            "button": _GOAL_BTN.get(goal, "💬 ติดต่อเรา"), "url": url}
+
+
 @app.post("/api/imweb/generate")
 async def imweb_generate(req: ImwebGenerateRequest, user=Depends(get_current_user)):
-    """🏗️ สร้างเว็บด้วย IM WEB (AI builder) จากในระบบ ImVisible → คืน HTML เว็บพร้อมใช้ (themes)
-    ต่อยอด: เลือกสไตล์ → บันทึกเป็นโปรเจกต์ → เปิด SEO/AEO/GEO ให้ 'โตเอง' (self-growing website)"""
+    """🏗️ สร้างเว็บด้วย IM WEB (AI builder) จาก brief ละเอียด → คืน HTML เว็บพร้อมใช้ (themes)
+    brief ที่รวย (จุดเด่น/ติดต่อ/ที่ตั้ง/FAQ) = เว็บดีขึ้น + เก็บวัตถุดิบ AEO/GEO ไว้ carry เข้าโปรเจกต์ตอน save"""
     from app.connectors import imweb
     if not imweb.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้ง IMWEB_API_KEY (ผู้ดูแลตั้งใน backend/.env)")
-    if not (req.brand_name.strip() or req.about.strip()):
+    b = req.brief
+    if not ((b.brand_name or "").strip() or (b.about or "").strip()):
         raise HTTPException(422, "ใส่ชื่อแบรนด์ หรือรายละเอียดธุรกิจก่อน")
-    brief = {
-        "brandName": req.brand_name.strip(),
-        "about": req.about.strip(),
-        "products": req.products.strip(),
-        "bizType": req.biz_type.strip(),
-        "vibe": req.vibe.strip(),
-        "motionLevel": (req.motion_level or "high").strip(),
-        "language": (req.language or "th").strip(),
-    }
-    if req.line.strip():
-        brief["contact"] = {"line": req.line.strip()}
+    brief = _brief_to_imweb(b)
+    brief["motionLevel"] = (req.motion_level or "high").strip()
+    brief["language"] = (req.language or "th").strip()
     res = await imweb.generate_site(brief, tier=req.tier or "paid", variants=req.variants or 1)
     if not res.get("ok"):
         raise HTTPException(502, "สร้างเว็บไม่สำเร็จ (IM WEB): " + str(res.get("error"))[:160])
@@ -1157,30 +1269,58 @@ async def imweb_generate(req: ImwebGenerateRequest, user=Depends(get_current_use
 
 @app.post("/api/imweb/save")
 async def imweb_save(req: ImwebSaveRequest, user=Depends(get_current_user)):
-    """✅ 'ใช้เว็บนี้' — บันทึกเว็บที่ IM WEB สร้าง → สร้างโปรเจกต์ + โฮสต์เป็นหน้าแรกจริง
-    + เปิด SEO/AEO/GEO ให้ 'โตเอง' (self-growing website) · reuse create_project (สร้าง slug + วิเคราะห์เว็บ)"""
+    """✅ 'ใช้เว็บนี้' — บันทึกเว็บที่ IM WEB สร้าง → สร้างโปรเจกต์ (โฮสต์ให้) + ฝัง schema AEO/GEO ลงหน้าแรก
+    + carry brief เข้าโปรเจกต์ (business_context/brand_terms/aeo_questions/cta) → 'โตเอง' แบบเต็มแม็กตั้งแต่แรก"""
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    import json as _json
+    from app import public as _public
+    from app.db.models import Project
+    b = req.brief
     html = (req.html or "").strip()
     if len(html) < 100:
         raise HTTPException(422, "ไม่มี HTML เว็บ — สร้างเว็บก่อน")
     if len(html) > 900000:
         raise HTTPException(413, "HTML ใหญ่เกิน 900KB")
-    pc = ProjectCreate(name=(req.brand_name or "เว็บใหม่").strip(), url="",
-                       language=(req.language or "th"), mode="auto")
-    created = await create_project(pc, user)          # สร้างโปรเจกต์ + slug + trigger analyze/grow
+    brand = (b.brand_name or "เว็บใหม่").strip()
+    lang = (req.language or b.language or "th")
+    pseudo = project_slug_from_domain(brand) or "site"      # ไม่มีเว็บนอก → เราโฮสต์เอง (โดเมนเทียมจากชื่อแบรนด์)
+    kws = [str(k).strip() for k in (b.keywords or []) if str(k).strip()][:50]
+    pc = ProjectCreate(name=brand, domain=pseudo, url="", language=lang, mode="auto",
+                       publish_mode="managed", keywords=kws)
+    created = await create_project(pc, user)                 # สร้างโปรเจกต์ + slug + trigger analyze/grow (เบื้องหลัง)
     pid = created.get("id")
     if not pid:
         raise HTTPException(500, "สร้างโปรเจกต์ไม่สำเร็จ")
-    from app.db.models import Project
-    async with db.session() as s:                     # เก็บ HTML หน้าแรก (โฮสต์เป็นเว็บจริงที่ public_home)
+    home = created.get("public_home") or ""
+    brief_d = _brief_to_imweb(b)                             # dict สำหรับ inject (มี about/usp/contact/faqs/logo)
+    brief_d.update({"line": (b.line or "").strip(), "phone": (b.phone or "").strip(),
+                    "email": (b.email or "").strip(), "facebook": (b.facebook or "").strip(),
+                    "instagram": (b.instagram or "").strip(), "address": (b.address or "").strip(),
+                    "service_area": (b.service_area or "").strip(), "hours": (b.hours or "").strip(),
+                    "map_url": (b.map_url or "").strip(), "logo_url": (b.logo_url or "").strip()})
+    enriched = _public.inject_aeo_geo(html, name=brand, home=home, lang=lang, brief=brief_d)
+    ctx = _brief_context(b)
+    bterms = _brief_brand_terms(b)
+    faq_qs = [(f.q or "").strip() for f in (b.faqs or []) if (f.q or "").strip()]
+    cta = _brief_cta(b)
+    async with db.session() as s:                            # เก็บ HTML (ฝัง schema แล้ว) + carry brief เข้าโปรเจกต์
         p = await s.get(Project, pid)
         if p:
-            p.home_html = html
+            p.home_html = enriched
+            if ctx:
+                p.business_context = ctx
+            if bterms:
+                p.brand_terms = bterms
+            if faq_qs and not (getattr(p, "aeo_questions", "") or "").strip():
+                p.aeo_questions = _json.dumps(faq_qs[:10], ensure_ascii=False)
+            if cta and not (getattr(p, "cta_json", "") or "").strip():
+                p.cta_json = _json.dumps(cta, ensure_ascii=False)
             await s.commit()
     return {"ok": True, "project_id": pid, "name": created.get("name"),
-            "public_home": created.get("public_home"),
-            "note": "บันทึก+โฮสต์เว็บแล้ว · ระบบเริ่มผลิตคอนเทนต์ + ดัน SEO/AEO/GEO ให้อัตโนมัติ (เว็บที่โตเอง)"}
+            "public_home": home,
+            "aeo_injected": True, "faqs": len(faq_qs), "carried": bool(ctx),
+            "note": "บันทึก+โฮสต์เว็บ + ฝัง schema AEO/GEO แล้ว · ระบบเริ่มผลิตคอนเทนต์ + ดันอันดับให้อัตโนมัติ (เว็บที่โตเอง)"}
 
 
 # ---- เพิ่มใน backend/app/main.py (public endpoint · rate_limit_auth · growth import แบบ inline) ----
@@ -2879,6 +3019,165 @@ async def site_check(req: SiteCheckRequest, _rl=Depends(rate_limit_auth)):
     if not res.get("ok"):
         raise HTTPException(422, res.get("note") or "เปิดเว็บไม่ได้ — ตรวจสอบลิงก์อีกครั้ง")
     return res
+
+
+def _domain_of(u: str) -> str:
+    return (u or "").strip().lower().replace("https://", "").replace("http://", "").strip("/").split("/")[0]
+
+
+@app.post("/api/site-report")
+async def create_site_report(req: SiteReportCreate, user=Depends(get_current_user)):
+    """สร้าง 'ลิงก์รายงานสุขภาพเว็บ' สาธารณะ (แชร์ได้) ส่งให้ลูกค้า/ผู้สนใจ — เก็บลีดเมื่อเขาขอให้ช่วย
+    ตรวจหน้าเว็บจริงด้วย sitecheck (ตัวเลขจริง ไม่กุ) แล้วบันทึกเป็น snapshot + คืน token/ลิงก์"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    url = (req.url or "").strip()
+    if not url:
+        raise HTTPException(422, "กรุณาใส่ลิงก์เว็บลูกค้า")
+    kws = [str(k).strip() for k in (req.keywords or []) if str(k).strip()][:3]
+    from app.connectors import sitecheck
+    res = await sitecheck.check_url(url, kws)
+    if not res.get("ok"):
+        raise HTTPException(422, res.get("note") or "เปิดเว็บไม่ได้ — ตรวจสอบลิงก์อีกครั้ง")
+    import json as _json
+    from app.db.models import SiteReport
+    token = secrets.token_urlsafe(12)
+    domain = _domain_of(res.get("url") or url)
+    async with db.session() as s:
+        rep = SiteReport(
+            token=token, url=(res.get("url") or url)[:600], domain=domain[:255],
+            business_name=(req.business_name or "").strip()[:300], keywords=", ".join(kws)[:2000],
+            created_by=user["id"], score=int(res.get("score") or 0), grade=(res.get("grade") or "")[:2],
+            aeo_score=int(res.get("aeo_score") or 0), aeo_grade=(res.get("aeo_grade") or "")[:2],
+            data_json=_json.dumps(res, ensure_ascii=False),
+        )
+        s.add(rep)
+        await s.commit()
+    base = (settings.app_base_url or "").rstrip("/")
+    path = "/api/site-report/%s" % token
+    return {"ok": True, "token": token, "path": path, "public_url": (base + path) if base else path,
+            "domain": domain, "score": res.get("score"), "grade": res.get("grade"),
+            "aeo_score": res.get("aeo_score"), "aeo_grade": res.get("aeo_grade")}
+
+
+@app.get("/api/site-report/{token}")
+async def public_site_report(token: str):
+    """หน้ารายงานสุขภาพเว็บสาธารณะ (ไม่ต้องล็อกอิน · แชร์ได้) — เกจคะแนน + ปัญหา + แผนแก้ที่ gate ด้วยฟอร์ม"""
+    from fastapi.responses import HTMLResponse
+    from datetime import datetime, timezone, timedelta
+    import json as _json
+    from app.db.models import SiteReport
+    from app import public as _public
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    token = (token or "").strip()
+    if len(token) < 8:
+        raise HTTPException(404, "ไม่พบรายงาน")
+    async with db.session() as s:
+        rep = (await s.execute(select(SiteReport).where(SiteReport.token == token).limit(1))).scalars().first()
+    if not rep:
+        raise HTTPException(404, "ไม่พบรายงาน (ลิงก์ไม่ถูกต้องหรือถูกยกเลิก)")
+    try:
+        data = _json.loads(rep.data_json or "{}")
+    except Exception:  # noqa: BLE001
+        data = {}
+    now7 = (rep.created_at or datetime.now(timezone.utc)) + timedelta(hours=7) if rep.created_at else (datetime.now(timezone.utc) + timedelta(hours=7))
+    gen = now7.strftime("%d/%m/%Y %H:%M น.")
+    html = _public.render_site_report_page(rep, data, gen)
+    return HTMLResponse(html, headers={"Cache-Control": "public, max-age=180", "X-Robots-Tag": "noindex, follow"})
+
+
+@app.post("/api/site-report/{token}/lead")
+async def site_report_lead(token: str, req: ReportLeadCreate, _rl=Depends(rate_limit_auth)):
+    """ผู้สนใจกรอกจากหน้ารายงาน → เก็บลีด + เด้ง LINE แอดมินทันที + คืน 'แผนแก้เต็ม' · rate-limit กันสแปม"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    import json as _json
+    from app.db.models import SiteReport, ReportLead
+    from app import public as _public
+    name = (req.name or "").strip()[:200]
+    phone = (req.phone or "").strip()[:60]
+    contact = (req.contact or "").strip()[:255]
+    message = (req.message or "").strip()[:1000]
+    if not name:
+        raise HTTPException(422, "กรุณากรอกชื่อ")
+    if not (phone or contact):
+        raise HTTPException(422, "กรุณากรอกเบอร์โทรหรือ LINE/อีเมล")
+    async with db.session() as s:
+        rep = (await s.execute(select(SiteReport).where(SiteReport.token == (token or "").strip()).limit(1))).scalars().first()
+        if not rep:
+            raise HTTPException(404, "ไม่พบรายงาน")
+        dup = (await s.execute(select(ReportLead.id).where(
+            ReportLead.report_id == rep.id,
+            ReportLead.phone == phone, ReportLead.contact == contact).limit(1))).scalar()
+        is_new = not dup
+        if is_new:
+            s.add(ReportLead(report_id=rep.id, name=name, phone=phone, contact=contact, message=message))
+            rep.leads_count = (rep.leads_count or 0) + 1
+            await s.commit()
+        try:
+            data = _json.loads(rep.data_json or "{}")
+        except Exception:  # noqa: BLE001
+            data = {}
+        biz = rep.business_name or rep.domain
+        score, aeo = rep.score, rep.aeo_score
+    if is_new:                                        # แจ้ง LINE แอดมินเฉพาะลีดใหม่ (กันเด้งซ้ำตอนรีเฟรช) · crash-safe
+        try:
+            from app.connectors import notify
+            base = (settings.app_base_url or "").rstrip("/")
+            link = (base + "/api/site-report/" + rep.token) if base else ("/api/site-report/" + rep.token)
+            msg = ("\U0001F525 ลีดใหม่จากรายงานสุขภาพเว็บ!\n"
+                   "\U0001F3E2 ธุรกิจ: %s\n\U0001F464 ชื่อ: %s\n\U0001F4DE เบอร์: %s\n\U0001F4AC LINE/อีเมล: %s\n"
+                   "\U0001F4CA คะแนน: SEO %s · AEO/GEO %s\n%s%s"
+                   % (biz, name, phone or "-", contact or "-", score, aeo,
+                      ("\U0001F5D2 ข้อความ: %s\n" % message) if message else "", "\U0001F517 " + link))
+            if not await notify.send_line(msg):
+                print("[site-report] LINE ไม่ส่ง — ตรวจ LINE_CHANNEL_ACCESS_TOKEN / LINE_DEFAULT_TO")
+        except Exception as e:  # noqa: BLE001
+            print("[site-report] LINE error: %r" % e)
+    return {"ok": True, "plan_html": _public.render_report_plan(data)}
+
+
+@app.get("/api/site-reports")
+async def list_site_reports(user=Depends(get_current_user)):
+    """รายการลิงก์รายงานที่สร้างไว้ + จำนวนลีดของแต่ละอัน (แอดมินติดตาม/ส่งซ้ำ)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import SiteReport
+    base = (settings.app_base_url or "").rstrip("/")
+    async with db.session() as s:
+        rows = (await s.execute(select(SiteReport).order_by(SiteReport.id.desc()).limit(300))).scalars().all()
+    return {"reports": [{
+        "token": r.token, "path": "/api/site-report/%s" % r.token,
+        "public_url": (base + "/api/site-report/" + r.token) if base else ("/api/site-report/" + r.token),
+        "business": r.business_name or r.domain, "domain": r.domain,
+        "score": r.score, "grade": r.grade, "aeo_score": r.aeo_score, "aeo_grade": r.aeo_grade,
+        "leads": r.leads_count or 0, "at": r.created_at.isoformat() if r.created_at else ""}
+        for r in rows], "count": len(rows)}
+
+
+@app.get("/api/report-leads")
+async def list_report_leads(user=Depends(get_current_user)):
+    """รายชื่อลีดจากหน้ารายงาน (รายชื่อโทรตามปิดการขาย) — ใหม่สุดก่อน + บริบทเว็บ/คะแนน"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import SiteReport, ReportLead
+    base = (settings.app_base_url or "").rstrip("/")
+    async with db.session() as s:
+        rows = (await s.execute(
+            select(ReportLead, SiteReport)
+            .join(SiteReport, ReportLead.report_id == SiteReport.id)
+            .order_by(ReportLead.id.desc()).limit(400))).all()
+    out = []
+    for lead, rep in rows:
+        path = "/api/site-report/%s" % rep.token
+        out.append({
+            "name": lead.name, "phone": lead.phone, "contact": lead.contact, "message": lead.message,
+            "business": rep.business_name or rep.domain, "domain": rep.domain,
+            "token": rep.token, "path": path, "public_url": (base + path) if base else path,
+            "score": rep.score, "aeo_score": rep.aeo_score,
+            "at": lead.created_at.isoformat() if lead.created_at else ""})
+    return {"leads": out, "count": len(out)}
 
 
 @app.get("/api/contacts")

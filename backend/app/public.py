@@ -981,6 +981,214 @@ h1{text-wrap:balance}.kb{box-shadow:0 8px 20px -8px rgba(26,86,255,.6)}
 """
 
 
+_REPORT_CSS = """
+*{box-sizing:border-box}:root{--pp:#fff;--ink:#0f1830;--mut:#5a6a86;--bl:#1b3fd4;--ln:#e7ecf6;--wash:#f6f8fd;--ok:#0a7350;--warn:#b45309;--bad:#c0392b}
+@media(prefers-color-scheme:dark){:root{--pp:#0b111f;--ink:#eef2fb;--mut:#93a3c2;--bl:#7d97ff;--ln:#233150;--wash:#0a1120;--ok:#34d399;--warn:#f59e0b;--bad:#f87171}}
+body{margin:0;background:var(--wash);color:var(--ink);font-family:"Sarabun","Noto Sans Thai","Segoe UI",system-ui,sans-serif;line-height:1.7}
+.wrap{max-width:760px;margin:0 auto;padding:26px 20px 70px}
+.brand{font-weight:800;display:flex;align-items:center;gap:9px;font-size:15px}
+.brand .mk{width:26px;height:26px;border-radius:7px;background:var(--bl);color:#fff;display:grid;place-items:center;font-size:14px}
+.brand .sub{color:var(--mut);font-weight:600;font-size:12.5px}
+h1{font-size:clamp(23px,4.4vw,34px);line-height:1.16;letter-spacing:-.02em;margin:16px 0 4px;text-wrap:balance}
+.url{color:var(--mut);font-size:14px;margin-bottom:20px;word-break:break-all}
+.gauges{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.gcard{flex:1;min-width:210px;background:var(--pp);border:1px solid var(--ln);border-radius:18px;padding:18px;text-align:center;box-shadow:0 20px 46px -30px rgba(20,40,120,.3)}
+.gcard .cap{font-weight:800;font-size:14.5px;margin-bottom:2px}
+.gcard .cap2{color:var(--mut);font-size:12px;margin-bottom:8px}
+.gg{width:140px;height:140px;margin:0 auto}
+.gg circle{fill:none;stroke-width:11;stroke-linecap:round;transform:rotate(-90deg);transform-origin:60px 60px}
+.gg .bg{stroke:var(--ln)}
+.gg .num{font:800 30px "Sarabun",system-ui;text-anchor:middle}
+.gg .den{font:600 12px "Sarabun",system-ui;fill:var(--mut);text-anchor:middle}
+.gcard .grade{font-weight:800;font-size:14px;margin-top:6px}
+.verdict{background:linear-gradient(135deg,#eef3ff,#f3f0ff);border:1px solid var(--ln);border-radius:16px;padding:16px 18px;font-size:15.5px;font-weight:600;margin-bottom:22px}
+@media(prefers-color-scheme:dark){.verdict{background:linear-gradient(135deg,#16223c,#1c1a38)}}
+.sec{background:var(--pp);border:1px solid var(--ln);border-radius:18px;padding:8px 20px 16px;margin-bottom:16px}
+.sec h2{font-size:17px;margin:16px 0 2px}
+.sec .h2sub{color:var(--mut);font-size:12.5px;margin-bottom:4px}
+.frow{padding:11px 2px;border-top:1px solid var(--ln)}
+.frow:first-of-type{border-top:0}
+.frow .lbl{font-weight:700;font-size:15px}
+.frow .det{color:var(--mut);font-size:13px;margin-left:6px}
+.frow .fix{color:var(--warn);font-size:13px;margin-top:3px;padding-left:24px}
+.kw{display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-top:1px solid var(--ln);font-size:14px}
+.kw .tag{font-weight:800;font-size:12px}
+.gate{background:linear-gradient(135deg,#3d6bff,#5b4ff0);color:#fff;border-radius:20px;padding:28px 24px;margin:24px 0;text-align:center;box-shadow:0 30px 60px -30px rgba(40,60,200,.6)}
+.gate h3{font-size:22px;margin:0 0 6px;line-height:1.2}
+.gate p{opacity:.94;font-size:14.5px;margin:0 0 14px}
+.gate .teaser{background:rgba(255,255,255,.13);border-radius:12px;padding:12px 16px;text-align:left;font-size:14px;margin:0 auto 16px;max-width:440px}
+.gate .teaser .blur{filter:blur(5px);opacity:.7;user-select:none}
+.gate input,.gate textarea{width:100%;max-width:420px;padding:13px 15px;border:0;border-radius:11px;font-size:15px;margin:6px auto;display:block;color:#0f1830;font-family:inherit}
+.gate textarea{min-height:66px;resize:vertical}
+.gate .btn{background:#fff;color:#3d6bff;font-weight:800;border:0;padding:14px 34px;border-radius:999px;font-size:15.5px;cursor:pointer;margin-top:8px}
+.gate .btn:disabled{opacity:.7}
+.gate .fine{opacity:.86;font-size:12px;margin-top:12px}
+.plan{display:none;background:var(--pp);border:1px solid var(--ln);border-radius:18px;padding:6px 24px 22px;margin-top:12px;box-shadow:0 26px 56px -30px rgba(20,40,120,.3)}
+.plan .done{background:var(--ok);color:#fff;border-radius:14px;padding:16px 18px;margin:16px 0 4px;font-weight:700;text-align:center}
+.plan ol{padding-left:1.3em}.plan li{font-size:15.5px;margin-bottom:10px}
+.foot{color:var(--mut);font-size:12.5px;text-align:center;margin-top:34px;line-height:1.7}.foot a{color:var(--bl)}
+"""
+
+
+def _rep_gauge(score, cap, cap2) -> str:
+    """เกจวงกลม SVG (สี = ระดับคะแนน) — คะแนนจริงจาก sitecheck (ไม่กุ)"""
+    s = max(0, min(100, int(score or 0)))
+    color = "var(--ok)" if s >= 85 else "var(--warn)" if s >= 55 else "var(--bad)"
+    grade = "A" if s >= 85 else "B" if s >= 70 else "C" if s >= 55 else "D"
+    circ = 326.726  # 2*pi*52
+    off = round(circ * (1 - s / 100.0), 1)
+    return (
+        '<div class="gcard"><div class="cap">%s</div><div class="cap2">%s</div>'
+        '<svg class="gg" viewBox="0 0 120 120" role="img" aria-label="%s %d/100">'
+        '<circle class="bg" cx="60" cy="60" r="52"></circle>'
+        '<circle cx="60" cy="60" r="52" style="stroke:%s;stroke-dasharray:%s;stroke-dashoffset:%s"></circle>'
+        '<text class="num" x="60" y="60" dy=".1em" style="fill:%s">%d</text>'
+        '<text class="den" x="60" y="82">/100</text></svg>'
+        '<div class="grade" style="color:%s">เกรด %s</div></div>'
+        % (_esc(cap), _esc(cap2), _esc(cap), s, color, circ, off, color, s, color, grade)
+    )
+
+
+def _rep_factor_rows(factors) -> str:
+    out = []
+    for f in (factors or []):
+        tone = f.get("tone")
+        ico = "✅" if tone == "ok" else ("🟡" if tone == "warn" else "❌")
+        fix = f.get("fix") or ""
+        out.append(
+            '<div class="frow"><div><span>%s</span> <b class="lbl">%s</b>'
+            '<span class="det">%s</span></div>%s</div>'
+            % (ico, _esc(f.get("label") or ""), _esc(f.get("detail") or ""),
+               ('<div class="fix">→ %s</div>' % _esc(fix)) if (tone != "ok" and fix) else "")
+        )
+    return "".join(out) or '<div class="frow"><span class="det">—</span></div>'
+
+
+def render_report_plan(data: dict) -> str:
+    """แผนแก้จัดลำดับ (โชว์หลังกรอกลีด) — AEO/GEO ก่อน แล้ว SEO เรียงตาม gain · จบด้วย CTA ให้ทีมทำให้"""
+    fixes = list(data.get("aeo_fixes") or []) + list(data.get("top_fixes") or [])
+    if not fixes:
+        body = ('<p>เว็บพื้นฐานแน่นแล้ว 🎉 — ก้าวต่อไปคือ <b>ดันให้ติดอันดับ Google</b> '
+                'และ <b>ทำให้ AI แนะนำคุณ</b> ซึ่งเป็นงานที่ทีม ImVisible ทำต่อเนื่องให้ได้</p>')
+    else:
+        lis = []
+        for x in fixes[:8]:
+            gain = (' <span style="color:var(--mut);font-size:13px">(+%s แต้ม)</span>' % x["gain"]) if x.get("gain") else ""
+            lis.append('<li><b>%s</b> — %s%s</li>' % (_esc(x.get("label") or ""), _esc(x.get("fix") or ""), gain))
+        body = '<ol>%s</ol>' % "".join(lis)
+    return (body +
+            '<div class="done">✓ ทีม ImVisible จะติดต่อกลับเพื่อช่วยทำให้ครบ — '
+            'ทั้ง SEO (ติดอันดับ Google) + AEO/GEO (ให้ AI แนะนำคุณ)</div>')
+
+
+def render_site_report_page(rep, data: dict, generated: str) -> str:
+    """หน้ารายงานสุขภาพเว็บสาธารณะ (แชร์ได้) — เกจคะแนน + ปัญหา + แผนแก้ที่ gate ด้วยฟอร์มลีด
+    ตัวเลขทุกตัวมาจาก sitecheck.check_url จริง (no-faking) · noindex (กัน doorway) แต่ OG สวยตอนแชร์"""
+    import json as _json
+    business = _esc((getattr(rep, "business_name", "") or getattr(rep, "domain", "") or data.get("url") or "เว็บไซต์").strip())
+    url = _esc(data.get("url") or getattr(rep, "url", "") or "")
+    score = int(data.get("score") or 0)
+    aeo = int(data.get("aeo_score") or 0)
+    verdict = _esc(data.get("aeo_summary") or data.get("summary") or "")
+    token = getattr(rep, "token", "") or ""
+
+    fixes = list(data.get("aeo_fixes") or []) + list(data.get("top_fixes") or [])
+    n_fix = len(fixes)
+    teaser_items = []
+    for i, x in enumerate(fixes[:5]):
+        cls = "" if i < 2 else "blur"
+        teaser_items.append('<div class="%s">• %s</div>' % (cls, _esc(x.get("label") or "")))
+    teaser = "".join(teaser_items) or '<div>เว็บพื้นฐานแน่นแล้ว — ต่อยอดสู่การติดอันดับ + ให้ AI แนะนำ</div>'
+
+    kw_rows = data.get("keywords") or []
+    kw_html = ""
+    if kw_rows:
+        rows = []
+        for r in kw_rows:
+            tone = r.get("tone")
+            color = "var(--ok)" if tone == "ok" else "var(--warn)" if tone == "warn" else "var(--bad)"
+            rows.append('<div class="kw"><span>%s</span><span class="tag" style="color:%s">%s</span></div>'
+                        % (_esc(r.get("keyword") or ""), color, _esc(r.get("label") or "")))
+        kw_html = ('<div class="sec"><h2>🔑 คีย์เวิร์ดที่อยากติด (บนหน้าเพจ)</h2>'
+                   '<div class="h2sub">วัดว่าหน้าแรกพูดถึงคำนั้นครบไหม — ไม่ใช่อันดับ Google จริง</div>%s</div>'
+                   % "".join(rows))
+
+    cfg = _json.dumps({
+        "token": token,
+        "loading": "กำลังส่ง…",
+        "btn": "ดูแผนแก้ทั้งหมด + ให้ทีมช่วย",
+        "noname": "กรุณากรอกชื่อของคุณ",
+        "nocontact": "กรุณากรอกเบอร์โทรหรือ LINE/อีเมล เพื่อให้เราติดต่อกลับได้",
+        "err": "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
+        "thanks": "✓ ส่งแล้ว! ทีมเราจะติดต่อกลับเร็ว ๆ นี้",
+    }, ensure_ascii=False).replace("</", "<\\/")
+
+    js = ('<script>window.RPT=%s;</script>'
+          '<script>(function(){var C=window.RPT||{};var f=document.getElementById("rl-form"),'
+          'g=document.getElementById("rl-gate"),p=document.getElementById("rl-plan");'
+          'if(!f)return;f.onsubmit=function(e){e.preventDefault();'
+          'var nm=(document.getElementById("rl-name").value||"").trim();'
+          'var ph=(document.getElementById("rl-phone").value||"").trim();'
+          'var ct=(document.getElementById("rl-contact").value||"").trim();'
+          'var ms=(document.getElementById("rl-msg").value||"").trim();'
+          'if(!nm){alert(C.noname);return;}if(!ph&&!ct){alert(C.nocontact);return;}'
+          'var b=document.getElementById("rl-btn");b.disabled=true;b.textContent=C.loading;'
+          'fetch("/api/site-report/"+C.token+"/lead",{method:"POST",headers:{"Content-Type":"application/json"},'
+          'body:JSON.stringify({name:nm,phone:ph,contact:ct,message:ms})})'
+          '.then(function(r){return r.json();}).then(function(d){if(d&&d.plan_html){'
+          'p.innerHTML=d.plan_html;p.style.display="block";'
+          'g.innerHTML="<h3>"+C.thanks+"</h3>";p.scrollIntoView({behavior:"smooth"});}'
+          'else{b.disabled=false;b.textContent=C.btn;alert((d&&d.detail)||C.err);}})'
+          '.catch(function(){b.disabled=false;b.textContent=C.btn;alert(C.err);});};})();</script>'
+          % cfg)
+
+    page_title = "รายงานสุขภาพเว็บ · %s — SEO %d · AEO/GEO %d" % (business, score, aeo)
+    meta_desc = _esc((data.get("aeo_summary") or data.get("summary") or "")[:155])
+
+    return (
+        '<!doctype html><html lang="th"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="robots" content="noindex,follow">'
+        '<title>%s</title><meta name="description" content="%s">'
+        '<meta property="og:title" content="%s"><meta property="og:description" content="%s">'
+        '<meta property="og:type" content="website">'
+        '<link rel="icon" href="/favicon.svg"><style>%s</style></head><body><div class="wrap">'
+        '<div class="brand"><span class="mk">i</span>ImVisible<span class="sub">· รายงานสุขภาพเว็บ · SEO · AEO · GEO</span></div>'
+        '<h1>%s</h1><div class="url">%s · ตรวจเมื่อ %s</div>'
+        '<div class="gauges">%s%s</div>'
+        '<div class="verdict">%s</div>'
+        '<div class="sec"><h2>🟪 ความพร้อม AEO / GEO (ให้ AI แนะนำ)</h2>'
+        '<div class="h2sub">schema · ตัวตนแบรนด์ · Q&amp;A/FAQ · answer-first · โครงหัวข้อ · เนื้อหา · llms.txt</div>%s</div>'
+        '<div class="sec"><h2>🟦 ความพร้อม SEO (ติดอันดับ Google)</h2>%s</div>'
+        '%s'
+        '<div class="gate" id="rl-gate">'
+        '<h3>🔧 เจอ %d จุดที่ต้องแก้ — ดูแผนเต็ม + ให้ทีมเราทำให้</h3>'
+        '<p>กรอกข้อมูลเพื่อดู <b>แผนแก้จัดลำดับทั้งหมด</b> และให้ทีม ImVisible ช่วยทำให้ครบ (SEO + AEO/GEO)</p>'
+        '<div class="teaser">%s</div>'
+        '<form id="rl-form">'
+        '<input id="rl-name" type="text" placeholder="ชื่อของคุณ *" autocomplete="name">'
+        '<input id="rl-phone" type="tel" placeholder="เบอร์โทร (แนะนำ)" autocomplete="tel">'
+        '<input id="rl-contact" type="text" placeholder="LINE ID หรืออีเมล (ไม่บังคับ)">'
+        '<textarea id="rl-msg" placeholder="อยากให้ช่วยเรื่องอะไรเป็นพิเศษ? (ไม่บังคับ)"></textarea>'
+        '<button class="btn" id="rl-btn" type="submit">ดูแผนแก้ทั้งหมด + ให้ทีมช่วย</button>'
+        '<div class="fine">ฟรี · ไม่มีข้อผูกมัด · ทีมเราติดต่อกลับเพื่อประเมินให้</div>'
+        '</form></div>'
+        '<div class="plan" id="rl-plan"></div>'
+        '<div class="foot">ตรวจจากหน้าเว็บจริง · ตัวเลขจริง ไม่กุ (no-faking) · โดย '
+        '<a href="https://imvisible.tech" rel="noopener">ImVisible</a> — SEO · AEO · GEO อัตโนมัติ</div>'
+        '%s</div></body></html>'
+        % (page_title, meta_desc, _esc(page_title), meta_desc, _REPORT_CSS,
+           business, url, _esc(generated),
+           _rep_gauge(score, "🟦 SEO", "ติดอันดับ Google"),
+           _rep_gauge(aeo, "🟪 AEO / GEO", "ให้ AI แนะนำ"),
+           verdict,
+           _rep_factor_rows(data.get("aeo_factors")),
+           _rep_factor_rows(data.get("factors")),
+           kw_html,
+           n_fix, teaser, js)
+    )
+
+
 def render_lead_magnet_gate(magnet, proj) -> str:
     """หน้า gate สื่อแจกฟรี — teaser สาธารณะ (ให้ติดอันดับ) + ฟอร์มกรอกอีเมลปลดล็อกเนื้อหาเต็ม · สองภาษาตามโปรเจ็ค"""
     import json as _json
@@ -1092,6 +1300,104 @@ def render_lead_magnet_gate(magnet, proj) -> str:
            _LM_CSS, brand, kb, title, desc, cover_html, teaser, gate_html,
            t("แจกฟรีโดย", "Free from"), brand, js)
     )
+
+
+def _inject_into_head(html: str, extra: str) -> str:
+    """แทรก extra ก่อน </head> (ไม่มี = หลัง <body> · ไม่มีอีก = หน้าสุด) — ไม่แตะเนื้อหาเดิม"""
+    if not extra:
+        return html
+    m = re.search(r"(?i)</head\s*>", html)
+    if m:
+        return html[:m.start()] + extra + html[m.start():]
+    m = re.search(r"(?i)<body[^>]*>", html)
+    if m:
+        return html[:m.end()] + extra + html[m.end():]
+    return extra + html
+
+
+def _brief_social_urls(brief: dict) -> list:
+    """ดึง URL โซเชียลจาก brief → sameAs (ยืนยันตัวตนแบรนด์ให้ AI)"""
+    urls = []
+    for k in ("facebook", "instagram"):
+        v = (brief.get(k) or "").strip()
+        if v.startswith("http"):
+            urls.append(v)
+    ln = (brief.get("line") or "").strip()
+    if ln.startswith("http"):
+        urls.append(ln)
+    elif ln.startswith("@"):
+        urls.append("https://line.me/R/ti/p/%40" + ln[1:])
+    seen, out = set(), []
+    for u in urls:
+        if u not in seen:
+            seen.add(u); out.append(u)
+    return out[:6]
+
+
+def inject_aeo_geo(html: str, *, name: str, home: str, lang: str, brief: dict) -> str:
+    """ฝัง 'ป้ายหุ่นยนต์' ลง home_html ที่ IM WEB สร้าง — LocalBusiness/Organization + WebSite + FAQPage
+    + meta description/canonical/OG (เฉพาะที่ยังไม่มี) → เว็บ 'พร้อมให้ AI แนะนำ' ตั้งแต่นาทีแรก (ของจริง)
+    additive เท่านั้น: ไม่ลบ/แทนที่ของเดิมในหน้า"""
+    import json as _json
+    brief = brief or {}
+    lang = "en" if str(lang or "").lower().startswith("en") else "th"
+    blocks = []
+
+    address = (brief.get("address") or "").strip()
+    ent = {"@context": "https://schema.org",
+           "@type": "LocalBusiness" if address else "Organization",
+           "name": name, "url": home}
+    desc = " · ".join([x for x in [(brief.get("about") or "").strip(), (brief.get("usp") or "").strip()] if x])[:300]
+    if desc:
+        ent["description"] = desc
+    logo = (brief.get("logo_url") or "").strip()
+    if logo.startswith("http"):
+        ent["logo"] = logo
+        ent["image"] = logo
+    sa = _brief_social_urls(brief)
+    if sa:
+        ent["sameAs"] = sa
+    if (brief.get("phone") or "").strip():
+        ent["telephone"] = brief["phone"].strip()
+    if (brief.get("email") or "").strip():
+        ent["email"] = brief["email"].strip()
+    if address:
+        ent["address"] = {"@type": "PostalAddress", "streetAddress": address}
+    if (brief.get("hours") or "").strip():
+        ent["openingHours"] = brief["hours"].strip()
+    if (brief.get("service_area") or "").strip():
+        ent["areaServed"] = brief["service_area"].strip()
+    if (brief.get("map_url") or "").strip().startswith("http"):
+        ent["hasMap"] = brief["map_url"].strip()
+    blocks.append(ent)
+
+    blocks.append({"@context": "https://schema.org", "@type": "WebSite",
+                   "name": name, "url": home, "inLanguage": lang})
+
+    faqs = [f for f in (brief.get("faqs") or [])
+            if (f.get("q") or "").strip() and (f.get("a") or "").strip()]
+    if faqs:
+        blocks.append({"@context": "https://schema.org", "@type": "FAQPage",
+                       "mainEntity": [{"@type": "Question", "name": (f.get("q") or "").strip(),
+                                       "acceptedAnswer": {"@type": "Answer", "text": (f.get("a") or "").strip()}}
+                                      for f in faqs[:12]]})
+
+    extra = "".join('<script type="application/ld+json">%s</script>'
+                    % _json.dumps(b, ensure_ascii=False).replace("</", "<\\/") for b in blocks)
+
+    low = html.lower()                                   # เพิ่ม meta เฉพาะที่หน้ายังไม่มี (กันซ้ำ)
+    if desc and "name=\"description\"" not in low and "name='description'" not in low:
+        extra += '<meta name="description" content="%s">' % _esc(desc[:160])
+    if home and "rel=\"canonical\"" not in low and "rel='canonical'" not in low:
+        extra += '<link rel="canonical" href="%s">' % _esc(home)
+    if "og:title" not in low:
+        extra += '<meta property="og:title" content="%s">' % _esc(name)
+    if desc and "og:description" not in low:
+        extra += '<meta property="og:description" content="%s">' % _esc(desc[:200])
+    if logo.startswith("http") and "og:image" not in low:
+        extra += '<meta property="og:image" content="%s">' % _esc(logo)
+
+    return _inject_into_head(html, extra)
 
 
 def render_index_page(proj, arts) -> str:

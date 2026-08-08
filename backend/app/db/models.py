@@ -242,3 +242,39 @@ class AeoStudySnapshot(Base):
     has_llms: Mapped[bool] = mapped_column(Boolean, default=False)        # มีไฟล์ /llms.txt
     note: Mapped[str] = mapped_column(String(300), default="")           # เหตุผลกรณีล้ม / หมายเหตุ
     scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class SiteReport(Base):
+    """รายงานสุขภาพเว็บสาธารณะ (แชร์ได้) — พนักงานสร้างลิงก์ให้ลูกค้า/ผู้สนใจเปิดดู
+    หน้ารายงานโชว์คะแนน SEO + AEO/GEO 'จริง' (จาก sitecheck.check_url) + ปัญหาที่เจอ
+    'แผนแก้ + ให้ทีมทำให้' ถูก gate ไว้หลังฟอร์ม → กรอกชื่อ/เบอร์ = ได้ลีด (เด้ง LINE แอดมิน)
+    = ทำให้ 'ทั้งคนและเว็บขายตัวเอง': เว็บดึงคนมา (แชร์ได้) + คนคัดตัวเอง (เห็นคะแนน→ขอให้ช่วย)
+    data_json = ผลตรวจเต็มตอนสร้าง (snapshot · ไม่ต้องยิงซ้ำ) · ตัวเลขจริงล้วน ไม่กุ"""
+    __tablename__ = "site_reports"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token: Mapped[str] = mapped_column(String(64), default="", index=True)   # ลิงก์สาธารณะ (secrets.token_urlsafe)
+    url: Mapped[str] = mapped_column(String(600), default="")                # ลิงก์ที่ตรวจ (base https://domain)
+    domain: Mapped[str] = mapped_column(String(255), default="", index=True) # โดเมนล้วน
+    business_name: Mapped[str] = mapped_column(String(300), default="")      # ชื่อธุรกิจลูกค้า (พนักงานกรอก · ว่าง=ใช้โดเมน)
+    keywords: Mapped[str] = mapped_column(Text, default="")                  # คีย์เวิร์ดที่ประเมิน (คั่นด้วย ,)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)  # พนักงานที่สร้าง
+    score: Mapped[int] = mapped_column(Integer, default=0)                   # SEO 0-100 (denorm ไว้โชว์ในลิสต์)
+    grade: Mapped[str] = mapped_column(String(2), default="")
+    aeo_score: Mapped[int] = mapped_column(Integer, default=0)               # AEO/GEO 0-100
+    aeo_grade: Mapped[str] = mapped_column(String(2), default="")
+    data_json: Mapped[str] = mapped_column(Text, default="")                 # ผลตรวจเต็ม (json) ตอนสร้าง — ใช้เรนเดอร์หน้า
+    leads_count: Mapped[int] = mapped_column(Integer, default=0)             # กี่คนที่ขอให้ช่วย (unlock แผนแก้)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReportLead(Base):
+    """ลีดจากหน้ารายงานสุขภาพเว็บ — ผู้สนใจกรอกชื่อ/เบอร์เพื่อดูแผนแก้ + ขอให้ทีมช่วย
+    เด้งแจ้ง LINE แอดมินทันที + เก็บไว้เป็น 'รายชื่อโทรตามปิดการขาย' ในแอดมิน"""
+    __tablename__ = "report_leads"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    report_id: Mapped[int] = mapped_column(ForeignKey("site_reports.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    phone: Mapped[str] = mapped_column(String(60), default="")
+    contact: Mapped[str] = mapped_column(String(255), default="")            # LINE ID / อีเมล (ช่องทางเสริม)
+    message: Mapped[str] = mapped_column(Text, default="")                   # ข้อความ/สิ่งที่อยากได้
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -215,6 +215,21 @@ class SiteCheckRequest(BaseModel):
     keywords: list[str] = []          # คีย์เวิร์ดที่อยากติด (สูงสุด 3) → ประเมินการครอบคลุมบนหน้าเพจ
 
 
+class SiteReportCreate(BaseModel):
+    """พนักงานสร้าง 'ลิงก์รายงานสุขภาพเว็บ' ส่งลูกค้า (เก็บลีด) — ตรวจจริง + บันทึกเป็น snapshot"""
+    url: str = ""                     # ลิงก์เว็บลูกค้า/ผู้สนใจ
+    keywords: list[str] = []          # คีย์เวิร์ดที่อยากติด (สูงสุด 3)
+    business_name: str = ""           # ชื่อธุรกิจ (โชว์บนหน้ารายงาน · ว่าง=ใช้โดเมน)
+
+
+class ReportLeadCreate(BaseModel):
+    """ผู้สนใจกรอกจากหน้ารายงานสาธารณะ เพื่อดูแผนแก้ + ขอให้ทีมช่วย (สาธารณะ ไม่ต้องล็อกอิน)"""
+    name: str = ""
+    phone: str = ""
+    contact: str = ""                 # LINE ID / อีเมล (ช่องทางเสริม)
+    message: str = ""
+
+
 class ChannelUpdate(BaseModel):
     kind: str                        # line | facebook | telegram | x | linkedin | discord | mastodon | webhook
     ref: str = ""                    # facebook: page_id · line: userId/groupId (หรือ 'broadcast')
@@ -251,20 +266,51 @@ class SnippetSniperRequest(BaseModel):
     keywords: list[str] = []         # หลายคีย์พร้อมกัน (สูงสุด 8 คำ/รอบ = 8 SERP calls)
 
 
-class ImwebGenerateRequest(BaseModel):
-    brand_name: str = ""             # ชื่อแบรนด์/ร้าน
-    about: str = ""                  # เกี่ยวกับธุรกิจ (สั้น ๆ)
-    products: str = ""               # สินค้า/บริการ (คั่นด้วย ,)
+class FaqItem(BaseModel):
+    q: str = ""                      # คำถามที่ลูกค้าถามบ่อย
+    a: str = ""                      # คำตอบ
+
+
+class SiteBrief(BaseModel):
+    """brief สร้างเว็บแบบละเอียด — ป้อน IM WEB ให้ได้เว็บที่ดี + เก็บ 'วัตถุดิบ AEO/GEO' (FAQ/ที่ตั้ง/ติดต่อ)
+    ที่จะ carry เข้าโปรเจกต์ตอน save → เครื่องยนต์โตเองเริ่มแบบเต็มแม็ก + ฝัง schema ให้ AI แนะนำได้"""
+    # ธุรกิจ
+    brand_name: str = ""
     biz_type: str = ""               # ประเภทธุรกิจ เช่น คาเฟ่ / คลินิก
-    vibe: str = ""                   # โทน/อารมณ์ เช่น อบอุ่น มินิมอล
+    about: str = ""                  # เกี่ยวกับธุรกิจ
+    usp: str = ""                    # จุดเด่น / ทำไมต้องเลือกเรา
+    audience: str = ""               # กลุ่มลูกค้าเป้าหมาย
+    products: str = ""               # สินค้า/บริการ (คั่นด้วย ,)
+    price_info: str = ""             # ราคา/แพ็กเกจ (อิสระ · ไม่บังคับ)
+    # ติดต่อ & ที่ตั้ง (วัตถุดิบ GEO / LocalBusiness)
+    phone: str = ""
+    line: str = ""                   # LINE id/ลิงก์
+    email: str = ""
+    facebook: str = ""               # URL เพจ
+    instagram: str = ""              # URL/handle
+    address: str = ""                # ที่อยู่ (มี = ทำ LocalBusiness schema)
+    service_area: str = ""           # พื้นที่ให้บริการ เช่น กรุงเทพและปริมณฑล
+    hours: str = ""                  # เวลาทำการ
+    map_url: str = ""                # ลิงก์ Google Maps
+    # เป้าหมาย & แบรนด์
+    goal: str = ""                   # booking | order | call | chat | leads
+    brand_color: str = ""            # สีหลัก (hex หรือคำ)
+    logo_url: str = ""               # ลิงก์โลโก้
+    vibe: str = ""                   # โทน/อารมณ์
+    # AEO/GEO
+    keywords: list[str] = []         # คีย์เวิร์ดที่อยากติด
+    faqs: list[FaqItem] = []         # FAQ จริง → FAQPage schema (AEO) + aeo_questions ของโปรเจกต์
+
+
+class ImwebGenerateRequest(BaseModel):
+    brief: SiteBrief = Field(default_factory=SiteBrief)
     language: str = "th"             # ภาษาเว็บ
     motion_level: str = "high"       # ระดับ animation: low | high | max
-    line: str = ""                   # LINE id สำหรับ CTA ติดต่อ (ไม่บังคับ)
     tier: str = "paid"               # paid | free (คุณภาพ engine)
     variants: int = 1                # จำนวนสไตล์ที่อยากได้ (1-3)
 
 
 class ImwebSaveRequest(BaseModel):
     html: str = ""                   # HTML เว็บที่เลือก (จาก IM WEB) → โฮสต์เป็นหน้าแรก
-    brand_name: str = ""             # ชื่อแบรนด์ → ชื่อโปรเจกต์
+    brief: SiteBrief = Field(default_factory=SiteBrief)   # brief เดิม → carry เข้าโปรเจกต์ + ฝัง schema
     language: str = "th"
