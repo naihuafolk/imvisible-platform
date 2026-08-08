@@ -1419,12 +1419,10 @@
   /* การ์ดบริการ (SEO·AEO·GEO + รับทำเว็บ) — ใช้ motif 'แถบสีด้านบน' เดียวกับ .audit-card/.lead-card + ยกลอยตอน hover */
   #triple .iv-svc,#webbuild .iv-svc{position:relative;overflow:hidden;
     transition:transform .28s ease,box-shadow .28s ease,border-color .28s ease}
-  .iv-svc::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;
-    background:linear-gradient(90deg,var(--azure),var(--blue),var(--blue-deep));
-    transform:scaleX(0);transform-origin:left;transition:transform .4s ease}
-  .iv-svc:hover{transform:translateY(-5px);
-    box-shadow:0 26px 50px -30px rgba(10,26,82,.42);border-color:var(--blue)}
-  .iv-svc:hover::before{transform:scaleX(1)}
+  .iv-svc::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;
+    background:linear-gradient(90deg,var(--azure),var(--blue),var(--blue-deep))}
+  .iv-svc:hover{transform:translateY(-6px);
+    box-shadow:0 28px 54px -28px rgba(10,26,82,.45);border-color:var(--blue)}
   /* เลื่อนมาถึงแล้วค่อย ๆ ปรากฏ (fade-up) — เปิดเฉพาะเมื่อ JS พร้อม + ผู้ใช้ไม่ปิด motion · กันเนื้อหาหาย */
   @media(prefers-reduced-motion:no-preference){
     body.iv-anim .iv-up{opacity:0;transform:translateY(22px);
