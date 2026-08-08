@@ -31,7 +31,8 @@
       { id: 'ads', code: '', ico: '📣', lbl: 'Google Ads' },
       { id: 'prospect', code: '', ico: '💼', lbl: 'รายงานคีย์เวิร์ด (ขาย)' },
       { id: 'pantip', code: '', ico: '🎯', lbl: 'เรดาร์ Pantip' },
-      { id: 'growth', code: '', ico: '🚀', lbl: 'เครื่องมือโต (Growth)' }
+      { id: 'growth', code: '', ico: '🚀', lbl: 'เครื่องมือโต (Growth)' },
+      { id: 'readiness', code: '', ico: '🩺', lbl: 'เช็กสุขภาพเว็บ (Readiness)' }
     ]},
     { section: 'ระบบ', items: [
       { id: 'projects', code: '', ico: '🗂️', lbl: 'จัดการโปรเจ็ค' },
@@ -44,6 +45,7 @@
     prospect: 'รายงานคีย์เวิร์ด (ขายลูกค้า)',
     pantip: 'เรดาร์ Pantip (หากระทู้หน้า 1)',
     growth: 'เครื่องมือโต (Growth Tools)',
+    readiness: 'เช็กสุขภาพเว็บ (Readiness)',
     activity: 'กิจกรรมสด',
     m1: 'M1 · ขุดคำถาม & คีย์เวิร์ด',
     m2: 'M2 · โรงงานคอนเทนต์',
@@ -72,7 +74,7 @@
     NAV.forEach(function (g) { g.items.forEach(function (it) { by[it.id] = it; }); });
     return [
       { section: 'ภาพรวม', items: [by.dashboard, by.report, by.blog, by.writeblog, by.leadmagnets, by.activity] },
-      { section: 'หาลูกค้า', items: [by.prospect, by.pantip, by.growth, by.ads] },
+      { section: 'หาลูกค้า', items: [by.prospect, by.pantip, by.growth, by.readiness, by.ads] },
       { section: 'โปรเจ็ค', items: [by.projects] },
       { section: 'ระบบ', items: [by.settings] },
       { section: 'เครื่องมือ (ขั้นสูง)', collapsed: true, items: [by.m1, by.m2, by.m3, by.m4, by.m5, by.m6] }
