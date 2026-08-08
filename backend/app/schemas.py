@@ -262,3 +262,9 @@ class ImwebGenerateRequest(BaseModel):
     line: str = ""                   # LINE id สำหรับ CTA ติดต่อ (ไม่บังคับ)
     tier: str = "paid"               # paid | free (คุณภาพ engine)
     variants: int = 1                # จำนวนสไตล์ที่อยากได้ (1-3)
+
+
+class ImwebSaveRequest(BaseModel):
+    html: str = ""                   # HTML เว็บที่เลือก (จาก IM WEB) → โฮสต์เป็นหน้าแรก
+    brand_name: str = ""             # ชื่อแบรนด์ → ชื่อโปรเจกต์
+    language: str = "th"

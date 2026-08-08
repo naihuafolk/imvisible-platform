@@ -31,7 +31,7 @@
       '</div></div>';
   }
 
-  function render(out, d) {
+  function render(out, d, brief) {
     var themes = d.themes || [];
     if (!themes.length) { out.innerHTML = ui.card({ body: RP.noData('ยังไม่ได้เว็บ', 'ลองใหม่อีกครั้ง หรือเช็ก IMWEB_API_KEY') }); return; }
     out.innerHTML =
@@ -43,7 +43,14 @@
       if (pv) pv.onclick = function () { previewHtml(t.html || ''); };
       var use = out.querySelector('.im-use[data-idx="' + idx + '"]');
       if (use) use.onclick = function () {
-        ui.toast('ขั้นตอน "บันทึก+เริ่มโต" กำลังจะเปิด — เดี๋ยวต่อ handoff ให้ครับ');
+        use.disabled = true; use.textContent = 'กำลังบันทึก+เปิดโปรเจกต์…';
+        RP.api.imwebSave({ html: t.html || '', brand_name: (brief && brief.brand_name) || '', language: (brief && brief.language) || 'th' }).then(function (r) {
+          ui.toast('✅ เปิดโปรเจกต์แล้ว! เว็บกำลังโต');
+          use.parentNode.innerHTML = '<div class="soft small" style="color:#0a7350;line-height:1.6">✅ <b>เปิดเว็บ + โปรเจกต์แล้ว</b> → <a href="' + esc(r.public_home || '#') + '" target="_blank" rel="noopener" style="color:#1a56ff;font-weight:700">' + esc(r.public_home || 'เปิดเว็บ') + '</a><br>ระบบเริ่มผลิตคอนเทนต์ + ดัน SEO/AEO/GEO ให้อัตโนมัติ (เว็บที่โตเอง)</div>';
+        }).catch(function (e) {
+          use.disabled = false; use.textContent = '✅ ใช้เว็บนี้ (บันทึก+เริ่มโต)';
+          ui.toast('บันทึกไม่ได้: ' + esc(e.message || String(e)));
+        });
       };
     });
   }
@@ -91,7 +98,7 @@
           motion_level: val('im_motion') || 'high', language: val('im_lang') || 'th',
           variants: parseInt(val('im_var') || '1', 10)
         }).then(function (d) {
-          render(out, d);
+          render(out, d, { brand_name: val('im_brand'), language: val('im_lang') || 'th' });
         }).catch(function (e) {
           out.innerHTML = ui.card({ body: RP.noData('สร้างเว็บไม่ได้', esc(e.message || String(e))) });
         }).then(function () { go.disabled = false; go.textContent = '🏗️ สร้างเว็บ'; });

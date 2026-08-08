@@ -1096,6 +1096,9 @@ def render_lead_magnet_gate(magnet, proj) -> str:
 
 def render_index_page(proj, arts) -> str:
     home = project_public_home(proj)
+    _hh = (getattr(proj, "home_html", "") or "").strip()
+    if _hh:                                       # เว็บที่ IM WEB สร้าง (โฮสต์เป็นหน้าแรกจริง) · บทความอยู่ที่ /blog/{slug}/...
+        return _hh
     lang = "en" if str(proj.language).lower().startswith("en") else "th"
     en = (lang == "en")
     nm = proj.name or proj.domain

@@ -80,6 +80,7 @@
     snippetOpportunities: function (o) { return api._post('/api/snippet-opportunities', o); },
     aiCitationAudit: function (pid) { return api._post('/api/projects/' + pid + '/ai-citation-audit', {}); },
     imwebGenerate: function (o) { return api._post('/api/imweb/generate', o); },
+    imwebSave: function (o) { return api._post('/api/imweb/save', o); },
     adsCreative: function (pid, keyword) { return api._post('/api/projects/' + pid + '/ads/creative', { keyword: keyword }); },
     grow: function (pid) { return api._post('/api/projects/' + pid + '/grow', {}); },
     projectArticles: function (pid) { return api._get('/api/projects/' + pid + '/articles'); },

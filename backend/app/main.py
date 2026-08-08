@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, KeywordReportRequest, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
+    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, ImwebSaveRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -1153,6 +1153,34 @@ async def imweb_generate(req: ImwebGenerateRequest, user=Depends(get_current_use
     if not res.get("ok"):
         raise HTTPException(502, "สร้างเว็บไม่สำเร็จ (IM WEB): " + str(res.get("error"))[:160])
     return res
+
+
+@app.post("/api/imweb/save")
+async def imweb_save(req: ImwebSaveRequest, user=Depends(get_current_user)):
+    """✅ 'ใช้เว็บนี้' — บันทึกเว็บที่ IM WEB สร้าง → สร้างโปรเจกต์ + โฮสต์เป็นหน้าแรกจริง
+    + เปิด SEO/AEO/GEO ให้ 'โตเอง' (self-growing website) · reuse create_project (สร้าง slug + วิเคราะห์เว็บ)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    html = (req.html or "").strip()
+    if len(html) < 100:
+        raise HTTPException(422, "ไม่มี HTML เว็บ — สร้างเว็บก่อน")
+    if len(html) > 900000:
+        raise HTTPException(413, "HTML ใหญ่เกิน 900KB")
+    pc = ProjectCreate(name=(req.brand_name or "เว็บใหม่").strip(), url="",
+                       language=(req.language or "th"), mode="auto")
+    created = await create_project(pc, user)          # สร้างโปรเจกต์ + slug + trigger analyze/grow
+    pid = created.get("id")
+    if not pid:
+        raise HTTPException(500, "สร้างโปรเจกต์ไม่สำเร็จ")
+    from app.db.models import Project
+    async with db.session() as s:                     # เก็บ HTML หน้าแรก (โฮสต์เป็นเว็บจริงที่ public_home)
+        p = await s.get(Project, pid)
+        if p:
+            p.home_html = html
+            await s.commit()
+    return {"ok": True, "project_id": pid, "name": created.get("name"),
+            "public_home": created.get("public_home"),
+            "note": "บันทึก+โฮสต์เว็บแล้ว · ระบบเริ่มผลิตคอนเทนต์ + ดัน SEO/AEO/GEO ให้อัตโนมัติ (เว็บที่โตเอง)"}
 
 
 # ---- เพิ่มใน backend/app/main.py (public endpoint · rate_limit_auth · growth import แบบ inline) ----

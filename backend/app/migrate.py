@@ -18,6 +18,7 @@ from app.urls import project_slug_from_domain, article_slug
 COLUMN_DDL = [
     "ALTER TABLE projects ADD COLUMN IF NOT EXISTS slug VARCHAR(120) DEFAULT ''",
     "ALTER TABLE projects ADD COLUMN IF NOT EXISTS publish_mode VARCHAR(20) DEFAULT 'managed'",
+    "ALTER TABLE projects ADD COLUMN IF NOT EXISTS home_html TEXT DEFAULT ''",
     "ALTER TABLE projects ADD COLUMN IF NOT EXISTS custom_domain VARCHAR(255) DEFAULT ''",
     "ALTER TABLE projects ADD COLUMN IF NOT EXISTS business_context TEXT DEFAULT ''",
     "ALTER TABLE projects ADD COLUMN IF NOT EXISTS brand_terms TEXT DEFAULT ''",
