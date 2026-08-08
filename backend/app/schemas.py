@@ -249,3 +249,16 @@ class ContentGapRequest(BaseModel):
 class SnippetSniperRequest(BaseModel):
     keyword: str = ""                # คีย์เวิร์ดเดี่ยว (สะดวกกรณียิงคำเดียว)
     keywords: list[str] = []         # หลายคีย์พร้อมกัน (สูงสุด 8 คำ/รอบ = 8 SERP calls)
+
+
+class ImwebGenerateRequest(BaseModel):
+    brand_name: str = ""             # ชื่อแบรนด์/ร้าน
+    about: str = ""                  # เกี่ยวกับธุรกิจ (สั้น ๆ)
+    products: str = ""               # สินค้า/บริการ (คั่นด้วย ,)
+    biz_type: str = ""               # ประเภทธุรกิจ เช่น คาเฟ่ / คลินิก
+    vibe: str = ""                   # โทน/อารมณ์ เช่น อบอุ่น มินิมอล
+    language: str = "th"             # ภาษาเว็บ
+    motion_level: str = "high"       # ระดับ animation: low | high | max
+    line: str = ""                   # LINE id สำหรับ CTA ติดต่อ (ไม่บังคับ)
+    tier: str = "paid"               # paid | free (คุณภาพ engine)
+    variants: int = 1                # จำนวนสไตล์ที่อยากได้ (1-3)

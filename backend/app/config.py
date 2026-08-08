@@ -78,6 +78,8 @@ class Settings(BaseSettings):
     # 9b) fal.ai (FLUX) — ผู้ให้บริการรูปทางเลือก · คีย์รูปแบบ id:secret · ถ้าตั้งไว้จะใช้ fal ก่อน ModelArk
     fal_key: str = ""
     fal_image_model: str = "fal-ai/gpt-image-1"   # GPT-Image-1 (OpenAI ผ่าน fal · BYOK ด้วย OPENAI_API_KEY) — คุณภาพสายจริงสูงสุด · fallback อัตโนมัติเป็น flux-pro/v1.1
+    imweb_api_key: str = ""                        # IM WEB (imweb.studio) — AI website builder ที่เสียบเข้าระบบ (สร้างเว็บให้ลูกค้า)
+    imweb_base_url: str = "https://imweb.studio/api/v1"
     fal_video_model: str = ""   # เปิดวิดีโอ hero 'ในบทความ' ผ่าน fal.ai (เว้นว่าง=ปิด) · ช้า+แพงกว่ารูปมาก
     # วิดีโอ hero 'ในสื่อแจกฟรี/คอร์ส' — เปิดไว้ (ใช้โมเดลวิดีโอดีสุด fal Kling) · แยกจากบทความเพื่อไม่ให้ทุกบทความช้า
     lead_magnet_video: bool = True

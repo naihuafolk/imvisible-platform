@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, KeywordReportRequest, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
+    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -1127,6 +1127,32 @@ async def indexnow_info(project_id: int, user=Depends(get_current_user)):
 def pub_settings_indexnow_host() -> str:
     from app.config import settings as _s
     return (getattr(_s, "indexnow_host", "") or "").lower()
+
+
+@app.post("/api/imweb/generate")
+async def imweb_generate(req: ImwebGenerateRequest, user=Depends(get_current_user)):
+    """🏗️ สร้างเว็บด้วย IM WEB (AI builder) จากในระบบ ImVisible → คืน HTML เว็บพร้อมใช้ (themes)
+    ต่อยอด: เลือกสไตล์ → บันทึกเป็นโปรเจกต์ → เปิด SEO/AEO/GEO ให้ 'โตเอง' (self-growing website)"""
+    from app.connectors import imweb
+    if not imweb.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้ง IMWEB_API_KEY (ผู้ดูแลตั้งใน backend/.env)")
+    if not (req.brand_name.strip() or req.about.strip()):
+        raise HTTPException(422, "ใส่ชื่อแบรนด์ หรือรายละเอียดธุรกิจก่อน")
+    brief = {
+        "brandName": req.brand_name.strip(),
+        "about": req.about.strip(),
+        "products": req.products.strip(),
+        "bizType": req.biz_type.strip(),
+        "vibe": req.vibe.strip(),
+        "motionLevel": (req.motion_level or "high").strip(),
+        "language": (req.language or "th").strip(),
+    }
+    if req.line.strip():
+        brief["contact"] = {"line": req.line.strip()}
+    res = await imweb.generate_site(brief, tier=req.tier or "paid", variants=req.variants or 1)
+    if not res.get("ok"):
+        raise HTTPException(502, "สร้างเว็บไม่สำเร็จ (IM WEB): " + str(res.get("error"))[:160])
+    return res
 
 
 # ---- เพิ่มใน backend/app/main.py (public endpoint · rate_limit_auth · growth import แบบ inline) ----
