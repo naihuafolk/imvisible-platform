@@ -70,6 +70,12 @@
       '</div>' +
       '<div class="hint" style="margin-bottom:12px">' + esc(d.aeo_summary || d.summary || '') + '</div>' +
 
+      (((d.aeo_score == null || d.aeo_score < 70) || (d.score == null || d.score < 70)) ?
+        '<div class="card card-pad" style="margin-bottom:12px;background:linear-gradient(135deg,#1a56ff,#5b4ff0);color:#fff">' +
+        '<div style="font-weight:800;font-size:16px">🚀 เว็บนี้ยังไม่พร้อม 100% — สร้างใหม่ให้พร้อม AEO/GEO ในตัว</div>' +
+        '<div style="opacity:.92;font-size:14px;margin:4px 0 10px">IM WEB สร้างเว็บที่ฝัง schema + FAQ + llms.txt + โครง answer-first ให้ตั้งแต่แรก (~2 นาที) แล้วเอามาต่อ SEO/AEO/GEO กับเราได้ทันที</div>' +
+        '<a href="https://imweb.studio" target="_blank" rel="noopener" style="display:inline-block;background:#fff;color:#1a56ff;font-weight:800;padding:9px 20px;border-radius:999px;text-decoration:none">สร้างเว็บด้วย IM WEB →</a></div>' : '') +
+
       ui.card({ cls: 'mb', body:
         '<div class="bb" style="font-size:16px;margin-bottom:4px">🔧 ต้องทำอะไรก่อน (ดันได้เร็วสุด)</div>' + fixHtml }) +
 
