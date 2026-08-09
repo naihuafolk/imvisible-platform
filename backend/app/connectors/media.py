@@ -66,7 +66,15 @@ async def _fal_image(prompt: str, image_size: str = "landscape_16_9", model: str
 
 
 async def generate_image(prompt: str, size: str = "2K") -> str:
-    """text→image · fal.ai ก่อน (ลองโมเดลหลัก → fallback อัตโนมัติกัน error) ไม่งั้น Seedream (ModelArk) · คืน URL รูป"""
+    """text→image · Imgentic ก่อน (ถ้าตั้ง key+model) → fal.ai (โมเดลหลัก→fallback) → Seedream (ModelArk) · คืน URL รูป"""
+    from app.connectors import imgentic          # บริการรูปของเราเอง — ใช้ก่อนถ้าตั้งค่าครบ (มีคีย์ + เลือกโมเดลแล้ว)
+    if imgentic.image_ready():
+        try:
+            u = await imgentic.generate_image(prompt)
+            if u:
+                return u
+        except Exception:  # noqa: BLE001 — ล้ม = ตกไปใช้ fal/ModelArk ต่อ (crash-safe)
+            pass
     if settings.fal_key:
         primary = settings.fal_image_model or "fal-ai/gpt-image-1"
         tries = [primary] + (["fal-ai/flux-pro/v1.1"] if "flux-pro/v1.1" not in primary else [])

@@ -84,6 +84,13 @@ class Settings(BaseSettings):
     # วิดีโอ hero 'ในสื่อแจกฟรี/คอร์ส' — เปิดไว้ (ใช้โมเดลวิดีโอดีสุด fal Kling) · แยกจากบทความเพื่อไม่ให้ทุกบทความช้า
     lead_magnet_video: bool = True
     lead_magnet_video_model: str = "fal-ai/kling-video/v2/master/text-to-video"   # โมเดลวิดีโอที่ดีที่สุดสำหรับคอร์ส
+    # 9b-2) Imgentic (api.imgentic.ai) — บริการสร้างภาพ/วิดีโอ/เสียง/3D ของเราเอง (auth: header x-api-key)
+    #       ตั้งครบ (key + image_model จาก GET /models) → ใช้เป็น backend สร้างภาพปก 'ก่อน' fal · ⚠️ เสียเครดิตจริงทุกครั้ง (ไม่มี test mode)
+    imgentic_api_key: str = ""
+    imgentic_base_url: str = "https://api.imgentic.ai"
+    imgentic_image_model: str = ""         # ชื่อโมเดลจาก GET /models (ว่าง = ไม่ใช้ Imgentic สำหรับรูป)
+    imgentic_video_model: str = ""         # ชื่อโมเดลวิดีโอ (ว่าง = ไม่ใช้)
+    imgentic_provider: str = ""            # BytePlus | BlackForest | HuggingFace (ว่าง = default BytePlus)
     # 9c) งบต้นทุน API/เดือน (บาท) สำหรับแจ้งเตือนแอดมิน — 0 = ไม่ตั้งงบ (ไม่เตือน)
     cost_budget_thb: int = 0
     # 9d) เกณฑ์เตือนยอดคงเหลือ DataForSEO ต่ำ (USD) — ต่ำกว่านี้เด้ง LINE เตือนเติมเงิน

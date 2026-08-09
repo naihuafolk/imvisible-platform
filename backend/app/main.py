@@ -1386,6 +1386,28 @@ async def pseo_topics(req: PseoTopicsRequest, user=Depends(get_current_user)):
             "note": "หน้าจะถูกผลิตบนโดเมนหลัก (imvisible.tech/blog/%s/...) — เนื้อหา AI ต่างกันจริงต่อ variant" % pslug}
 
 
+@app.get("/api/imgentic/models")
+async def imgentic_models(user=Depends(get_current_user)):
+    """ดึงแคตตาล็อกโมเดล Imgentic (ไว้เลือกชื่อไปตั้ง IMGENTIC_IMAGE_MODEL) — read-only ไม่เสียเครดิต"""
+    from app.connectors import imgentic
+    if not imgentic.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้ง IMGENTIC_API_KEY ใน backend/.env")
+    try:
+        models = await imgentic.list_models()
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ดึงรายชื่อโมเดล Imgentic ไม่ได้: " + str(e)[:150])
+    slim = []
+    for m in (models or []):
+        if isinstance(m, dict):
+            slim.append({"id": m.get("id") or m.get("_id") or "", "name": m.get("name") or m.get("model") or "",
+                         "type": m.get("type") or m.get("category") or "", "provider": m.get("provider") or ""})
+        else:
+            slim.append({"name": str(m)})
+    return {"count": len(slim), "models": slim,
+            "current_image_model": settings.imgentic_image_model,
+            "hint": "เอา name/id ที่เป็น text-to-image ไปตั้ง IMGENTIC_IMAGE_MODEL ใน backend/.env แล้ว force-recreate api worker"}
+
+
 # ---- เพิ่มใน backend/app/main.py (public endpoint · rate_limit_auth · growth import แบบ inline) ----
 @app.get("/api/aeo-study")
 async def get_aeo_study(_rl=Depends(rate_limit_auth)):
