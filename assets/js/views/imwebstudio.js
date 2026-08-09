@@ -55,7 +55,7 @@
     });
   }
 
-  RP.views.imweb = function () {
+  RP.views.imwebone = function () {
     var head = ui.pageHead({ eyebrow: 'ImVisible · เครื่องมือสร้างเว็บ', title: '🏗️ สร้างเว็บ (IM WEB)',
       desc: 'กรอก brief ให้ละเอียด → AI สร้างเว็บทั้งหน้า (~นาที) พร้อมโครง AEO/GEO → กด "ใช้เว็บนี้" เพื่อฝัง schema + ต่อ SEO/AEO/GEO ให้ "โตเอง" ในระบบเรา' });
 

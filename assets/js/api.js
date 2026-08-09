@@ -81,6 +81,7 @@
     aiCitationAudit: function (pid) { return api._post('/api/projects/' + pid + '/ai-citation-audit', {}); },
     imwebGenerate: function (o) { return api._post('/api/imweb/generate', o); },
     imwebSave: function (o) { return api._post('/api/imweb/save', o); },
+    pseoTopics: function (o) { return api._post('/api/pseo/topics', o); },
     createSiteReport: function (o) { return api._post('/api/site-report', o); },
     siteReports: function () { return api._get('/api/site-reports'); },
     reportLeads: function () { return api._get('/api/report-leads'); },

@@ -80,6 +80,12 @@
     { id: 'reports', label: '📥 ลีดจากรายงาน', view: 'reports' }
   ]);
 
+  // 🏗️ สร้าง — เว็บเดี่ยว/เซลล์เพจ (IM WEB · ยิงแอด/standalone) + pSEO ชุด (ติดอันดับ on-domain)
+  RP.views.imweb = RP.tabHub([
+    { id: 'imwebone', label: '🏗️ เว็บเดี่ยว / เซลล์เพจ', view: 'imwebone' },
+    { id: 'pseo', label: '📄 pSEO ชุด (ติดอันดับ)', view: 'pseo' }
+  ]);
+
   // 🌐 คอนเทนต์ & ผลงาน — บล็อก · เขียนเอง · สื่อแจกฟรี · รายงานผลงาน
   RP.views.content = RP.tabHub([
     { id: 'blog', label: '🌐 บล็อก & การเข้าถึง', view: 'blog' },

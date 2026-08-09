@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, KeywordReportRequest, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, ImwebSaveRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, SiteReportCreate, ReportLeadCreate, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
+    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, ImwebSaveRequest, PseoTopicsRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, SiteReportCreate, ReportLeadCreate, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -1321,6 +1321,69 @@ async def imweb_save(req: ImwebSaveRequest, user=Depends(get_current_user)):
             "public_home": home,
             "aeo_injected": True, "faqs": len(faq_qs), "carried": bool(ctx),
             "note": "บันทึก+โฮสต์เว็บ + ฝัง schema AEO/GEO แล้ว · ระบบเริ่มผลิตคอนเทนต์ + ดันอันดับให้อัตโนมัติ (เว็บที่โตเอง)"}
+
+
+@app.post("/api/pseo/topics")
+async def pseo_topics(req: PseoTopicsRequest, user=Depends(get_current_user)):
+    """🎯 pSEO (ติดอันดับ) — เพิ่มหลายหัวข้อ unique 'บนโดเมนหลัก' ทีเดียว → เครื่องยนต์ผลิตหน้า on-domain อัตโนมัติ
+    white-hat: หน้าอยู่บนโดเมนเดียว (สะสม authority รวมกัน) + AI เขียนเนื้อหาต่างกันจริงต่อ variant (ไม่ใช่ doorway)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    import json as _json
+    from app.db.models import Project
+    pat = (req.pattern or "รับทำเว็บ{x}").strip()
+    variants = [str(v).strip() for v in (req.variants or []) if str(v).strip()][:30]   # กันยิงถี่เกิน
+    if not variants:
+        raise HTTPException(422, "ใส่ตัวแปรอย่างน้อย 1 อย่าง (เช่น คลินิก, ร้านอาหาร)")
+    cluster = (req.cluster or "pSEO").strip()[:60]
+
+    def _mk(v):                                        # ประกอบหัวข้อจาก pattern + variant
+        return (pat.replace("{x}", v) if "{x}" in pat else (pat + " " + v)).strip()[:200]
+
+    topics = []
+    seen_new = set()
+    for v in variants:
+        t = _mk(v)
+        if t and t.lower() not in seen_new:
+            seen_new.add(t.lower()); topics.append(t)
+
+    async with db.session() as s:
+        if req.project_id:                             # เจาะจงโปรเจกต์ (ต้องเป็นของผู้ใช้)
+            p = await s.get(Project, req.project_id)
+            if not p or p.user_id != user["id"]:
+                raise HTTPException(404, "ไม่พบโปรเจกต์")
+        else:                                          # ไม่ระบุ = โปรเจกต์หลัก (id ต่ำสุด = โดเมนแข็งสุด)
+            p = (await s.execute(select(Project).where(Project.user_id == user["id"])
+                 .order_by(Project.id).limit(1))).scalars().first()
+            if not p:
+                raise HTTPException(404, "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์เว็บหลักก่อน")
+        try:
+            plan = _json.loads(p.topic_plan) if (p.topic_plan or "").strip() else []
+        except Exception:  # noqa: BLE001
+            plan = []
+        have = {((it.get("topic") if isinstance(it, dict) else str(it)) or "").strip().lower() for it in plan}
+        added_list = []
+        for t in topics:
+            if t.lower() not in have:
+                plan.append({"topic": t, "cluster": cluster})
+                have.add(t.lower()); added_list.append(t)
+        p.topic_plan = _json.dumps(plan, ensure_ascii=False)
+        await s.commit()
+        pid, pname, pslug = p.id, p.name, (getattr(p, "slug", "") or "")
+
+    producing = False
+    if req.produce_now and added_list:                 # เริ่มผลิตชุดแรกทันที (ที่เหลือรอรอบอัตโนมัติ)
+        try:
+            from app.worker.tasks import produce_for_project
+            produce_for_project.delay(pid, min(len(added_list), 3))
+            producing = True
+        except Exception as e:  # noqa: BLE001
+            print("[pseo] enqueue produce ไม่ได้: %r" % e)
+
+    return {"ok": True, "project_id": pid, "project": pname, "slug": pslug,
+            "added": len(added_list), "topics": added_list, "total": len(plan),
+            "producing": producing,
+            "note": "หน้าจะถูกผลิตบนโดเมนหลัก (imvisible.tech/blog/%s/...) — เนื้อหา AI ต่างกันจริงต่อ variant" % pslug}
 
 
 # ---- เพิ่มใน backend/app/main.py (public endpoint · rate_limit_auth · growth import แบบ inline) ----

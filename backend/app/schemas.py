@@ -314,3 +314,13 @@ class ImwebSaveRequest(BaseModel):
     html: str = ""                   # HTML เว็บที่เลือก (จาก IM WEB) → โฮสต์เป็นหน้าแรก
     brief: SiteBrief = Field(default_factory=SiteBrief)   # brief เดิม → carry เข้าโปรเจกต์ + ฝัง schema
     language: str = "th"
+
+
+class PseoTopicsRequest(BaseModel):
+    """pSEO โหมด 'ติดอันดับ' — เพิ่มหลายหัวข้อ unique 'บนโดเมนหลัก' ทีเดียว → เครื่องยนต์ผลิตหน้า on-domain เอง
+    white-hat: หน้าอยู่บนโดเมนเดียว(สะสม authority) + เนื้อหา AI ต่างกันจริงต่อ variant (ไม่ใช่ doorway)"""
+    project_id: int = 0              # 0 = โปรเจกต์หลัก (id ต่ำสุดของผู้ใช้ = โดเมนแข็งสุด)
+    pattern: str = "รับทำเว็บ{x}"    # {x} = ตัวแปร · ไม่มี {x} = ต่อท้าย
+    variants: list[str] = []         # เช่น คลินิกความงาม, ร้านอาหาร, โรงแรม, เชียงใหม่
+    cluster: str = "pSEO"            # ป้ายคลัสเตอร์
+    produce_now: bool = False        # เริ่มผลิตชุดแรกทันที (ไม่งั้นรอรอบอัตโนมัติ)
