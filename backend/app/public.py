@@ -981,52 +981,64 @@ h1{text-wrap:balance}.kb{box-shadow:0 8px 20px -8px rgba(26,86,255,.6)}
 """
 
 
-_REPORT_CSS = """
-*{box-sizing:border-box}:root{--pp:#fff;--ink:#0f1830;--mut:#5a6a86;--bl:#1b3fd4;--ln:#e7ecf6;--wash:#f6f8fd;--ok:#0a7350;--warn:#b45309;--bad:#c0392b}
-@media(prefers-color-scheme:dark){:root{--pp:#0b111f;--ink:#eef2fb;--mut:#93a3c2;--bl:#7d97ff;--ln:#233150;--wash:#0a1120;--ok:#34d399;--warn:#f59e0b;--bad:#f87171}}
-body{margin:0;background:var(--wash);color:var(--ink);font-family:"Sarabun","Noto Sans Thai","Segoe UI",system-ui,sans-serif;line-height:1.7}
-.wrap{max-width:760px;margin:0 auto;padding:26px 20px 70px}
-.brand{font-weight:800;display:flex;align-items:center;gap:9px;font-size:15px}
-.brand .mk{width:26px;height:26px;border-radius:7px;background:var(--bl);color:#fff;display:grid;place-items:center;font-size:14px}
-.brand .sub{color:var(--mut);font-weight:600;font-size:12.5px}
-h1{font-size:clamp(23px,4.4vw,34px);line-height:1.16;letter-spacing:-.02em;margin:16px 0 4px;text-wrap:balance}
-.url{color:var(--mut);font-size:14px;margin-bottom:20px;word-break:break-all}
-.gauges{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px}
-.gcard{flex:1;min-width:210px;background:var(--pp);border:1px solid var(--ln);border-radius:18px;padding:18px;text-align:center;box-shadow:0 20px 46px -30px rgba(20,40,120,.3)}
-.gcard .cap{font-weight:800;font-size:14.5px;margin-bottom:2px}
-.gcard .cap2{color:var(--mut);font-size:12px;margin-bottom:8px}
-.gg{width:140px;height:140px;margin:0 auto}
-.gg circle{fill:none;stroke-width:11;stroke-linecap:round;transform:rotate(-90deg);transform-origin:60px 60px}
-.gg .bg{stroke:var(--ln)}
-.gg .num{font:800 30px "Sarabun",system-ui;text-anchor:middle}
+_SITE_REPORT_CSS = """
+*{box-sizing:border-box}
+:root{--pp:#fff;--ink:#0e1526;--mut:#5c6b86;--faint:#93a0b8;--bl:#1a56ff;--bl2:#6b4ffb;--ln:#e8ecf5;--wash:#f4f6fb;--ok:#0ca678;--warn:#e8850c;--bad:#e23d3d;--card:0 24px 50px -34px rgba(20,40,120,.26)}
+@media(prefers-color-scheme:dark){:root{--pp:#131a2b;--ink:#eef2fb;--mut:#9aa8c4;--faint:#66748f;--bl:#5b82ff;--bl2:#9a86ff;--ln:#26314a;--wash:#0a0f1c;--ok:#34d399;--warn:#fbbf24;--bad:#f87171;--card:0 24px 50px -30px rgba(0,0,0,.6)}}
+body{margin:0;background:var(--wash);color:var(--ink);font-family:"Sarabun","Noto Sans Thai","Segoe UI",system-ui,sans-serif;line-height:1.65}
+.top{background:var(--pp);border-bottom:1px solid var(--ln);position:sticky;top:0;z-index:5}
+.top .in{max-width:820px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px}
+.top .mk{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--bl),var(--bl2));color:#fff;display:grid;place-items:center}
+.top .sub{color:var(--mut);font-weight:600;font-size:12px;margin-left:auto}
+.wrap{max-width:820px;margin:0 auto;padding:0 20px 76px}
+.hero{background:linear-gradient(135deg,#eaf1ff,#f1ecff);border:1px solid var(--ln);border-radius:24px;padding:clamp(22px,4vw,32px);margin:24px 0 16px;box-shadow:var(--card)}
+@media(prefers-color-scheme:dark){.hero{background:linear-gradient(135deg,#141d38,#1a1533)}}
+.hero .eyebrow{font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;color:var(--bl)}
+.hero h1{font-size:clamp(24px,4.6vw,38px);line-height:1.12;letter-spacing:-.03em;margin:9px 0 4px;word-break:break-word}
+.hero .url{color:var(--mut);font-size:13px;word-break:break-all}
+.gauges{display:flex;gap:14px;flex-wrap:wrap;margin-top:22px}
+.gcard{flex:1;min-width:186px;background:var(--pp);border:1px solid var(--ln);border-radius:18px;padding:16px 14px 18px;text-align:center}
+.gcard .cap{font-weight:800;font-size:14px}
+.gcard .cap2{color:var(--mut);font-size:11.5px}
+.gg{width:150px;height:150px;margin:4px auto 0;display:block}
+.gg circle{fill:none}
+.gg .bg{stroke:var(--ln);stroke-width:12}
+.gg .fg{stroke-width:12;stroke-linecap:round;transform:rotate(-90deg);transform-origin:75px 75px;stroke-dasharray:389.56;stroke-dashoffset:389.56;animation:draw 1.3s cubic-bezier(.32,.72,.3,1) .15s forwards}
+@keyframes draw{to{stroke-dashoffset:var(--off)}}
+@media(prefers-reduced-motion:reduce){.gg .fg{animation:none;stroke-dashoffset:var(--off)}}
+.gg .num{font:800 34px "Sarabun",system-ui;text-anchor:middle}
 .gg .den{font:600 12px "Sarabun",system-ui;fill:var(--mut);text-anchor:middle}
-.gcard .grade{font-weight:800;font-size:14px;margin-top:6px}
-.verdict{background:linear-gradient(135deg,#eef3ff,#f3f0ff);border:1px solid var(--ln);border-radius:16px;padding:16px 18px;font-size:15.5px;font-weight:600;margin-bottom:22px}
-@media(prefers-color-scheme:dark){.verdict{background:linear-gradient(135deg,#16223c,#1c1a38)}}
-.sec{background:var(--pp);border:1px solid var(--ln);border-radius:18px;padding:8px 20px 16px;margin-bottom:16px}
-.sec h2{font-size:17px;margin:16px 0 2px}
-.sec .h2sub{color:var(--mut);font-size:12.5px;margin-bottom:4px}
-.frow{padding:11px 2px;border-top:1px solid var(--ln)}
+.badge{display:inline-block;font-weight:800;font-size:12.5px;padding:3px 13px;border-radius:100px;margin-top:8px}
+.verdict{margin-top:20px;font-size:clamp(15px,1.9vw,17px);font-weight:600;line-height:1.5}
+.sec{background:var(--pp);border:1px solid var(--ln);border-radius:20px;padding:18px 22px;margin-bottom:14px;box-shadow:var(--card)}
+.sec h2{font-size:16.5px;margin:0 0 2px;letter-spacing:-.01em}
+.sec .h2sub{color:var(--mut);font-size:11.5px;margin-bottom:8px}
+.frow{display:grid;grid-template-columns:24px 1fr;gap:11px;padding:12px 0;border-top:1px solid var(--ln)}
 .frow:first-of-type{border-top:0}
-.frow .lbl{font-weight:700;font-size:15px}
-.frow .det{color:var(--mut);font-size:13px;margin-left:6px}
-.frow .fix{color:var(--warn);font-size:13px;margin-top:3px;padding-left:24px}
-.kw{display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-top:1px solid var(--ln);font-size:14px}
-.kw .tag{font-weight:800;font-size:12px}
-.gate{background:linear-gradient(135deg,#3d6bff,#5b4ff0);color:#fff;border-radius:20px;padding:28px 24px;margin:24px 0;text-align:center;box-shadow:0 30px 60px -30px rgba(40,60,200,.6)}
-.gate h3{font-size:22px;margin:0 0 6px;line-height:1.2}
-.gate p{opacity:.94;font-size:14.5px;margin:0 0 14px}
-.gate .teaser{background:rgba(255,255,255,.13);border-radius:12px;padding:12px 16px;text-align:left;font-size:14px;margin:0 auto 16px;max-width:440px}
-.gate .teaser .blur{filter:blur(5px);opacity:.7;user-select:none}
-.gate input,.gate textarea{width:100%;max-width:420px;padding:13px 15px;border:0;border-radius:11px;font-size:15px;margin:6px auto;display:block;color:#0f1830;font-family:inherit}
-.gate textarea{min-height:66px;resize:vertical}
-.gate .btn{background:#fff;color:#3d6bff;font-weight:800;border:0;padding:14px 34px;border-radius:999px;font-size:15.5px;cursor:pointer;margin-top:8px}
-.gate .btn:disabled{opacity:.7}
-.gate .fine{opacity:.86;font-size:12px;margin-top:12px}
-.plan{display:none;background:var(--pp);border:1px solid var(--ln);border-radius:18px;padding:6px 24px 22px;margin-top:12px;box-shadow:0 26px 56px -30px rgba(20,40,120,.3)}
-.plan .done{background:var(--ok);color:#fff;border-radius:14px;padding:16px 18px;margin:16px 0 4px;font-weight:700;text-align:center}
-.plan ol{padding-left:1.3em}.plan li{font-size:15.5px;margin-bottom:10px}
-.foot{color:var(--mut);font-size:12.5px;text-align:center;margin-top:34px;line-height:1.7}.foot a{color:var(--bl)}
+.frow .ic{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:900;color:#fff;margin-top:1px}
+.tone-ok .ic{background:var(--ok)}.tone-warn .ic{background:var(--warn)}.tone-bad .ic{background:var(--bad)}
+.frow .lbl{font-weight:700;font-size:14.5px}
+.frow .det{color:var(--mut);font-size:12.5px;font-weight:400;margin-left:5px}
+.frow .fix{margin-top:7px;font-size:13px;color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent);border-radius:10px;padding:8px 12px;line-height:1.5}
+.kw{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--ln);font-size:14px;align-items:center}
+.kw:first-of-type{border-top:0}
+.kw .tag{font-weight:800;font-size:11.5px;padding:3px 11px;border-radius:100px;white-space:nowrap}
+.gate{background:linear-gradient(135deg,var(--bl),var(--bl2));color:#fff;border-radius:24px;padding:clamp(24px,4vw,34px);margin:22px 0;text-align:center;box-shadow:0 34px 66px -30px rgba(40,60,220,.6)}
+.gate h3{font-size:clamp(19px,2.6vw,24px);margin:0 0 6px;line-height:1.25}
+.gate p{opacity:.93;font-size:14.5px;margin:0 auto 16px;max-width:420px}
+.gate .teaser{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:14px 18px;text-align:left;font-size:14px;margin:0 auto 18px;max-width:440px;line-height:1.95}
+.gate .teaser .blur{filter:blur(5.5px);opacity:.6;user-select:none}
+.gate form{max-width:420px;margin:0 auto}
+.gate input,.gate textarea{width:100%;padding:14px 16px;border:0;border-radius:12px;font-size:15px;margin:7px 0;color:#0e1526;font-family:inherit;background:#fff}
+.gate textarea{min-height:62px;resize:vertical}
+.gate .btn{width:100%;background:#0e1526;color:#fff;font-weight:800;border:0;padding:15px;border-radius:12px;font-size:16px;cursor:pointer;margin-top:8px;transition:transform .15s,opacity .15s}
+.gate .btn:hover{transform:translateY(-2px)}
+.gate .btn:disabled{opacity:.7;transform:none}
+.gate .fine{opacity:.85;font-size:12px;margin-top:12px}
+.plan{display:none;background:var(--pp);border:1px solid var(--ln);border-radius:20px;padding:16px 24px 24px;margin-top:14px;box-shadow:var(--card)}
+.plan ol{padding-left:1.3em;margin:8px 0}.plan li{font-size:15px;margin-bottom:11px;line-height:1.55}
+.plan .done{background:var(--ok);color:#fff;border-radius:14px;padding:15px 18px;margin-top:14px;font-weight:700;text-align:center;line-height:1.5}
+.foot{color:var(--faint);font-size:12px;text-align:center;margin-top:30px;line-height:1.7}.foot a{color:var(--bl);font-weight:700}
 """
 
 
@@ -1035,30 +1047,32 @@ def _rep_gauge(score, cap, cap2) -> str:
     s = max(0, min(100, int(score or 0)))
     color = "var(--ok)" if s >= 85 else "var(--warn)" if s >= 55 else "var(--bad)"
     grade = "A" if s >= 85 else "B" if s >= 70 else "C" if s >= 55 else "D"
-    circ = 326.726  # 2*pi*52
+    circ = 389.56  # 2*pi*62
     off = round(circ * (1 - s / 100.0), 1)
     return (
         '<div class="gcard"><div class="cap">%s</div><div class="cap2">%s</div>'
-        '<svg class="gg" viewBox="0 0 120 120" role="img" aria-label="%s %d/100">'
-        '<circle class="bg" cx="60" cy="60" r="52"></circle>'
-        '<circle cx="60" cy="60" r="52" style="stroke:%s;stroke-dasharray:%s;stroke-dashoffset:%s"></circle>'
-        '<text class="num" x="60" y="60" dy=".1em" style="fill:%s">%d</text>'
-        '<text class="den" x="60" y="82">/100</text></svg>'
-        '<div class="grade" style="color:%s">เกรด %s</div></div>'
-        % (_esc(cap), _esc(cap2), _esc(cap), s, color, circ, off, color, s, color, grade)
+        '<svg class="gg" viewBox="0 0 150 150" role="img" aria-label="%s %d/100">'
+        '<circle class="bg" cx="75" cy="75" r="62"></circle>'
+        '<circle class="fg" cx="75" cy="75" r="62" style="--off:%s;stroke:%s"></circle>'
+        '<text class="num" x="75" y="75" dy=".05em" style="fill:%s">%d</text>'
+        '<text class="den" x="75" y="98">/100</text></svg>'
+        '<span class="badge" style="color:%s;background:color-mix(in srgb,%s 12%%,transparent)">เกรด %s</span></div>'
+        % (_esc(cap), _esc(cap2), _esc(cap), s, off, color, color, s, color, color, grade)
     )
 
 
 def _rep_factor_rows(factors) -> str:
     out = []
     for f in (factors or []):
-        tone = f.get("tone")
-        ico = "✅" if tone == "ok" else ("🟡" if tone == "warn" else "❌")
+        tone = f.get("tone") or "bad"
+        ico = "✓" if tone == "ok" else ("!" if tone == "warn" else "✕")
         fix = f.get("fix") or ""
+        det = f.get("detail") or ""
         out.append(
-            '<div class="frow"><div><span>%s</span> <b class="lbl">%s</b>'
-            '<span class="det">%s</span></div>%s</div>'
-            % (ico, _esc(f.get("label") or ""), _esc(f.get("detail") or ""),
+            '<div class="frow tone-%s"><span class="ic">%s</span>'
+            '<div><div class="lbl">%s%s</div>%s</div></div>'
+            % (tone, ico, _esc(f.get("label") or ""),
+               ('<span class="det">%s</span>' % _esc(det)) if det else "",
                ('<div class="fix">→ %s</div>' % _esc(fix)) if (tone != "ok" and fix) else "")
         )
     return "".join(out) or '<div class="frow"><span class="det">—</span></div>'
@@ -1107,8 +1121,8 @@ def render_site_report_page(rep, data: dict, generated: str) -> str:
         for r in kw_rows:
             tone = r.get("tone")
             color = "var(--ok)" if tone == "ok" else "var(--warn)" if tone == "warn" else "var(--bad)"
-            rows.append('<div class="kw"><span>%s</span><span class="tag" style="color:%s">%s</span></div>'
-                        % (_esc(r.get("keyword") or ""), color, _esc(r.get("label") or "")))
+            rows.append('<div class="kw"><span>%s</span><span class="tag" style="color:%s;background:color-mix(in srgb,%s 13%%,transparent)">%s</span></div>'
+                        % (_esc(r.get("keyword") or ""), color, color, _esc(r.get("label") or "")))
         kw_html = ('<div class="sec"><h2>🔑 คีย์เวิร์ดที่อยากติด (บนหน้าเพจ)</h2>'
                    '<div class="h2sub">วัดว่าหน้าแรกพูดถึงคำนั้นครบไหม — ไม่ใช่อันดับ Google จริง</div>%s</div>'
                    % "".join(rows))
@@ -1152,11 +1166,16 @@ def render_site_report_page(rep, data: dict, generated: str) -> str:
         '<title>%s</title><meta name="description" content="%s">'
         '<meta property="og:title" content="%s"><meta property="og:description" content="%s">'
         '<meta property="og:type" content="website">'
-        '<link rel="icon" href="/favicon.svg"><style>%s</style></head><body><div class="wrap">'
-        '<div class="brand"><span class="mk">i</span>ImVisible<span class="sub">· รายงานสุขภาพเว็บ · SEO · AEO · GEO</span></div>'
+        '<link rel="icon" href="/favicon.svg"><style>%s</style></head><body>'
+        '<div class="top"><div class="in"><span class="mk">i</span>ImVisible'
+        '<span class="sub">รายงานสุขภาพเว็บ</span></div></div>'
+        '<div class="wrap">'
+        '<div class="hero">'
+        '<div class="eyebrow">รายงานสุขภาพเว็บ · SEO · AEO · GEO</div>'
         '<h1>%s</h1><div class="url">%s · ตรวจเมื่อ %s</div>'
         '<div class="gauges">%s%s</div>'
         '<div class="verdict">%s</div>'
+        '</div>'
         '<div class="sec"><h2>🟪 ความพร้อม AEO / GEO (ให้ AI แนะนำ)</h2>'
         '<div class="h2sub">schema · ตัวตนแบรนด์ · Q&amp;A/FAQ · answer-first · โครงหัวข้อ · เนื้อหา · llms.txt</div>%s</div>'
         '<div class="sec"><h2>🟦 ความพร้อม SEO (ติดอันดับ Google)</h2>%s</div>'
@@ -1177,7 +1196,7 @@ def render_site_report_page(rep, data: dict, generated: str) -> str:
         '<div class="foot">ตรวจจากหน้าเว็บจริง · ตัวเลขจริง ไม่กุ (no-faking) · โดย '
         '<a href="https://imvisible.tech" rel="noopener">ImVisible</a> — SEO · AEO · GEO อัตโนมัติ</div>'
         '%s</div></body></html>'
-        % (page_title, meta_desc, _esc(page_title), meta_desc, _REPORT_CSS,
+        % (page_title, meta_desc, _esc(page_title), meta_desc, _SITE_REPORT_CSS,
            business, url, _esc(generated),
            _rep_gauge(score, "🟦 SEO", "ติดอันดับ Google"),
            _rep_gauge(aeo, "🟪 AEO / GEO", "ให้ AI แนะนำ"),
