@@ -49,6 +49,9 @@
     growth: 'เครื่องมือโต (Growth Tools)',
     readiness: 'เช็กสุขภาพเว็บ (Readiness)',
     reports: 'ลีดจากรายงาน (Report Leads)',
+    find: 'หาโอกาส · คีย์เวิร์ด · Pantip · Growth',
+    audit: 'เช็ก & ลีด · เช็กเว็บ → รายงาน → ลีด',
+    content: 'คอนเทนต์ & ผลงาน',
     imweb: 'สร้างเว็บ (IM WEB)',
     activity: 'กิจกรรมสด',
     m1: 'M1 · ขุดคำถาม & คีย์เวิร์ด',
@@ -76,10 +79,16 @@
     if (!(RP.isReal && RP.isReal())) return NAV;   // โหมดตัวอย่าง = โชว์ครบเพื่อพรีวิว
     var by = {};
     NAV.forEach(function (g) { g.items.forEach(function (it) { by[it.id] = it; }); });
+    // hub = เมนูที่ยุบหลายเครื่องมือเป็นแท็บเดียว (view อยู่ใน hubs.js) — เฉพาะบัญชีจริง
+    var hub = {
+      find:    { id: 'find',    ico: '🔍', lbl: 'หาโอกาส' },
+      audit:   { id: 'audit',   ico: '🩺', lbl: 'เช็ก & ลีด' },
+      content: { id: 'content', ico: '🌐', lbl: 'คอนเทนต์ & ผลงาน' }
+    };
     return [
-      { section: 'ภาพรวม', items: [by.dashboard, by.report, by.blog, by.writeblog, by.leadmagnets, by.activity] },
-      { section: 'หาลูกค้า', items: [by.prospect, by.pantip, by.growth, by.readiness, by.reports, by.ads] },
-      { section: 'โปรเจ็ค', items: [by.imweb, by.projects] },
+      { section: 'ภาพรวม', items: [by.dashboard, by.activity] },
+      { section: 'หาลูกค้า', items: [hub.find, hub.audit, by.ads] },
+      { section: 'สร้าง & โปรเจกต์', items: [by.imweb, hub.content, by.projects] },
       { section: 'ระบบ', items: [by.settings] },
       { section: 'เครื่องมือ (ขั้นสูง)', collapsed: true, items: [by.m1, by.m2, by.m3, by.m4, by.m5, by.m6] }
     ];
