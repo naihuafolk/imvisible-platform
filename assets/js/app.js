@@ -88,7 +88,8 @@
     return [
       { section: 'ภาพรวม', items: [by.dashboard, by.report, by.activity] },
       { section: 'หาลูกค้า', items: [hub.find, hub.audit, by.ads] },
-      { section: 'สร้าง & โปรเจกต์', items: [by.imweb, hub.content, by.projects] },
+      { section: 'คอนเทนต์', items: [by.blog, by.writeblog, by.leadmagnets] },
+      { section: 'สร้าง & โปรเจกต์', items: [by.imweb, by.projects] },
       { section: 'ระบบ', items: [by.settings] },
       { section: 'เครื่องมือ (ขั้นสูง)', collapsed: true, items: [by.m1, by.m2, by.m3, by.m4, by.m5, by.m6] }
     ];
