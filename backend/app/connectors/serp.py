@@ -421,11 +421,12 @@ async def pantip_page1(keywords, creds: dict | None = None,
     + ความน่าเชื่อถือที่กระทู้นั้นมีอยู่แล้ว · คืน [{query, rank(1-10), title, url, snippet}] · crash-safe คืน []"""
     qs = [str(k).strip() for k in (keywords or []) if str(k).strip()][:8]
     seen, out = set(), []
-    for q in qs:
-        try:
-            rows = await search(q, n=10, creds=creds,
-                                location_code=location_code, language_code=language_code)
-        except Exception:  # noqa: BLE001
+    # ยิง SERP ทุกคำ 'ขนานกัน' (เดิมยิงทีละคำแบบ await ต่อกัน = ช้าเป็นผลรวมทุก call) → เร็ว = call ที่ช้าสุดตัวเดียว
+    results = await asyncio.gather(
+        *[search(q, n=10, creds=creds, location_code=location_code, language_code=language_code) for q in qs],
+        return_exceptions=True)
+    for q, rows in zip(qs, results):
+        if isinstance(rows, Exception):
             continue
         for i, r in enumerate(rows):
             url = (r.get("url") or "").strip()

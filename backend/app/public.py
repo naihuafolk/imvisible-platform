@@ -1196,7 +1196,7 @@ def render_site_report_page(rep, data: dict, generated: str) -> str:
         '<div class="foot">ตรวจจากหน้าเว็บจริง · ตัวเลขจริง ไม่กุ (no-faking) · โดย '
         '<a href="https://imvisible.tech" rel="noopener">ImVisible</a> — SEO · AEO · GEO อัตโนมัติ</div>'
         '%s</div></body></html>'
-        % (page_title, meta_desc, _esc(page_title), meta_desc, _SITE_REPORT_CSS,
+        % (page_title, meta_desc, page_title, meta_desc, _SITE_REPORT_CSS,
            business, url, _esc(generated),
            _rep_gauge(score, "🟦 SEO", "ติดอันดับ Google"),
            _rep_gauge(aeo, "🟪 AEO / GEO", "ให้ AI แนะนำ"),

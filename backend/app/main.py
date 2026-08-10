@@ -633,7 +633,7 @@ async def list_projects(user=Depends(get_current_user)):
 
 
 @app.post("/api/projects")
-async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
+async def create_project(req: ProjectCreate, user=Depends(get_current_user), defer_analyze: bool = False):
     """ลูกค้าใส่แค่ลิงก์เว็บ (url) หรือ domain → ระบบแตกเป็น name/domain/slug + ตั้งปลายทางเผยแพร่ให้เอง"""
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
@@ -706,6 +706,11 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user)):
         await s.refresh(p)
         result = _proj_dict(p)
         new_id = p.id
+    if defer_analyze:                                # ผู้เรียก (เช่น imweb_save) จะ enqueue analyze เองหลัง commit brief → บทความแรกได้ business_context/FAQ ครบ (กัน race)
+        result["analyzing"] = False
+        result["producing"] = False
+        result["deferred"] = True
+        return result
     # "ใส่แค่ลิงก์" → อ่านเว็บลูกค้าเอง + 'เริ่มเขียนบทความแรกให้เลย' (เบื้องหลัง · ล้มก็ไม่กระทบการสร้างโปรเจ็ค)
     try:
         from app.worker.tasks import analyze_project
@@ -1283,12 +1288,12 @@ async def imweb_save(req: ImwebSaveRequest, user=Depends(get_current_user)):
     if len(html) > 900000:
         raise HTTPException(413, "HTML ใหญ่เกิน 900KB")
     brand = (b.brand_name or "เว็บใหม่").strip()
-    lang = (req.language or b.language or "th")
+    lang = (req.language or "th")                            # SiteBrief ไม่มี field language → ใช้ req.language เท่านั้น
     pseudo = project_slug_from_domain(brand) or "site"      # ไม่มีเว็บนอก → เราโฮสต์เอง (โดเมนเทียมจากชื่อแบรนด์)
     kws = [str(k).strip() for k in (b.keywords or []) if str(k).strip()][:50]
     pc = ProjectCreate(name=brand, domain=pseudo, url="", language=lang, mode="auto",
                        publish_mode="managed", keywords=kws)
-    created = await create_project(pc, user)                 # สร้างโปรเจกต์ + slug + trigger analyze/grow (เบื้องหลัง)
+    created = await create_project(pc, user, defer_analyze=True)   # ชะลอ analyze → ให้ carry brief commit ก่อน (บทความแรกได้บริบทครบ)
     pid = created.get("id")
     if not pid:
         raise HTTPException(500, "สร้างโปรเจกต์ไม่สำเร็จ")
@@ -1317,6 +1322,11 @@ async def imweb_save(req: ImwebSaveRequest, user=Depends(get_current_user)):
             if cta and not (getattr(p, "cta_json", "") or "").strip():
                 p.cta_json = _json.dumps(cta, ensure_ascii=False)
             await s.commit()
+    try:                                                     # commit brief แล้ว → ค่อย enqueue analyze/produce (บทความแรกได้ business_context+FAQ ครบ)
+        from app.worker.tasks import analyze_project
+        analyze_project.delay(pid)
+    except Exception as e:  # noqa: BLE001
+        print("[imweb_save] enqueue analyze ไม่ได้: %r" % e)
     return {"ok": True, "project_id": pid, "name": created.get("name"),
             "public_home": home,
             "aeo_injected": True, "faqs": len(faq_qs), "carried": bool(ctx),
@@ -1362,8 +1372,12 @@ async def pseo_topics(req: PseoTopicsRequest, user=Depends(get_current_user)):
         except Exception:  # noqa: BLE001
             plan = []
         have = {((it.get("topic") if isinstance(it, dict) else str(it)) or "").strip().lower() for it in plan}
-        added_list = []
+        from app import plans
+        cap = plans.normalize_pack(getattr(p, "keyword_pack", plans.DEFAULT_PACK))   # เพดาน = แพ็กของลูกค้า (สอดคล้อง add_keywords/GSC/competitor-gap)
+        added_list, capped = [], False
         for t in topics:
+            if len(plan) >= cap:                       # เต็มโควตาแพ็ก → หยุด (กันผลิตเกินที่จ่าย)
+                capped = True; break
             if t.lower() not in have:
                 plan.append({"topic": t, "cluster": cluster})
                 have.add(t.lower()); added_list.append(t)
@@ -1382,8 +1396,9 @@ async def pseo_topics(req: PseoTopicsRequest, user=Depends(get_current_user)):
 
     return {"ok": True, "project_id": pid, "project": pname, "slug": pslug,
             "added": len(added_list), "topics": added_list, "total": len(plan),
-            "producing": producing,
-            "note": "หน้าจะถูกผลิตบนโดเมนหลัก (imvisible.tech/blog/%s/...) — เนื้อหา AI ต่างกันจริงต่อ variant" % pslug}
+            "producing": producing, "capped": capped,
+            "note": (("บางหัวข้อไม่ถูกเพิ่มเพราะเต็มโควตาแพ็กแล้ว (อัปเกรดแพ็กเพื่อเพิ่ม) · " if capped else "")
+                     + "หน้าจะถูกผลิตบนโดเมนหลัก (imvisible.tech/blog/%s/...) — เนื้อหา AI ต่างกันจริงต่อ variant") % pslug}
 
 
 @app.get("/api/imgentic/models")
