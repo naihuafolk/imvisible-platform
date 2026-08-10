@@ -90,7 +90,6 @@
   RP.views.content = RP.tabHub([
     { id: 'blog', label: '🌐 บล็อก & การเข้าถึง', view: 'blog' },
     { id: 'writeblog', label: '✍️ เขียนบล็อกเอง', view: 'writeblog' },
-    { id: 'leadmagnets', label: '🎁 สื่อแจกฟรี', view: 'leadmagnets' },
-    { id: 'report', label: '📑 รายงานผลงาน', view: 'report' }
+    { id: 'leadmagnets', label: '🎁 สื่อแจกฟรี', view: 'leadmagnets' }
   ]);
 })(window.RP);

@@ -86,7 +86,7 @@
       content: { id: 'content', ico: '🌐', lbl: 'คอนเทนต์ & ผลงาน' }
     };
     return [
-      { section: 'ภาพรวม', items: [by.dashboard, by.activity] },
+      { section: 'ภาพรวม', items: [by.dashboard, by.report, by.activity] },
       { section: 'หาลูกค้า', items: [hub.find, hub.audit, by.ads] },
       { section: 'สร้าง & โปรเจกต์', items: [by.imweb, hub.content, by.projects] },
       { section: 'ระบบ', items: [by.settings] },
