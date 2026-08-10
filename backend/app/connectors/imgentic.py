@@ -7,6 +7,7 @@ Flow ตามเอกสาร: POST /generate/text → ได้ task id → 
 crash-safe: ล้ม = คืน "" (caller เช็กเอง) — ไม่โยน exception ออก
 """
 import asyncio
+import json as _json
 
 import httpx
 
@@ -23,7 +24,12 @@ def image_ready() -> bool:
 
 
 def _headers() -> dict:
-    return {"x-api-key": settings.imgentic_api_key, "Content-Type": "application/json"}
+    # Imgentic อยู่หลัง WAF ที่ 403 ทุก UA ที่ไม่ใช่ browser (python-httpx/urllib โดนบล็อก — พิสูจน์แล้ว)
+    return {
+        "x-api-key": settings.imgentic_api_key,
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+    }
 
 
 def _base() -> str:
@@ -37,6 +43,8 @@ def _dig(d, keys):
             v = d.get(k)
             if isinstance(v, str) and v.strip():
                 return v.strip()
+            if isinstance(v, (int, float)) and not isinstance(v, bool):  # imageTaskId เป็น int
+                return str(v)
         for k in ("data", "result", "task", "output", "response"):
             sub = d.get(k)
             got = _dig(sub, keys)
@@ -50,13 +58,33 @@ def _dig(d, keys):
     return ""
 
 
-_ID_KEYS = ("taskId", "task_id", "taskID", "id")
-_URL_KEYS = ("imageUrl", "image_url", "videoUrl", "video_url", "resultUrl", "result_url", "url", "fileUrl", "file_url")
+# gen response ของจริงคืน task id ที่ 'imageTaskId'/'videoTaskId' (ระดับบน) — ต้องมาก่อน id ทั่วไป
+_ID_KEYS = ("imageTaskId", "videoTaskId", "taskId", "task_id", "taskID", "requestId", "id")
+_URL_KEYS = ("imageUrl", "image_url", "videoUrl", "video_url", "resultUrl", "result_url", "url", "urls", "fileUrl", "file_url", "output")
+
+
+def _first_url(v) -> str:
+    """คืน URL แรก — contract จริงของ Imgentic ห่อไว้เป็น string ของ array: image_url = '[\"https://...jpg\"]'"""
+    if isinstance(v, list):
+        for it in v:
+            u = _first_url(it)
+            if u:
+                return u
+        return ""
+    if isinstance(v, str):
+        s = v.strip()
+        if s.startswith("http"):
+            return s
+        if s.startswith("["):  # JSON string array ห่ออีกชั้น → แกะแล้วหา url ข้างใน
+            try:
+                return _first_url(_json.loads(s))
+            except Exception:
+                return ""
+    return ""
 
 
 def _media_url(d) -> str:
-    u = _dig(d, _URL_KEYS)
-    return u if (u or "").startswith("http") else ""
+    return _first_url(_dig(d, _URL_KEYS))
 
 
 def _status(d) -> str:
