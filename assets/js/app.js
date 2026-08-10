@@ -87,7 +87,7 @@
     };
     return [
       { section: 'ภาพรวม', items: [by.dashboard, by.report, by.activity] },
-      { section: 'หาลูกค้า', items: [hub.find, hub.audit, by.ads] },
+      { section: 'หาลูกค้า', items: [by.prospect, by.readiness, by.pantip, by.growth, by.reports, by.ads] },
       { section: 'คอนเทนต์', items: [by.blog, by.writeblog, by.leadmagnets] },
       { section: 'สร้าง & โปรเจกต์', items: [by.imweb, by.projects] },
       { section: 'ระบบ', items: [by.settings] },
