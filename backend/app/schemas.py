@@ -316,6 +316,11 @@ class ImwebSaveRequest(BaseModel):
     language: str = "th"
 
 
+class ImwebPrefillRequest(BaseModel):
+    """วางลิงก์เว็บ/เพจเดิม → อ่านหน้าจริง + ให้ AI เรียบเรียงเป็นบรีฟ (ลูกค้าไม่ต้องกรอกเอง)"""
+    url: str = ""
+
+
 class PseoTopicsRequest(BaseModel):
     """pSEO โหมด 'ติดอันดับ' — เพิ่มหลายหัวข้อ unique 'บนโดเมนหลัก' ทีเดียว → เครื่องยนต์ผลิตหน้า on-domain เอง
     white-hat: หน้าอยู่บนโดเมนเดียว(สะสม authority) + เนื้อหา AI ต่างกันจริงต่อ variant (ไม่ใช่ doorway)"""

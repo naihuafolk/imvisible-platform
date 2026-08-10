@@ -77,6 +77,14 @@
     }
     function rowwrap(inner) { return '<div class="row wrap" style="gap:10px;align-items:flex-end">' + inner + '</div>'; }
 
+    var gPrefill = ui.card({ cls: 'mb', body:
+      '<div class="bb" style="font-size:15px">🔗 ดึงข้อมูลจากลิงก์เดิม (ไม่ต้องกรอกเอง)</div>' +
+      '<div class="soft small" style="margin:2px 0 10px">วางลิงก์เว็บ/เพจเดิมของลูกค้า → AI อ่านแล้วเติมบรีฟให้อัตโนมัติ (ตรวจ/แก้ก่อนสร้างได้)</div>' +
+      '<div class="row wrap" style="gap:8px;align-items:center">' +
+        '<input class="input" id="im_pf_url" placeholder="เช่น yourclient.com หรือลิงก์เว็บเดิมลูกค้า" style="flex:1;min-width:220px">' +
+        '<button class="btn btn-sm btn-primary" id="im_pf_go">🔗 ดึงข้อมูล</button>' +
+      '</div>' });
+
     var gBiz = grp('🏢 ธุรกิจ', 'ยิ่งละเอียด เว็บยิ่งตรง',
       rowwrap(inp('im_brand', 'ชื่อแบรนด์/ร้าน *', 'เช่น ร้านกาแฟบ้านหอม', 2) + inp('im_biz', 'ประเภทธุรกิจ', 'เช่น คาเฟ่ / คลินิกความงาม', 2)) +
       '<div style="height:10px"></div>' +
@@ -111,7 +119,7 @@
       '<div id="im_faqs"></div>' +
       '<button class="btn btn-sm" id="im_addfaq" style="margin-top:6px">➕ เพิ่มคำถาม</button>');
 
-    var form = gBiz + gContact + gBrand + gAeo +
+    var form = gPrefill + gBiz + gContact + gBrand + gAeo +
       ui.card({ cls: 'mb', body:
         '<div class="row" style="gap:10px;align-items:center;flex-wrap:wrap"><button class="btn btn-primary" id="im_go">🏗️ สร้างเว็บ</button>' +
         '<span class="soft small">ใช้ IM WEB (AI builder) · ~1-3 นาที/รอบ · ต้องตั้ง IMWEB_API_KEY ในระบบก่อน</span></div>' });
@@ -133,6 +141,27 @@
       faqRow('', ''); faqRow('', '');
       var addf = root.querySelector('#im_addfaq');
       if (addf) addf.onclick = function () { faqRow('', ''); };
+
+      var pf = root.querySelector('#im_pf_go');       // 🔗 ดึงข้อมูลจากลิงก์เดิม → เติมฟอร์มอัตโนมัติ
+      if (pf) pf.onclick = function () {
+        var u = (root.querySelector('#im_pf_url').value || '').trim();
+        if (!u) { ui.toast('วางลิงก์เว็บ/เพจก่อน'); return; }
+        if (!(RP.api && RP.api.reachable())) { ui.toast('เชื่อมต่อ backend ไม่ได้ — เปิดโหมด Live'); return; }
+        pf.disabled = true; pf.textContent = 'กำลังอ่าน…';
+        RP.api.imwebPrefill({ url: u }).then(function (r) {
+          var b = r.brief || {};
+          function set(id, val) { var e = root.querySelector('#' + id); if (e && val) e.value = val; }
+          set('im_brand', b.brand_name); set('im_biz', b.biz_type); set('im_about', b.about);
+          set('im_usp', b.usp); set('im_audience', b.audience); set('im_products', b.products);
+          set('im_phone', b.phone); set('im_line', b.line); set('im_email', b.email);
+          set('im_fb', b.facebook); set('im_ig', b.instagram); set('im_addr', b.address); set('im_hours', b.hours);
+          if (b.keywords && b.keywords.length) set('im_kw', b.keywords.join(', '));
+          if (b.faqs && b.faqs.length) { faqBox.innerHTML = ''; b.faqs.forEach(function (f) { faqRow(f.q, f.a); }); }
+          ui.toast('✅ ดึงข้อมูลจาก ' + esc(r.read_from || u) + ' แล้ว — ตรวจ/แก้ก่อนกดสร้าง');
+        }).catch(function (e) {
+          ui.toast('ดึงไม่ได้: ' + esc(e.message || String(e)));
+        }).then(function () { pf.disabled = false; pf.textContent = '🔗 ดึงข้อมูล'; });
+      };
 
       function v(id) { var el = root.querySelector('#' + id); return el ? (el.value || '').trim() : ''; }
       function collectBrief() {

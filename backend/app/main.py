@@ -26,7 +26,7 @@ from app.schemas import (
     RankCheckRequest, GSCSummaryRequest, CitationSampleRequest, ProjectCitationRequest,
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, KeywordReportRequest, ChannelUpdate, DraftRequest,
-    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, ImwebSaveRequest, PseoTopicsRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, SiteReportCreate, ReportLeadCreate, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
+    BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, ImwebSaveRequest, ImwebPrefillRequest, PseoTopicsRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, SiteReportCreate, ReportLeadCreate, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
     CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
@@ -1331,6 +1331,55 @@ async def imweb_save(req: ImwebSaveRequest, user=Depends(get_current_user)):
             "public_home": home,
             "aeo_injected": True, "faqs": len(faq_qs), "carried": bool(ctx),
             "note": "บันทึก+โฮสต์เว็บ + ฝัง schema AEO/GEO แล้ว · ระบบเริ่มผลิตคอนเทนต์ + ดันอันดับให้อัตโนมัติ (เว็บที่โตเอง)"}
+
+
+@app.post("/api/imweb/prefill")
+async def imweb_prefill(req: ImwebPrefillRequest, user=Depends(get_current_user)):
+    """🔗 วางลิงก์เว็บ/เพจเดิม → AI อ่านหน้าจริง (กัน SSRF) แล้วเรียบเรียงเป็น 'บรีฟ' อัตโนมัติ
+    → เติมฟอร์มสร้างเว็บให้ ลูกค้าไม่ต้องกรอกเยอะ (about/usp/faqs AI เรียบเรียงให้จากเนื้อหา) · ตรวจ/แก้ก่อนสร้างได้"""
+    url = (req.url or "").strip()
+    if not url:
+        raise HTTPException(422, "กรุณาใส่ลิงก์เว็บ/เพจ")
+    import re as _re, json as _json2
+    from app.connectors import sitecheck, content
+    base, html, err = await sitecheck._fetch_home(url)
+    if err or not html:
+        raise HTTPException(422, err or "อ่านเว็บ/เพจไม่ได้ — ใส่ลิงก์เว็บสาธารณะ (https) · เพจ Facebook บางทีอ่านไม่ได้เพราะบล็อกบอท")
+    text = _re.sub(r"(?is)<(script|style|noscript)[^>]*>.*?</\1>", " ", html)
+    text = _re.sub(r"(?s)<[^>]+>", " ", text)
+    text = _re.sub(r"\s+", " ", text).strip()[:5000]
+    sysmsg = ("คุณคือผู้ช่วยเก็บบรีฟทำเว็บ อ่านเนื้อหาหน้าเพจธุรกิจแล้วสกัด/เรียบเรียงเป็น 'บรีฟ' เป็น JSON เท่านั้น "
+              "(ห้ามมีข้อความอื่นนอก JSON). คีย์: brand_name, biz_type, about, usp, audience, products, "
+              'keywords (array ของ string), faqs (array ของ {"q":..,"a":..}), phone, line, email, facebook, instagram, address, hours. '
+              "เติมจากหน้าเพจ; about/usp/faqs เรียบเรียงเองได้จากเนื้อหา. ข้อความเป็นภาษาไทย. ไม่รู้=ค่าว่างหรืออาเรย์ว่าง.")
+    usermsg = "URL: %s\n\nเนื้อหาหน้าเพจ:\n%s\n\nส่ง JSON บรีฟเท่านั้น:" % (base, text)
+    try:
+        _p, raw = await content._llm(sysmsg, usermsg, tier="fast")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "AI อ่านไม่สำเร็จ ลองใหม่: " + str(e)[:120])
+    m = _re.search(r"\{.*\}", raw or "", _re.S)
+    brief = None
+    if m:
+        try:
+            brief = _json2.loads(m.group(0))
+        except Exception:  # noqa: BLE001
+            brief = None
+    if not isinstance(brief, dict):
+        raise HTTPException(502, "AI เรียบเรียงบรีฟไม่สำเร็จ ลองใหม่อีกครั้ง")
+
+    def _s(k):
+        v = brief.get(k)
+        return v.strip() if isinstance(v, str) else ""
+    kraw = brief.get("keywords") if isinstance(brief.get("keywords"), list) else []
+    kws = [str(k).strip() for k in kraw if str(k).strip()][:12]
+    fraw = brief.get("faqs") if isinstance(brief.get("faqs"), list) else []
+    faqs = [{"q": str(f.get("q") or "").strip(), "a": str(f.get("a") or "").strip()}
+            for f in fraw if isinstance(f, dict) and str(f.get("q") or "").strip()][:8]
+    out = {k: _s(k) for k in ("brand_name", "biz_type", "about", "usp", "audience", "products",
+                              "phone", "line", "email", "facebook", "instagram", "address", "hours")}
+    out["keywords"] = kws
+    out["faqs"] = faqs
+    return {"ok": True, "read_from": base, "brief": out}
 
 
 @app.post("/api/pseo/topics")
