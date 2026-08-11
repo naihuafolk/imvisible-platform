@@ -231,13 +231,45 @@ def _json_or_none(text: str):
         return None
 
 
-async def analyze(domain: str, name: str = "", language: str = "ภาษาไทย") -> dict:
-    """อ่านเว็บจริง → สกัดบริบทธุรกิจ · คืน {} ถ้าอ่านไม่ได้/วิเคราะห์ไม่ได้ (ระบบจะ fallback เอง)"""
-    site = await fetch_site(domain)
-    if not site.get("ok") or len(site.get("text") or "") < 120:
+async def _web_context(query: str) -> dict:
+    """เว็บอ่านไม่ได้ (Facebook/JS/ไม่มีเว็บ) → ให้บอท 'ค้นเว็บสาธารณะ' จากชื่อธุรกิจเอง แล้วรวม
+    title+snippet จากผลค้นหา (ไดเรกทอรี/รีวิว/ท่องเที่ยว เช่น Tripadvisor/Google) = ข้อมูลธุรกิจจริง
+    → เอาไปสกัดบริบทแทนการอ่าน FB · ข้าม facebook/instagram (อ่านไม่ได้) · ต้องต่อ DataForSEO SERP"""
+    from app.connectors import serp
+    query = (query or "").strip()
+    if not query:
         return {}
-    user = _ANALYZE_USER.format(domain=_norm(domain), name=name or "-", title=site.get("title") or "-",
-                                text=site.get("text"), lang=language)
+    try:
+        results = await serp.search(query, n=10)
+    except Exception:  # noqa: BLE001
+        return {}
+    parts, pages = [], []
+    for r in (results or []):
+        url = (r.get("url") or "")
+        t, sn = (r.get("title") or ""), (r.get("snippet") or "")
+        if not (t or sn):
+            continue
+        parts.append("• %s — %s" % (t, sn))
+        if url and "facebook.com" not in url and "instagram.com" not in url:
+            pages.append(url)
+    if len(parts) < 2:
+        return {}
+    text = ("ข้อมูลธุรกิจ (รวบรวมจากผลค้นหาเว็บสาธารณะ — ไดเรกทอรี/รีวิว/ท่องเที่ยว):\n"
+            + "\n".join(parts[:12]))[:9000]
+    return {"text": text, "title": query, "pages": pages[:6]}
+
+
+async def analyze(domain: str, name: str = "", language: str = "ภาษาไทย") -> dict:
+    """อ่านเว็บจริง → สกัดบริบทธุรกิจ · เว็บอ่านไม่ได้ = 'ค้นเว็บสาธารณะเอง' (FB-only ก็ได้) · คืน {} ถ้าล้มจริง"""
+    site = await fetch_site(domain)
+    text, title, pages = (site.get("text") or ""), (site.get("title") or ""), (site.get("pages") or [])
+    if not site.get("ok") or len(text) < 120:
+        web = await _web_context(name or _norm(domain))     # ← บอทวิ่งไปหาข้อมูลจากเว็บสาธารณะเอง
+        if len((web or {}).get("text") or "") < 120:
+            return {}
+        text, title, pages = web["text"], (web.get("title") or title), (web.get("pages") or pages)
+    user = _ANALYZE_USER.format(domain=_norm(domain), name=name or "-", title=title or "-",
+                                text=text, lang=language)
     try:
         _prov, out = await content._llm(_ANALYZE_SYS, user, tier="strong")
     except Exception:  # noqa: BLE001
@@ -245,8 +277,8 @@ async def analyze(domain: str, name: str = "", language: str = "ภาษาไ�
     data = _json_or_none(out)
     if not isinstance(data, dict):
         return {}
-    data["_pages_read"] = site.get("pages") or []
-    data["_title"] = site.get("title") or ""
+    data["_pages_read"] = pages
+    data["_title"] = title
     return data
 
 
