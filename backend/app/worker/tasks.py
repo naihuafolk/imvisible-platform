@@ -890,6 +890,37 @@ async def _optimize_low_scores(threshold: int, per_project: int) -> str:
     return "queued optimize for %d low-scoring articles" % n
 
 
+async def _find_article_for_keyword(s, pid: int, kw: str):
+    """หา 'บทความที่ตรงคีย์เวิร์ดที่สุด' ของโปรเจ็ค — แก้บั๊กเดิมที่ใช้ title==kw เป๊ะ
+    (ทำให้คีย์เวิร์ดลูกค้าที่ไม่ใช่ชื่อบทความเป๊ะ ถูกข้ามไม่เคยถูกดันเลย)
+    ลำดับ: (1) ชื่อตรงเป๊ะ (2) ชื่อ/คีย์ เป็น substring ของกัน (3) คำในคีย์อยู่ในชื่อ ≥ ครึ่ง
+    รองรับไทย (ไม่มีเว้นวรรคระหว่างคำ) ด้วยการเช็ก substring ทีละก้อนคีย์"""
+    from app.db.models import Article
+    kw = (kw or "").strip()
+    if not kw:
+        return None
+    aid = (await s.execute(select(Article.id).where(
+        Article.project_id == pid, Article.title == kw, Article.status == "published").limit(1))).scalar()
+    if aid:
+        return aid
+    rows = (await s.execute(select(Article.id, Article.title).where(
+        Article.project_id == pid, Article.status == "published"))).all()
+    kwl = kw.lower()
+    chunks = [w for w in kwl.replace(",", " ").split() if len(w) > 1]
+    best, best_score = None, 0.0
+    for aid, title in rows:
+        tl = (title or "").lower()
+        if not tl:
+            continue
+        if kwl in tl or tl in kwl:                     # substring = ตรงพอ ใช้เลย (ครอบคลุมไทย)
+            return aid
+        if chunks:
+            hit = sum(1 for w in chunks if w in tl) / len(chunks)   # สัดส่วนก้อนคีย์ที่อยู่ในชื่อ
+            if hit > best_score:
+                best_score, best = hit, aid
+    return best if best_score >= 0.5 else None
+
+
 @celery_app.task(name="app.worker.tasks.boost_rankings")
 def boost_rankings(lo: int = 11, hi: int = 40, per_project: int = 4) -> str:
     """⚡ คันเร่งอันดับ: ดันหน้า 'จ่อหน้า 1 (อันดับ 11-40)' หรือ 'เคยติดหน้า 1 แล้วหลุด'
@@ -926,9 +957,7 @@ async def _boost_rankings(lo: int, hi: int, per_project: int) -> str:
             scored.sort(key=lambda x: (x[0], x[1]))
             targets = [kw for _pri, _r, kw in scored]
             for kw in targets[:per_project]:
-                aid = (await s.execute(
-                    select(Article.id).where(Article.project_id == pid, Article.title == kw,
-                                             Article.status == "published").limit(1))).scalar()
+                aid = await _find_article_for_keyword(s, pid, kw)   # จับคู่ยืดหยุ่น (ไม่ใช่ชื่อตรงเป๊ะ)
                 if aid:
                     optimize_article.delay(aid)
                     n += 1
@@ -979,9 +1008,8 @@ async def _paa_boost(per_project: int) -> str:
             if not paa:
                 continue
             async with db.session() as s:
-                art = (await s.execute(select(Article).where(
-                    Article.project_id == pid, Article.title == kw,
-                    Article.status == "published").limit(1))).scalars().first()
+                aid = await _find_article_for_keyword(s, pid, kw)   # จับคู่ยืดหยุ่น (ไม่ใช่ชื่อตรงเป๊ะ)
+                art = (await s.get(Article, aid)) if aid else None
                 if not art:
                     continue
                 proj = await s.get(Project, pid)
@@ -1061,9 +1089,8 @@ async def _link_push_striking(per_project: int, links_each: int) -> str:
             continue
         for kw in targets[:per_project]:
             async with db.session() as s:
-                target = (await s.execute(select(Article).where(
-                    Article.project_id == pid, Article.title == kw,
-                    Article.status == "published", Article.url != "").limit(1))).scalars().first()
+                aid = await _find_article_for_keyword(s, pid, kw)   # จับคู่ยืดหยุ่น (ไม่ใช่ชื่อตรงเป๊ะ)
+                target = (await s.get(Article, aid)) if aid else None
                 if not target or not (target.url or "").strip():
                     continue
                 turl = target.url
@@ -1229,9 +1256,7 @@ async def _gsc_opportunities(per_project: int) -> str:
             if query.lower() in titles:                   # มีบทความแล้ว + จ่อหน้า 1 → ดัน
                 if 8 <= pos <= 25:
                     async with db.session() as s:
-                        aid = (await s.execute(select(Article.id).where(
-                            Article.project_id == p.id, Article.title == query,
-                            Article.status == "published").limit(1))).scalar()
+                        aid = await _find_article_for_keyword(s, p.id, query)
                     if aid:
                         optimize_article.delay(aid); boosted += 1
             else:                                         # Google โชว์เราแต่ยังไม่มีบทความ → เขียนเลย
@@ -1531,10 +1556,7 @@ async def _gsc_ctr_boost(per_project: int) -> str:
                  and (q.get("impressions") or 0) >= 10]
         for q in picks[:per_project]:
             async with db.session() as s:
-                aid = (await s.execute(
-                    select(Article.id).where(Article.project_id == p.id,
-                                             Article.title == q["query"],
-                                             Article.status == "published").limit(1))).scalar()
+                aid = await _find_article_for_keyword(s, p.id, q["query"])
             if aid:
                 optimize_article.delay(aid)
                 n += 1
