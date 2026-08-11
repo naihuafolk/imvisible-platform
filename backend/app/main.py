@@ -594,6 +594,8 @@ def _proj_dict(p):
             "analyzed": bool(getattr(p, "analyzed_at", None)),
             "business_context": getattr(p, "business_context", "") or "",
             "brand_terms": getattr(p, "brand_terms", "") or "",
+            "lead_line_to": getattr(p, "lead_line_to", "") or "",
+            "lead_email": getattr(p, "lead_email", "") or "",
             "topic_plan": getattr(p, "topic_plan", "") or ""}
 
 
@@ -1837,6 +1839,14 @@ async def update_project(project_id: int, req: ProjectUpdate, user=Depends(get_c
             p.name = name[:200]
         if domain:
             p.domain = domain[:255]
+        if req.business_context is not None:      # กรอกบรีฟเองได้ (อุดกรณี crawler อ่านเว็บไม่ได้)
+            p.business_context = (req.business_context or "").strip()
+        if req.brand_terms is not None:
+            p.brand_terms = (req.brand_terms or "").strip()
+        if req.lead_line_to is not None:
+            p.lead_line_to = (req.lead_line_to or "").strip()[:80]
+        if req.lead_email is not None:
+            p.lead_email = (req.lead_email or "").strip()[:255]
         await s.commit()
         return {"ok": True, "id": p.id, "name": p.name, "domain": p.domain}
 

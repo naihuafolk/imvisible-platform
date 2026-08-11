@@ -167,6 +167,10 @@ class ProjectModeUpdate(BaseModel):
 class ProjectUpdate(BaseModel):
     name: str = ""                   # แก้ชื่อ/โดเมน (ลิงก์) ของโปรเจ็ค — ว่าง = ไม่เปลี่ยนฟิลด์นั้น
     domain: str = ""
+    business_context: str | None = None   # กรอกบริบทธุรกิจเองได้ (กันเว็บที่ crawler อ่านไม่ได้ = ไม่มีบรีฟ) · None = ไม่แตะ
+    brand_terms: str | None = None        # คำแบรนด์ (คั่น ,) — ใช้ตรวจ AI citation
+    lead_line_to: str | None = None       # LINE ของลูกค้าเจ้าของธุรกิจ (รับลีดที่เก็บได้)
+    lead_email: str | None = None         # อีเมลลูกค้าสำหรับรับลีด/รายงาน
 
 
 class ProjectActiveUpdate(BaseModel):

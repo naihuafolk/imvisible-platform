@@ -275,8 +275,24 @@
       row('เกณฑ์ Freshness', 'รีเฟรชเมื่อหน้าเก่ากว่า ' + p.freshnessDays + ' วัน') +
       row('Author Personas (E-E-A-T)', p.authors + ' โปรไฟล์')
     });
+    var bc = (p.business_context || p.businessContext || '');
+    var bt = (p.brand_terms || (Array.isArray(p.brandTerms) ? p.brandTerms.join(', ') : p.brandTerms) || '');
+    var llt = (p.lead_line_to || p.leadLineTo || '');
+    var lem = (p.lead_email || p.leadEmail || '');
+    var edit = ui.card({ title: '📝 บรีฟธุรกิจ & ช่องรับลีดของลูกค้า',
+      sub: 'กรอกเองได้ (สำคัญถ้าระบบอ่านเว็บลูกค้าไม่ได้) · ตั้ง LINE ลูกค้าเพื่อให้ลีดวิ่งเข้าธุรกิจเขาตรง', cls: 'mb', body:
+      '<div style="margin-bottom:10px"><div class="soft small" style="margin-bottom:4px">บริบทธุรกิจ (ทำอะไร/ขายอะไร/ให้ใคร) — ป้อนเครื่องยนต์คอนเทนต์</div>' +
+        '<textarea class="input" id="s_bc" rows="3" style="width:100%">' + esc(bc) + '</textarea></div>' +
+      '<div style="margin-bottom:10px"><div class="soft small" style="margin-bottom:4px">คำแบรนด์ (คั่นด้วย , — ใช้ตรวจว่า AI เอ่ยถึงไหม)</div>' +
+        '<input class="input" id="s_bt" value="' + esc(bt) + '" style="width:100%"></div>' +
+      '<div class="grid grid-2" style="gap:10px">' +
+        '<div><div class="soft small" style="margin-bottom:4px">LINE ของลูกค้า (userId/groupId รับลีด)</div>' +
+          '<input class="input" id="s_llt" value="' + esc(llt) + '" placeholder="Uxxxx / Cxxxx" style="width:100%"></div>' +
+        '<div><div class="soft small" style="margin-bottom:4px">อีเมลลูกค้า (รับลีด/รายงาน)</div>' +
+          '<input class="input" id="s_lem" value="' + esc(lem) + '" placeholder="owner@business.com" style="width:100%"></div></div>' +
+      '<div class="hint" style="margin-top:8px">ลีดจากฟอร์มท้ายบทความ + สื่อแจกฟรี จะเด้งเข้า LINE นี้ของลูกค้าทันที (+ เข้าแอดมินกลางไว้ติดตาม)</div>' });
     return '<div class="hint mb">กำลังตั้งค่าโปรเจ็ค: <b>' + esc(p.name) + '</b> — ค่าเหล่านี้คือสิ่งที่ระบบใช้ "ขุดคำถาม → ผลิต → เผยแพร่ → วัดผล" ของโปรเจ็คนี้โดยเฉพาะ</div>' +
-      '<div class="grid grid-2 mb">' + left + right + '</div>' +
+      '<div class="grid grid-2 mb">' + left + right + '</div>' + edit +
       '<div class="row"><button class="btn btn-primary" id="s_save">บันทึกการตั้งค่า</button></div>';
   }
 
@@ -383,10 +399,25 @@
     var save = root.querySelector('#s_save'); if (save) save.onclick = function () {
       var p = curProj();
       if (!p) { ui.toast('ยังไม่มีโปรเจ็คให้บันทึก — สร้างโปรเจ็คก่อน'); return; }
-      var n = root.querySelector('#s_name'); if (n) p.name = n.value.trim() || p.name;
-      var d = root.querySelector('#s_domain'); if (d) p.domain = d.value.trim() || p.domain;
-      var m = root.querySelector('#s_mode'); if (m) p.mode = m.value;
-      ui.toast('บันทึกการตั้งค่าโปรเจ็ค <b>' + esc(p.name) + '</b> แล้ว ✓');
+      var g = function (id) { var e = root.querySelector('#' + id); return e ? e.value : undefined; };
+      var payload = { name: (g('s_name') || '').trim(), domain: (g('s_domain') || '').trim(),
+        business_context: g('s_bc'), brand_terms: g('s_bt'), lead_line_to: g('s_llt'), lead_email: g('s_lem') };
+      if (RP.isReal() && RP.api && RP.api.enabled()) {
+        var pid = dbId(p);
+        if (!pid) { ui.toast('บันทึกไม่ได้ (ไม่พบ id โปรเจ็ค)'); return; }
+        save.disabled = true; save.textContent = 'กำลังบันทึก…';
+        RP.api.updateProject(pid, payload).then(function () {
+          p.name = payload.name || p.name; p.domain = payload.domain || p.domain;
+          p.business_context = payload.business_context; p.brand_terms = payload.brand_terms;
+          p.lead_line_to = payload.lead_line_to; p.lead_email = payload.lead_email;
+          ui.toast('บันทึกการตั้งค่าโปรเจ็ค ✓');
+        }).catch(function (e) { ui.toast('บันทึกไม่สำเร็จ: ' + esc((e && e.message) || '')); })
+          .then(function () { save.disabled = false; save.textContent = 'บันทึกการตั้งค่า'; });
+      } else {
+        p.name = payload.name || p.name; p.domain = payload.domain || p.domain;
+        var m = g('s_mode'); if (m) p.mode = m;
+        ui.toast('บันทึกการตั้งค่าโปรเจ็ค <b>' + esc(p.name) + '</b> แล้ว ✓ (ตัวอย่าง)');
+      }
     };
     Array.prototype.forEach.call(root.querySelectorAll('.int-btn'), function (b) {
       b.onclick = function () {
