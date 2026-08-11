@@ -466,7 +466,16 @@
           else { gc.disabled = false; gc.textContent = '🔗 เชื่อม Google อัตโนมัติ'; ui.toast('เชื่อมไม่ได้'); }
         }).catch(function (e) {
           gc.disabled = false; gc.textContent = '🔗 เชื่อม Google อัตโนมัติ';
-          ui.toast('เชื่อม Google ไม่ได้: ' + esc((e && e.message) || 'ผู้ดูแลยังไม่ได้ตั้งค่า OAuth'));
+          var msg = (e && e.message) || 'ผู้ดูแลยังไม่ได้ตั้งค่า OAuth';
+          ui.toast('เชื่อม Google ไม่ได้: ' + esc(msg));
+          // โชว์เหตุแบบ 'ค้างไว้' (ไม่หายเหมือน toast) + ทางออกที่ทำได้ทันที
+          if (!gc.parentNode.querySelector('.gsc-note')) {
+            var n = document.createElement('div');
+            n.className = 'gsc-note hint'; n.style.cssText = 'margin-top:6px;color:var(--amber-700,#b45309)';
+            n.innerHTML = '⚠️ เชื่อมอัตโนมัติยังใช้ไม่ได้ (ผู้ดูแลต้องตั้ง Google OAuth ก่อน — ดู runbook) · ' +
+              'ระหว่างนี้ <b>กรอกคีย์ GSC เองด้านล่าง</b> ก็ใช้งานได้เลย';
+            gc.parentNode.appendChild(n);
+          }
         });
       };
       Array.prototype.forEach.call(root.querySelectorAll('.pcreds-save'), function (b) {

@@ -440,9 +440,13 @@
       desc: 'บล็อกที่เผยแพร่ของทุกแบรนด์ · การเข้าถึงจริง (ติดหน้า 1 · บทความ) · ลิงก์แชร์ — ข้อมูลจริงจากระบบ' }) +
       '<div id="blog_grid"><div class="hint">กำลังโหลดบล็อกทุกแบรนด์…</div></div>';
     return { html: html, mount: function (root) {
-      if (!RP.api.enabled()) return;
+      var g = root.querySelector('#blog_grid');
+      if (!RP.api.enabled()) {   // ปิดโหมด Live → อย่าค้าง 'กำลังโหลด' บอกให้เปิด Live
+        if (g) g.innerHTML = ui.card({ body: RP.noData('ต้องเปิดโหมด Live', 'บล็อกดึงจริงจาก backend — เปิดสวิตช์ Live ด้านบนขวาก่อน') });
+        return;
+      }
       RP.api.projectsOverview().then(function (d) { renderBlogGrid(root, (d && d.projects) || []); })
-        .catch(function () { var g = root.querySelector('#blog_grid'); if (g) g.innerHTML = ui.card({ body: RP.noData('โหลดบล็อกไม่ได้', 'ลองรีเฟรชอีกครั้ง') }); });
+        .catch(function () { if (g) g.innerHTML = ui.card({ body: RP.noData('โหลดบล็อกไม่ได้', 'ลองรีเฟรชอีกครั้ง') }); });
     } };
   };
 

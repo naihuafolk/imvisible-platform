@@ -68,9 +68,12 @@
           managePoll(ms.some(function (m) { return m.building; }));
           var rows = ms.map(function (m) {
             var url = location.origin + m.path;
+            var keyErr = /คีย์|gemini|openai|anthropic|llm/i.test(m.error || '');   // ล้มเพราะไม่มีคีย์ AI → ลองใหม่ก็ล้มซ้ำ ต้องไปต่อคีย์
             var right = m.failed
-              ? '<span class="soft small" style="color:#c0392b">⚠️ สร้างไม่สำเร็จ</span> ' +
-                '<button class="btn btn-sm lm-retry" data-id="' + m.id + '">ลองใหม่</button>'
+              ? '<span class="soft small" style="color:#c0392b" title="' + esc(m.error || '') + '">⚠️ ' + (keyErr ? 'ต้องต่อคีย์ AI ก่อน' : 'สร้างไม่สำเร็จ') + '</span> ' +
+                (keyErr
+                  ? '<button class="btn btn-sm btn-primary lm-tosettings">⚙️ ต่อคีย์ AI</button>'
+                  : '<button class="btn btn-sm lm-retry" data-id="' + m.id + '">ลองใหม่</button>')
               : m.building
               ? '<span class="soft small" style="color:var(--brand-700,#4338ca);white-space:nowrap">' + esc(m.stage || '⏳ กำลังสร้าง…') + '</span>'
               : '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="btn btn-sm">เปิด ↗</a> ' +
@@ -92,6 +95,9 @@
                 ui.toast('สั่งสร้างใหม่แล้ว — สักครู่'); setTimeout(loadMagnets, 1200);
               }).catch(function () { b.disabled = false; b.textContent = 'ลองใหม่'; ui.toast('สั่งไม่สำเร็จ'); });
             };
+          });
+          Array.prototype.forEach.call(box.querySelectorAll('.lm-tosettings'), function (b) {
+            b.onclick = function () { ui.toast('ไปแท็บการเชื่อมต่อ → ใส่ GEMINI_API_KEY แล้วกดลองใหม่'); RP.go('settings'); };
           });
           Array.prototype.forEach.call(box.querySelectorAll('.lm-split'), function (b) {
             b.onclick = function () {

@@ -272,6 +272,24 @@
     return '<div class="gr-panel" data-panel="citation" style="display:none">' + body + '<div id="gr_ci_out"></div></div>';
   }
 
+  /* error ที่ 'ขาดคีย์ DataForSEO' → การ์ด CTA พาไปตั้งค่า (แทน error ลอย ๆ ที่ดูเหมือนพัง)
+     เครื่องมือ 3 ตัวนี้ (Content Gap / Snippet / Backlink) ใช้ข้อมูลเฉพาะของ DataForSEO — ค้นเว็บฟรีแทนไม่ได้ */
+  function showKeyError(container, e, kind) {
+    var msg = (e && (e.message || String(e))) || '';
+    if (/ยังไม่ได้ตั้งคีย์|DataForSEO|503/.test(msg)) {
+      var extra = kind === 'backlink'
+        ? ' <b>Backlinks เป็นแพ็กเกจแยก</b>ของ DataForSEO (คีย์ SERP อย่างเดียวใช้ไม่ได้)'
+        : 'ใช้ข้อมูลเฉพาะจาก DataForSEO (ปริมาณค้นหา/คีย์ที่ติดอันดับ/แบ็กลิงก์ จริง)';
+      container.innerHTML = ui.card({ body: RP.noData('ต้องต่อคีย์ DataForSEO ก่อน',
+        'เครื่องมือนี้' + extra + ' — ค้นเว็บฟรีแทนไม่ได้ · ต่อคีย์ที่ ⚙️ การตั้งค่า แล้วลองใหม่',
+        '<button class="btn btn-primary gr-to-settings">⚙️ ไปตั้งค่า เชื่อม DataForSEO</button>') });
+    } else {
+      container.innerHTML = ui.card({ body: RP.noData('ดึงไม่ได้', esc(msg)) });
+    }
+    var b = container.querySelector('.gr-to-settings');
+    if (b) b.onclick = function () { RP.go('settings'); };
+  }
+
   RP.views.growth = function () {
     var head = ui.pageHead({ eyebrow: 'ImVisible · เครื่องมือโต', title: '🚀 เครื่องมือโต (Growth Tools)',
       desc: '5 เครื่องยนต์ดันอันดับในหน้าเดียว: หาหน้าชุมชน GEO · ช่องว่างคอนเทนต์ · ชิง Featured Snippet · แหล่งขอ backlink · วัดว่า AI แนะนำคุณแค่ไหน — ตัวเลขจริงทั้งหมด (ไม่กุ)' });
@@ -331,7 +349,7 @@
           if (!d.gaps || !d.gaps.length) { gapOut.innerHTML = ui.card({ body: RP.noData('ไม่พบช่องว่าง', 'อาจแปลว่าเราติดคีย์เหล่านั้นแล้ว หรือคู่แข่งยังไม่ติดหน้า 1-2 · ลองคู่แข่งรายอื่น') }); return; }
           renderGaps(gapOut, d);
         }).catch(function (e) {
-          gapOut.innerHTML = ui.card({ body: RP.noData('ดึงไม่ได้', esc(e.message || String(e))) });
+          showKeyError(gapOut, e, 'gap');
         }).then(function () { busy(gapGo, false, '🎯 หาช่องว่างคอนเทนต์'); });
       }
       if (gapGo) gapGo.onclick = runGap;
@@ -348,7 +366,7 @@
           if (!d.opportunities || !d.opportunities.length) { snOut.innerHTML = ui.card({ body: RP.noData('ไม่มีผล', 'ลองคีย์อื่น หรือเช็กเครดิต DataForSEO') }); return; }
           renderSnippets(snOut, d);
         }).catch(function (e) {
-          snOut.innerHTML = ui.card({ body: RP.noData('ดึงไม่ได้', esc(e.message || String(e))) });
+          showKeyError(snOut, e, 'snippet');
         }).then(function () { busy(snGo, false, '🥇 ตรวจ Featured Snippet + PAA'); });
       }
       if (snGo) snGo.onclick = runSnippet;
@@ -366,7 +384,7 @@
           if (!d.opportunities || !d.opportunities.length) { blOut.innerHTML = ui.card({ body: RP.noData('ไม่พบแหล่งร่วม', 'คู่แข่งอาจยังไม่มี backlink ร่วมกัน · ลองคู่แข่งที่โดเมนแรงขึ้น หรือเช็กสิทธิ์ Backlinks API') }); return; }
           renderBacklinks(blOut, d);
         }).catch(function (e) {
-          blOut.innerHTML = ui.card({ body: RP.noData('ดึงไม่ได้', esc(e.message || String(e))) });
+          showKeyError(blOut, e, 'backlink');
         }).then(function () { busy(blGo, false, '🔗 ขุดแหล่งขอลิงก์'); });
       }
       if (blGo) blGo.onclick = runBacklink;

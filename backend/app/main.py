@@ -1068,13 +1068,11 @@ async def pantip_radar(req: PantipRadarRequest, user=Depends(get_current_user)):
     """🎯 เรดาร์ Pantip — หากระทู้ที่ 'ติดหน้า 1 Google' สำหรับหัวข้อเรา (SERP จริง)
     ไปตอบให้มีประโยชน์ = ยืมทราฟฟิก+ความน่าเชื่อถือที่กระทู้นั้นมีอยู่แล้ว (ต้องโพสต์เอง ห้ามสแปม/auto)"""
     from app.connectors import serp
-    from app.config import settings as S
-    if not (S.dataforseo_login and S.dataforseo_password):
-        raise HTTPException(503, "ยังไม่ได้ตั้งคีย์ DataForSEO — ต้องมีเพื่อดึงผลอันดับ Google จริง")
     kw = (req.keyword or "").strip()
     if not kw:
         raise HTTPException(422, "ใส่คีย์เวิร์ด/หัวข้อก่อน")
     biz = (req.business or "").strip()
+    live = serp.have_dataforseo()          # มีคีย์ = อันดับ Google จริง · ไม่มี = ค้นเว็บฟรี (DuckDuckGo)
     # สร้างชุด query ที่ Pantip มักติดหน้า 1 (คำถาม/รีวิว/ความเห็น)
     queries = [kw, kw + " pantip", kw + " ดีไหม", kw + " รีวิว", kw + " ที่ไหนดี pantip"]
     if biz:
@@ -1082,10 +1080,13 @@ async def pantip_radar(req: PantipRadarRequest, user=Depends(get_current_user)):
     try:
         threads = await serp.pantip_page1(queries)
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, "ดึงผล SERP ไม่ได้ (ตรวจเครดิต/คีย์ DataForSEO): " + str(e)[:150])
+        raise HTTPException(502, "ดึงผลค้นหาไม่ได้: " + str(e)[:150])
+    note = ("กระทู้ Pantip ที่ติดหน้า 1 Google สำหรับหัวข้อนี้ · ไปตอบให้ 'มีประโยชน์จริง' "
+            "= ยืมทราฟฟิก+ความน่าเชื่อถือที่มีอยู่แล้ว · ต้องรีวิว+โพสต์เอง (ขาว ไม่สแปม ไม่ auto)") if live else \
+        ("โหมดฟรี — กระทู้ Pantip ที่เกี่ยวข้อง (ค้นเว็บฟรีผ่าน DuckDuckGo ไม่ใช่อันดับ Google เป๊ะ ๆ) · "
+         "ต่อคีย์ DataForSEO ที่ ⚙️ การตั้งค่า เพื่อดูอันดับหน้า 1 Google จริง · ไปตอบให้มีประโยชน์เอง (ไม่สแปม)")
     return {"keyword": kw, "business": biz, "threads": threads, "count": len(threads),
-            "note": "กระทู้ Pantip ที่ติดหน้า 1 Google สำหรับหัวข้อนี้ · ไปตอบให้ 'มีประโยชน์จริง' "
-                    "= ยืมทราฟฟิก+ความน่าเชื่อถือที่มีอยู่แล้ว · ต้องรีวิว+โพสต์เอง (ขาว ไม่สแปม ไม่ auto)"}
+            "mode": "google" if live else "free", "note": note}
 
 
 @app.post("/api/pantip-reply")
@@ -1516,14 +1517,12 @@ async def social_radar(req: SocialRadarRequest, user=Depends(get_current_user)):
     """🌐 เรดาร์ GEO — หาหน้า Reddit · Quora · Medium ที่ 'ติดหน้า 1 Google' สำหรับหัวข้อเรา (SERP จริง)
     AI (ChatGPT/Perplexity) อ้างอิงชุมชนพวกนี้หนักมาก → ไปตอบให้มีประโยชน์ = ดัน GEO
     (ต้องรีวิว+โพสต์เอง ห้ามสแปม/auto)"""
-    from app.connectors import growth
-    from app.config import settings as S
-    if not (S.dataforseo_login and S.dataforseo_password):
-        raise HTTPException(503, "ยังไม่ได้ตั้งคีย์ DataForSEO — ต้องมีเพื่อดึงผลอันดับ Google จริง")
+    from app.connectors import growth, serp
     kw = (req.keyword or "").strip()
     if not kw:
         raise HTTPException(422, "ใส่คีย์เวิร์ด/หัวข้อก่อน")
     biz = (req.business or "").strip()
+    live = serp.have_dataforseo()          # มีคีย์ = อันดับ Google จริง · ไม่มี = ค้นเว็บฟรี (DuckDuckGo)
     sites = tuple(s.strip().lower() for s in (req.sites or []) if s.strip()) or \
         ("reddit.com", "quora.com", "medium.com")
     # สร้างชุด query ที่ชุมชนต่างชาติมักติดหน้า 1 (คำถาม/รีวิว/แนะนำ — reddit/quora ส่วนใหญ่อังกฤษ)
@@ -1534,12 +1533,15 @@ async def social_radar(req: SocialRadarRequest, user=Depends(get_current_user)):
     try:
         threads = await growth.social_radar(queries, sites=sites)
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, "ดึงผล SERP ไม่ได้ (ตรวจเครดิต/คีย์ DataForSEO): " + str(e)[:150])
+        raise HTTPException(502, "ดึงผลค้นหาไม่ได้: " + str(e)[:150])
+    note = ("หน้า Reddit/Quora/Medium ที่ติดหน้า 1 Google สำหรับหัวข้อนี้ · AI อ้างอิงชุมชนพวกนี้บ่อย "
+            "→ ไปตอบให้ 'มีประโยชน์จริง' = ดัน GEO + ยืมความน่าเชื่อถือที่มีอยู่แล้ว · "
+            "ต้องรีวิว+โพสต์เอง (ขาว ไม่สแปม ไม่ auto)") if live else \
+        ("โหมดฟรี — หน้า Reddit/Quora/Medium ที่เกี่ยวข้อง (ค้นเว็บฟรีผ่าน DuckDuckGo ไม่ใช่อันดับ Google เป๊ะ ๆ) · "
+         "ต่อคีย์ DataForSEO ที่ ⚙️ การตั้งค่า เพื่อความแม่นระดับ Google · ไปตอบให้มีประโยชน์เอง (ไม่สแปม)")
     return {"keyword": kw, "business": biz, "sites": list(sites),
             "threads": threads, "count": len(threads),
-            "note": "หน้า Reddit/Quora/Medium ที่ติดหน้า 1 Google สำหรับหัวข้อนี้ · AI อ้างอิงชุมชนพวกนี้บ่อย "
-                    "→ ไปตอบให้ 'มีประโยชน์จริง' = ดัน GEO + ยืมความน่าเชื่อถือที่มีอยู่แล้ว · "
-                    "ต้องรีวิว+โพสต์เอง (ขาว ไม่สแปม ไม่ auto)"}
+            "mode": "google" if live else "free", "note": note}
 
 
 # ---- competitor_backlink ----
@@ -2171,6 +2173,9 @@ async def project_rank_check(project_id: int, req: KeywordRequest, user=Depends(
     if not domain:
         raise HTTPException(422, "โปรเจ็คนี้ยังไม่ได้ตั้งโดเมน")
     dfs = await creds.get_creds(project_id, "dataforseo")
+    if not serp.have_dataforseo(dfs or None):
+        raise HTTPException(503, "ยังไม่ได้ต่อคีย์ DataForSEO — การวัด 'อันดับ Google จริง' ต้องใช้ DataForSEO "
+                                 "(เสิร์ชเอนจินอื่นให้อันดับต่างกัน จึงใช้แทนไม่ได้) · ต่อคีย์ที่ ⚙️ การตั้งค่า")
     try:
         res = await serp.rank_check(req.keyword, domain, creds=dfs or None)
     except Exception as e:  # noqa: BLE001
@@ -2208,6 +2213,13 @@ async def project_measure_all(project_id: int, user=Depends(get_current_user)):
         pname = p.name
     if not kws:
         return {"queued": 0, "note": "ยังไม่มีคีย์เวิร์ดให้วัด — เพิ่มคีย์เวิร์ดที่หน้าจัดการโปรเจ็คก่อน"}
+    # ต้องมีคีย์ DataForSEO ถึงวัด 'อันดับ Google จริง' ได้ — ไม่มีก็บอกตรง ๆ (ไม่เข้าคิวงานที่จะล้มเงียบ)
+    from app import creds as _creds
+    dfs = await _creds.get_creds(project_id, "dataforseo")
+    if not serp.have_dataforseo(dfs or None):
+        return {"queued": 0, "needs_key": True,
+                "note": "ยังไม่ได้ต่อคีย์ DataForSEO — การวัด 'อันดับ Google จริง' ต้องใช้ DataForSEO "
+                        "(ค้นเว็บฟรีให้อันดับต่างจาก Google จึงใช้แทนไม่ได้) · ต่อคีย์ที่ ⚙️ การตั้งค่า แล้วกดวัดใหม่"}
     try:
         from app.worker.tasks import measure_rank
         for kw in kws:
@@ -3181,8 +3193,20 @@ async def create_lead_magnet(project_id: int, req: LeadMagnetCreate, user=Depend
             build_lead_magnet.delay(c["id"], topic)
     except Exception:  # noqa: BLE001
         building = False
+        # worker/redis ไม่พร้อม → ทำเครื่องหมาย error กันรายการค้าง '⏳ กำลังสร้าง' ตลอดกาล (ลูกค้ากด 'ลองใหม่' ได้)
+        try:
+            async with db.session() as s:
+                for c in created:
+                    row = await s.get(LeadMagnet, c["id"])
+                    if row:
+                        row.error = "ระบบเบื้องหลังยังไม่พร้อม (worker/redis) — กด 'ลองใหม่' อีกครั้ง"
+                        row.stage = "⚠️ ยังไม่เริ่ม"
+                await s.commit()
+        except Exception:  # noqa: BLE001
+            pass
     return {"created": created, "count": len(created), "building": building,
-            "kind": kind, "title": topic[:280]}
+            "kind": kind, "title": topic[:280],
+            "note": None if building else "ระบบเบื้องหลังยังไม่พร้อม (worker/redis) — สื่อถูกบันทึกไว้แล้ว กด 'ลองใหม่' เมื่อระบบพร้อม"}
 
 
 @app.get("/api/projects/{project_id}/lead-magnets")
@@ -3269,19 +3293,8 @@ async def lead_magnet_to_articles(magnet_id: int, user=Depends(get_current_user)
             "articles": created, "note": "เก็บเป็นร่าง — ตรวจ/อนุมัติก่อนเผยแพร่ที่หน้าคิวรออนุมัติ"}
 
 
-@app.get("/api/projects/{project_id}/leads")
-async def list_leads(project_id: int, user=Depends(get_current_user)):
-    """รายชื่อลีดที่เก็บได้จากสื่อแจกฟรี — เอาไปตามขายบริการ"""
-    if not db.enabled():
-        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
-    from app.db.models import Lead
-    async with db.session() as s:
-        await _own_project(s, project_id, user)
-        rows = (await s.execute(select(Lead).where(Lead.project_id == project_id)
-                .order_by(Lead.id.desc()).limit(500))).scalars().all()
-    return {"leads": [{"email": r.email, "name": r.name, "shared": r.shared, "source": r.source,
-                       "at": r.created_at.isoformat() if r.created_at else ""} for r in rows],
-            "count": len(rows)}
+# (ลบ route ซ้ำ list_leads ออก — GET /api/projects/{id}/leads ใช้ project_leads ด้านบนตัวเดียว
+#  ที่คืน name/phone/email/message/source/created_at ครบกว่า · ตัวนี้ถูก shadow ไม่เคยถูกเรียก)
 
 
 @app.get("/api/lead/{token}")

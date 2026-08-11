@@ -5,11 +5,21 @@ SERP connector — ดึงผลอันดับ Google จริงผ่�
 """
 import asyncio
 import base64
+import html as _html
+import re
+import urllib.parse
 import httpx
 
 from app.config import settings
 
 BASE = "https://api.dataforseo.com/v3/serp/google/organic/live/advanced"
+
+
+def have_dataforseo(creds: dict | None = None) -> bool:
+    """มีคีย์ DataForSEO ให้ใช้ไหม (คีย์ลูกค้า per-project ก่อน → คีย์กลาง) — ใช้ตัดสินใจ fallback ฟรี"""
+    login = (creds or {}).get("login") or settings.dataforseo_login
+    password = (creds or {}).get("password") or settings.dataforseo_password
+    return bool(login and password)
 
 
 def _auth_header(creds: dict | None = None) -> dict:
@@ -20,6 +30,68 @@ def _auth_header(creds: dict | None = None) -> dict:
         raise RuntimeError("ยังไม่ได้ตั้งค่า DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD (คีย์ลูกค้าหรือคีย์กลาง)")
     token = base64.b64encode(f"{login}:{password}".encode()).decode()
     return {"Authorization": f"Basic {token}", "Content-Type": "application/json"}
+
+
+# ── Free web-search fallback (DuckDuckGo HTML) — ใช้เมื่อ 'ไม่มีคีย์ DataForSEO' ────────────
+# ผลลัพธ์เป็น 'ผลค้นหาเว็บจริง' จาก DuckDuckGo (ไม่ใช่การปั้นตัวเลข = ไม่ผิดหลัก no-faking)
+# ⚠️ ไม่ใช่อันดับ Google เป๊ะ ๆ — ใช้สำหรับ 'ค้นหา/discovery' (Pantip, ชุมชน, โอกาสลิงก์, onboarding)
+# ให้ผู้ใช้เห็นว่าเป็น 'โหมดฟรี' และแนะนำต่อ DataForSEO เพื่อความแม่นระดับ Google
+_DDG_URL = "https://html.duckduckgo.com/html/"
+_DDG_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/122.0 Safari/537.36"),
+    "Accept": "text/html,application/xhtml+xml",
+    "Accept-Language": "th,en;q=0.9",
+}
+_DDG_A_RE = re.compile(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>', re.S)
+_DDG_SNIP_RE = re.compile(r'<a[^>]+class="result__snippet"[^>]*>(.*?)</a>', re.S)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _strip(s: str) -> str:
+    return _html.unescape(_TAG_RE.sub("", s or "")).strip()
+
+
+def _ddg_href(href: str) -> str:
+    """DuckDuckGo ห่อลิงก์ผ่าน redirect (//duckduckgo.com/l/?uddg=<encoded>) — แกะออกเป็น URL จริง"""
+    href = href or ""
+    if href.startswith("//"):
+        href = "https:" + href
+    if "duckduckgo.com/l/" in href:
+        uddg = urllib.parse.parse_qs(urllib.parse.urlparse(href).query).get("uddg")
+        if uddg:
+            return uddg[0]
+    return href
+
+
+async def _ddg_search(query: str, n: int = 8) -> list[dict]:
+    """ค้นเว็บฟรีผ่าน DuckDuckGo HTML → [{title,url,domain,snippet}] · crash-safe คืน []"""
+    q = (query or "").strip()
+    if not q:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as c:
+            r = await c.post(_DDG_URL, headers=_DDG_HEADERS, data={"q": q, "kl": "th-th"})
+            page = r.text
+    except Exception:  # noqa: BLE001
+        return []
+    hrefs = _DDG_A_RE.findall(page or "")
+    snips = _DDG_SNIP_RE.findall(page or "")
+    out: list[dict] = []
+    for i, (href, title) in enumerate(hrefs):
+        if len(out) >= n:
+            break
+        url = _ddg_href(href)
+        if not url.startswith("http"):
+            continue
+        dom = urllib.parse.urlparse(url).netloc.lower().removeprefix("www.")
+        out.append({
+            "title": _strip(title) or url,
+            "url": url,
+            "domain": dom,
+            "snippet": _strip(snips[i]) if i < len(snips) else "",
+        })
+    return out
 
 
 async def account_balance(creds: dict | None = None) -> float | None:
@@ -391,7 +463,10 @@ async def search(query: str, n: int = 8,
                  language_code: str | None = None,
                  creds: dict | None = None) -> list[dict]:
     """SERP search ทั่วไป — คืน organic results (title/url/domain/snippet)
-    ใช้หา 'โอกาสกระจาย' จริง: กระทู้ Pantip / ชุมชน / ไดเรกทอรี ที่ตรง niche ลูกค้า"""
+    ใช้หา 'โอกาสกระจาย' จริง: กระทู้ Pantip / ชุมชน / ไดเรกทอรี ที่ตรง niche ลูกค้า
+    ไม่มีคีย์ DataForSEO → fallback ค้นเว็บฟรี (DuckDuckGo) ให้ยังทำงานได้ (ผลจริง ไม่ปั้นเลข)"""
+    if not have_dataforseo(creds):
+        return await _ddg_search(query, n=n)
     payload = [{
         "keyword": query,
         "location_code": location_code or settings.serp_location_code,
