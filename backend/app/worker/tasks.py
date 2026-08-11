@@ -451,6 +451,23 @@ def _starter_topics(seed: str, lang: str) -> list[str]:
             f"รวมคำถามที่พบบ่อยเกี่ยวกับ {seed}"]
 
 
+# YMYL (Your Money Your Life) — แพทย์/สุขภาพ/การเงิน/กฎหมาย: ห้าม auto-publish เด็ดขาด (ต้องคนรีวิว)
+# กัน Google Scaled-Content-Abuse + ความรับผิดของลูกค้า (เช่น คลินิก/เวชสำอาง/สินเชื่อ)
+_YMYL_TERMS = (
+    "คลินิก", "ศัลยกรรม", "ความงาม", "ผิวหนัง", "ทันตกรรม", "การแพทย์", "แพทย์", "เวชสำอาง",
+    "ฟิลเลอร์", "โบท็อก", "รักษาโรค", "อาหารเสริม", "วิตามิน", "ยารักษา",
+    "สินเชื่อ", "เงินกู้", "กู้เงิน", "ลงทุน", "คริปโต", "ประกันชีวิต", "ประกันภัย",
+    "กฎหมาย", "ทนายความ", "คดีความ",
+    "clinic", "medical", "cosmetic surgery", "dermatolog", "dental", "pharmacy", "supplement",
+    "finance", "loan", "invest", "insurance", "lawyer", "legal advice",
+)
+
+
+def _is_ymyl(text: str) -> bool:
+    t = (text or "").lower()
+    return any(k.lower() in t for k in _YMYL_TERMS)
+
+
 @celery_app.task(name="app.worker.tasks.produce_for_project")
 def produce_for_project(project_id: int, max_new: int = 1) -> dict:
     """1 โปรเจ็ค: ขุดคำถาม → เลือกหัวข้อใหม่ (กันซ้ำ) → เขียนด้วย AI →
@@ -554,6 +571,8 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
     if not topics:
         return {"project": p.name, "produced": 0, "note": "ไม่มีหัวข้อใหม่ให้ผลิต"}
     auto = (p.mode == "auto")
+    # YMYL: ธุรกิจแพทย์/สุขภาพ/การเงิน/กฎหมาย → บังคับเข้าคิวรีวิวคนเสมอ (แม้ตั้งโหมด auto)
+    ymyl_project = _is_ymyl((p.business_context or "") + " " + (p.name or "") + " " + (p.domain or ""))
     from app.config import settings as _cfg
     min_score = int(getattr(_cfg, "min_publish_score", 82) or 82)   # ประตูคุณภาพ: ต่ำกว่านี้ = ไม่เผยแพร่ (เก็บร่าง + ปรับก่อน)
     results = []
@@ -588,7 +607,8 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
             schema = gen.get("schema", "") or ""
             desc = _plain(html)[:300]
             aeo = _aeo_of(html, topic, desc, schema, cover)          # คะแนน AEO/SEO จริง (ตัวแปรจัดอันดับ)
-            publish_now = auto and (aeo >= min_score)                # ⭐ พรีเมียมเท่านั้นถึงเผยแพร่อัตโนมัติ (กันบทความห่วยหลุด)
+            ymyl = ymyl_project or _is_ymyl(topic)                   # หัวข้อ YMYL แม้ธุรกิจทั่วไป ก็ต้องรีวิวก่อน
+            publish_now = auto and (aeo >= min_score) and not ymyl   # ⭐ พรีเมียม + ไม่ใช่ YMYL ถึงเผยแพร่อัตโนมัติ (กันบทความห่วย/เสี่ยงหลุด)
             async with db.session() as s:
                 art = Article(project_id=project_id, title=topic, html=html,
                               schema_json=schema,
