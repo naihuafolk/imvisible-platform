@@ -40,6 +40,14 @@ class TeamInvite(BaseModel):
     role: str = "viewer"         # viewer | editor | admin
 
 
+class AdminCreateUser(BaseModel):
+    email: str
+    name: str = ""
+    password: str
+    as_member: bool = True        # ผูกเป็นสมาชิกทีมของแอดมินด้วย (เห็นโปรเจกต์ที่แชร์)
+    role: str = "viewer"          # viewer | editor | admin
+
+
 class ScheduleRequest(BaseModel):
     at: str                      # เวลาเผยแพร่ (ISO เช่น 2026-08-01T09:00)
 

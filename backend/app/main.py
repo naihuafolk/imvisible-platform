@@ -27,7 +27,7 @@ from app.schemas import (
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, KeywordReportRequest, ChannelUpdate, DraftRequest,
     BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, ImwebSaveRequest, ImwebPrefillRequest, PseoTopicsRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, SiteReportCreate, ReportLeadCreate, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
-    CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite,
+    CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite, AdminCreateUser,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social, billing, pagespeed
@@ -1989,6 +1989,42 @@ async def remove_team(member_id: int, user=Depends(get_current_user)):
         await s.delete(m)
         await s.commit()
     return {"ok": True}
+
+
+@app.post("/api/admin/create-user")
+async def admin_create_user(req: AdminCreateUser, user=Depends(get_current_user)):
+    """แอดมินสร้างบัญชีเข้าใช้ให้ลูกค้า/ทีม (อีเมล+รหัส) โดยตรง — แทนการสมัครเองที่ปิดไว้
+    ตั้งรหัสให้เลย แล้วส่ง 'อีเมล+รหัส' ให้ลูกค้าล็อกอิน · as_member = ผูกเป็นสมาชิกทีมของแอดมิน"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import usage
+    if (await usage.user_plan(user["id"])) != "admin":
+        raise HTTPException(403, "เฉพาะแอดมินเท่านั้นที่สร้างบัญชีได้ (ตั้งอีเมลคุณใน ADMIN_EMAILS)")
+    email = (req.email or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(422, "อีเมลไม่ถูกต้อง")
+    if len((req.password or "").strip()) < 8:
+        raise HTTPException(422, "รหัสผ่านอย่างน้อย 8 ตัวอักษร")
+    name = (req.name or email.split("@")[0]).strip()
+    from app.db.models import User, TeamMember
+    async with db.session() as s:
+        exists = (await s.execute(select(User).where(User.email == email))).scalar_one_or_none()
+        if exists:
+            raise HTTPException(409, "อีเมลนี้มีบัญชีแล้ว")
+        u = User(email=email, name=name, password_hash=security.hash_password(req.password))
+        s.add(u); await s.commit(); await s.refresh(u)
+        uid = u.id
+        if req.as_member and uid != user["id"]:
+            role = req.role if req.role in ("viewer", "editor", "admin") else "viewer"
+            dup = (await s.execute(select(TeamMember).where(
+                TeamMember.owner_id == user["id"], TeamMember.email == email))).scalars().first()
+            if not dup:
+                s.add(TeamMember(owner_id=user["id"], email=email, role=role,
+                                 status="active", member_user_id=uid))
+                await s.commit()
+    from app import team
+    await team.link_invites(uid, email)
+    return {"ok": True, "email": email, "name": name, "as_member": bool(req.as_member)}
 
 
 # ---------- Per-tenant credentials (ลูกค้าเชื่อมคีย์ตัวเอง — multi-tenant จริง) ----------

@@ -57,6 +57,7 @@
     costCheck: function () { return api._post('/api/admin/cost-check', {}); },
     team: function () { return api._get('/api/team'); },
     inviteTeam: function (email, role) { return api._post('/api/team/invite', { email: email, role: role || 'viewer' }); },
+    adminCreateUser: function (o) { return api._post('/api/admin/create-user', o); },
     removeTeam: function (id) { return api._del('/api/team/' + id); },
     billingCheckout: function (plan) { return api._post('/api/billing/checkout', { plan: plan }); },
     billingStatus: function () { return api._get('/api/billing/status'); },

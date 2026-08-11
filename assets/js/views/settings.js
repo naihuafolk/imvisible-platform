@@ -88,6 +88,15 @@
         '<div class="row wrap" style="gap:8px;align-items:center"><input class="input" id="team_email" placeholder="อีเมลสมาชิก" style="flex:1;min-width:180px">' +
         '<select class="input" id="team_role" style="width:auto"><option value="viewer">ดูอย่างเดียว</option><option value="editor">แก้ไขได้</option><option value="admin">แอดมิน</option></select>' +
         '<button class="btn btn-sm btn-primary" id="team_invite">＋ เชิญ</button></div>' +
+        '<div class="divider"></div>' +
+        '<div class="soft small b" style="margin:6px 0">🔑 สร้างบัญชีเข้าใช้ให้ลูกค้า/ทีม (ตั้งรหัสเอง — เพราะปิดการสมัครเอง)</div>' +
+        '<div class="row wrap" style="gap:8px;align-items:center">' +
+          '<input class="input" id="cu_email" placeholder="อีเมล" style="flex:1;min-width:150px">' +
+          '<input class="input" id="cu_name" placeholder="ชื่อ/บริษัท (ไม่บังคับ)" style="flex:1;min-width:130px">' +
+          '<input class="input" id="cu_pass" type="text" placeholder="ตั้งรหัส (≥8 ตัว)" style="flex:1;min-width:140px">' +
+          '<select class="input" id="cu_role" style="width:auto"><option value="viewer">ดูอย่างเดียว</option><option value="editor">แก้ไขได้</option><option value="admin">แอดมิน</option></select>' +
+          '<button class="btn btn-sm btn-primary" id="cu_create">＋ สร้างบัญชี</button></div>' +
+        '<div class="hint" style="margin-top:4px">ตั้งรหัสเสร็จ ส่ง "อีเมล + รหัส" ให้ลูกค้าไปล็อกอินได้เลย · ผูกเป็นสมาชิกทีมให้อัตโนมัติ (เห็นรายงานที่แชร์) · เฉพาะแอดมิน</div>' +
         (shared ? ('<div class="divider"></div><div class="soft small b" style="margin:6px 0">บัญชีที่แชร์ให้คุณ</div>' + shared) : '')
     });
   }
@@ -471,6 +480,23 @@
             inv.disabled = true;
             RP.api.inviteTeam(em, ro).then(function () { ui.toast('เชิญ ' + esc(em) + ' แล้ว ✓'); loadTeam(); })
               .catch(function (e) { inv.disabled = false; ui.toast('เชิญไม่สำเร็จ: ' + esc((e && e.message) || '')); });
+          };
+          var cuBtn = tslot.querySelector('#cu_create');
+          if (cuBtn) cuBtn.onclick = function () {
+            var em = (tslot.querySelector('#cu_email').value || '').trim();
+            var nm = (tslot.querySelector('#cu_name').value || '').trim();
+            var pw = (tslot.querySelector('#cu_pass').value || '').trim();
+            var ro = tslot.querySelector('#cu_role').value;
+            if (!em || em.indexOf('@') < 0) { ui.toast('กรอกอีเมลให้ถูกต้อง'); return; }
+            if (pw.length < 8) { ui.toast('รหัสผ่านอย่างน้อย 8 ตัว'); return; }
+            cuBtn.disabled = true; cuBtn.textContent = 'กำลังสร้าง…';
+            RP.api.adminCreateUser({ email: em, name: nm, password: pw, as_member: true, role: ro }).then(function () {
+              ui.toast('สร้างบัญชี ' + esc(em) + ' แล้ว ✓ — ส่งอีเมล+รหัสให้ลูกค้าได้เลย');
+              loadTeam();
+            }).catch(function (e) {
+              cuBtn.disabled = false; cuBtn.textContent = '＋ สร้างบัญชี';
+              ui.toast('สร้างไม่สำเร็จ: ' + esc((e && e.message) || ''));
+            });
           };
           Array.prototype.forEach.call(tslot.querySelectorAll('.team-del'), function (b) {
             b.onclick = function () {

@@ -118,7 +118,7 @@ class Settings(BaseSettings):
     admin_emails: str = ""
 
     # เปิด/ปิดรับสมัครสมาชิกทั่วไป — false = ปิด (soft-launch เหลือแค่ล็อกอิน · แอดมินสร้างบัญชีเองได้)
-    registration_open: bool = True
+    registration_open: bool = False   # ปิดรับสมัครเอง — แอดมินสร้างบัญชีลูกค้า/ทีมให้เท่านั้น (เปิดได้ด้วย REGISTRATION_OPEN=true)
 
     # Production hardening
     app_env: str = "dev"                 # dev | prod (prod = บังคับ JWT_SECRET + HSTS)
