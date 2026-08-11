@@ -28,6 +28,7 @@
       '<div class="soft small" style="margin:4px 0">📞 ' + esc(r.contact || '—') + ' · 🌐 ' + (r.language === 'en' ? 'อังกฤษ' : 'ไทย') + ' · ' + fmtDate(r.created_at) + '</div>' +
       '<div class="small" style="margin:2px 0">🔗 ' + linksHtml(r.links) + '</div>' +
       (r.detail ? '<div class="soft small" style="margin:4px 0;padding:8px 10px;background:var(--bg,#f6f8fc);border-radius:8px">💬 ' + esc(r.detail) + '</div>' : '') +
+      (r.photos && r.photos.length ? '<div class="row wrap" style="gap:6px;margin:8px 0">📷 ' + r.photos.map(function (u) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener"><img src="' + esc(u) + '" style="width:66px;height:66px;object-fit:cover;border-radius:8px" loading="lazy"></a>'; }).join('') + '</div>' : '') +
       '<div style="margin-top:8px">' + actions + '</div></div>';
   }
 

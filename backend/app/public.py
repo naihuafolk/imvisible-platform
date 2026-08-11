@@ -367,6 +367,69 @@ def _article_jsonld(proj, art, canonical, home, lang):
     return out
 
 
+def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="th", report_token="") -> str:
+    """สร้าง 'หน้าเว็บจริง' ให้ลูกค้าจากบรีฟ + รูปที่แนบมา (เชื่อถือได้ ไม่พึ่ง IM WEB) —
+    hero+about+แกลเลอรีรูปจริง+ติดต่อ+ฟอร์มดักลีด · เอาไปฝัง schema (inject_aeo_geo) ต่อได้"""
+    en = str(lang).startswith("en")
+    def t(th, e): return e if en else th
+    name = _esc((name or "").strip() or (t("ธุรกิจของเรา", "Our Business")))
+    biz_type = _esc((biz_type or "").strip())
+    about = _esc((about or "").strip())
+    photos = [u for u in (photo_urls or []) if u][:6]
+    hero_img = photos[0] if photos else ""
+    hero = ('<section style="position:relative;min-height:56vh;display:grid;place-items:center;text-align:center;color:#fff;padding:60px 20px;'
+            'background:linear-gradient(rgba(10,18,32,.55),rgba(10,18,32,.55))%s;background-size:cover;background-position:center">'
+            '<div><h1 style="font-size:clamp(2rem,6vw,3.4rem);margin:0 0 8px;font-weight:800">%s</h1>'
+            '<div style="font-size:1.1rem;opacity:.95">%s</div>'
+            '<a href="#contact" style="display:inline-block;margin-top:20px;background:#fff;color:#1657d6;font-weight:800;padding:13px 32px;border-radius:999px;text-decoration:none">%s</a></div></section>'
+            % ((",url('%s')" % _esc(hero_img)) if hero_img else "", name, biz_type or t("ยินดีต้อนรับ", "Welcome"), t("ติดต่อเรา", "Contact us")))
+    about_sec = ('<section style="max-width:800px;margin:50px auto;padding:0 20px;text-align:center">'
+                 '<h2 style="font-size:1.6rem;margin-bottom:12px">%s</h2><p style="color:#55647c;line-height:1.8;font-size:1.05rem">%s</p></section>'
+                 % (t("เกี่ยวกับเรา", "About Us"), about)) if about else ""
+    gallery = ""
+    if photos:
+        cells = "".join('<img src="%s" alt="%s" loading="lazy" style="width:100%%;height:240px;object-fit:cover;border-radius:14px">' % (_esc(u), name) for u in photos)
+        gallery = ('<section style="max-width:1100px;margin:40px auto;padding:0 20px"><h2 style="text-align:center;font-size:1.6rem;margin-bottom:20px">%s</h2>'
+                   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">%s</div></section>'
+                   % (t("รูปภาพ", "Gallery"), cells))
+    ci = []
+    for k, ic in (("phone", "📞"), ("line", "💬 LINE"), ("email", "✉️"), ("address", "📍"), ("hours", "🕒")):
+        v = _esc((contact.get(k) or "").strip()) if contact else ""
+        if v:
+            ci.append('<div style="margin:5px 0">%s %s</div>' % (ic, v))
+    form = ""
+    if (report_token or "").strip():
+        from app.config import settings as _s
+        action = (_s.app_base_url or "").rstrip("/") + "/api/public/lead"
+        ist = "width:100%;max-width:320px;margin:5px auto;display:block;padding:11px 14px;border:1px solid #d7deea;border-radius:10px;font-size:15px;box-sizing:border-box"
+        form = ('<form action="%s" method="post" style="margin-top:14px">'
+                '<input type="hidden" name="token" value="%s">'
+                '<input name="name" placeholder="%s" style="%s"><input name="phone" required placeholder="%s" style="%s">'
+                '<button type="submit" style="margin-top:8px;background:#1657d6;color:#fff;font-weight:800;padding:12px 30px;border:0;border-radius:999px;font-size:15px;cursor:pointer">%s</button></form>'
+                % (_esc(action), _esc(report_token), t("ชื่อของคุณ", "Your name"), ist, t("เบอร์ติดต่อกลับ", "Your phone"), ist, t("ให้เราติดต่อกลับ", "Contact me")))
+    contact_sec = ('<section id="contact" style="max-width:640px;margin:40px auto 60px;padding:30px 20px;text-align:center;background:#f5f8fc;border-radius:18px">'
+                   '<h2 style="font-size:1.6rem;margin-bottom:14px">%s</h2>%s%s</section>'
+                   % (t("ติดต่อเรา", "Contact Us"), "".join(ci), form))
+    return ('<main style="font-family:\'Sarabun\',\'Segoe UI\',sans-serif;color:#0f1b2d">'
+            + hero + about_sec + gallery + contact_sec + '</main>')
+
+
+def inject_photos(html: str, urls, lang="th") -> str:
+    """แทรกรูปจริงของลูกค้าเข้า HTML ที่ IM WEB สร้าง (สลับ hero + เพิ่มแกลเลอรี) — ใช้เมื่อ build ผ่าน IM WEB"""
+    if not html or not urls:
+        return html
+    urls = [u for u in urls if u][:6]
+    out = html
+    m = re.search(r'<img[^>]*\ssrc=["\']([^"\']+)["\']', out)
+    if m:
+        out = out[:m.start(1)] + _esc(urls[0]) + out[m.end(1):]
+    lbl = "Gallery" if str(lang).startswith("en") else "รูปภาพของเรา"
+    cells = "".join('<img src="%s" alt="%s" loading="lazy" style="width:100%%;height:220px;object-fit:cover;border-radius:12px">' % (_esc(u), lbl) for u in urls)
+    gal = ('<section style="max-width:1100px;margin:40px auto;padding:0 20px"><h2 style="text-align:center;margin-bottom:18px">%s</h2>'
+           '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">%s</div></section>' % (lbl, cells))
+    return out.replace("</body>", gal + "</body>", 1) if "</body>" in out else (out + gal)
+
+
 def _cta_box(proj) -> str:
     """กล่องดักลูกค้า (CTA) ท้ายบทความ — เนียนขายบริการ/พาไปเก็บลีด · ต่อโปรเจ็ค (ไม่โผล่บล็อกลูกค้าที่ไม่ได้เปิด)
     ปุ่มลิงก์ล้วน = ใช้ได้ทุกโดเมน ไม่ติด CORS"""

@@ -3503,14 +3503,21 @@ async def web_requests_list(user=Depends(get_current_user)):
     from app import usage
     if (await usage.user_plan(user["id"])) != "admin":
         raise HTTPException(403, "เฉพาะแอดมิน")
-    from app.db.models import WebRequest
+    from app.db.models import WebRequest, UploadedImage
     async with db.session() as s:
         rows = (await s.execute(select(WebRequest).order_by(WebRequest.status.asc(), WebRequest.created_at.desc())
                 .limit(300))).scalars().all()
-        items = [{"id": r.id, "business_name": r.business_name, "biz_type": r.biz_type, "contact": r.contact,
-                  "links": r.links, "detail": r.detail, "language": r.language, "status": r.status,
-                  "project_id": r.project_id, "preview_url": r.preview_url or "", "note": r.note or "",
-                  "created_at": r.created_at.isoformat() if r.created_at else ""} for r in rows]
+        rids = [r.id for r in rows]
+        imgs = (await s.execute(select(UploadedImage.id, UploadedImage.web_request_id)
+                .where(UploadedImage.web_request_id.in_(rids)))).all() if rids else []
+    photo_map = {}
+    for iid, wrid in imgs:
+        photo_map.setdefault(wrid, []).append("/api/media/" + str(iid))
+    items = [{"id": r.id, "business_name": r.business_name, "biz_type": r.biz_type, "contact": r.contact,
+              "links": r.links, "detail": r.detail, "language": r.language, "status": r.status,
+              "project_id": r.project_id, "preview_url": r.preview_url or "", "note": r.note or "",
+              "photos": photo_map.get(r.id, []),
+              "created_at": r.created_at.isoformat() if r.created_at else ""} for r in rows]
     return {"items": items, "count": len(items)}
 
 
@@ -3531,6 +3538,7 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
         if wr.status == "approved" and wr.project_id:
             raise HTTPException(409, "อนุมัติไปแล้ว")
         name, links, lang = wr.business_name, wr.links or "", (wr.language or "th")
+        biz_type, about, contact_raw = (wr.biz_type or ""), (wr.detail or ""), (wr.contact or "")
     first = ""
     for l in _re2.split(r"[\n,]", links):
         if l.strip():
@@ -3539,16 +3547,35 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
     res = await create_project(pc, user)          # สร้าง + analyze (ค้นเว็บถ้า FB) + ผลิตบทความแรก
     pid = res.get("id")
     preview = res.get("public_home") or ""
+    base = (settings.app_base_url or "").rstrip("/")
+    # ผูกรูปที่ลูกค้าแนบเข้าโปรเจกต์ + สร้าง 'หน้าเว็บจริง' จากบรีฟ + รูปจริง (เชื่อถือได้ ไม่พึ่ง IM WEB)
     async with db.session() as s:
+        from app.db.models import UploadedImage, Project
+        imgs = (await s.execute(select(UploadedImage).where(UploadedImage.web_request_id == req_id))).scalars().all()
+        photo_urls = []
+        for im in imgs:
+            im.project_id = pid
+            photo_urls.append(base + "/api/media/" + str(im.id))
+        p = await s.get(Project, pid)
+        rtoken = getattr(p, "report_token", "") if p else ""
+        home_base = _public.project_public_home(p) if p else preview
+        cr = (contact_raw or "").strip()
+        contact = {"email": cr if "@" in cr else "",
+                   "phone": cr if ("@" not in cr and any(c.isdigit() for c in cr)) else "",
+                   "line": cr if ("@" not in cr and not any(c.isdigit() for c in cr)) else ""}
+        home = _public.render_client_home(name, biz_type, about, contact, photo_urls, lang, rtoken)
+        home = _public.inject_aeo_geo(home, name=name, home=home_base, lang=("en" if str(lang).startswith("en") else "th"), brief={})
         wr = await s.get(WebRequest, req_id)
+        if p:
+            p.home_html = home
         if wr:
             wr.status = "approved"; wr.project_id = pid; wr.preview_url = preview
-            await s.commit()
+        await s.commit()
     try:
-        await notify.send_line("✅ อนุมัติ+สร้างโปรเจ็คแล้ว: %s\nดูแบบ: %s" % (name, preview or "-"))
+        await notify.send_line("✅ อนุมัติ+สร้างเว็บแล้ว: %s (%d รูป)\nดูแบบ: %s" % (name, len(photo_urls), preview or "-"))
     except Exception:  # noqa: BLE001
         pass
-    return {"ok": True, "project_id": pid, "preview_url": preview}
+    return {"ok": True, "project_id": pid, "preview_url": preview, "photos": len(photo_urls)}
 
 
 @app.post("/api/web-requests/{req_id}/reject")
