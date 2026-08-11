@@ -5,7 +5,7 @@
 """
 from datetime import datetime
 
-from sqlalchemy import String, Integer, Float, Boolean, DateTime, ForeignKey, Text, func
+from sqlalchemy import String, Integer, Float, Boolean, DateTime, ForeignKey, Text, LargeBinary, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -316,4 +316,16 @@ class WebRequest(Base):
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), nullable=True)  # โปรเจ็คที่สร้างหลังอนุมัติ
     preview_url: Mapped[str] = mapped_column(String(600), default="")       # ลิงก์ให้ลูกค้าดูแบบ
     note: Mapped[str] = mapped_column(Text, default="")                     # โน้ตแอดมิน
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class UploadedImage(Base):
+    """รูปที่ลูกค้าแนบมาตอนกรอกฟอร์มขอทำเว็บ — เก็บ bytes ใน DB (จำนวนน้อย/ต่อลูกค้า) → เสิร์ฟผ่าน /api/media/{id}
+    ตอนสร้างเว็บ ระบบดึงรูปพวกนี้ไปแทรกใน home_html (แกลเลอรี/hero) แทนรูป stock · ตารางสร้างเองตอน startup"""
+    __tablename__ = "uploaded_images"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    web_request_id: Mapped[int | None] = mapped_column(ForeignKey("web_requests.id"), nullable=True, index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    content_type: Mapped[str] = mapped_column(String(60), default="image/jpeg")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

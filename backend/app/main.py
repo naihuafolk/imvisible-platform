@@ -7,7 +7,7 @@ import secrets
 import time
 from collections import defaultdict, deque
 
-from fastapi import FastAPI, HTTPException, Depends, Request, Form
+from fastapi import FastAPI, HTTPException, Depends, Request, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -3409,7 +3409,7 @@ def _build_form_html() -> str:
             '<span class="k">🌐 ImVisible · ขอทำเว็บ</span>'
             '<h1>อยากได้เว็บที่ Google + AI แนะนำ?</h1>'
             '<div class="sub">กรอกสั้น ๆ แล้วส่งมา — ทีมเราสร้างแบบให้ดูฟรี ไม่มีข้อผูกมัด · มีแค่เพจ Facebook ก็ได้</div>'
-            '<form action="/api/public/web-request" method="post">'
+            '<form action="/api/public/web-request" method="post" enctype="multipart/form-data">'
             '<div style="margin-bottom:13px"><label>ชื่อธุรกิจ/ร้าน *</label>'
             '<input name="business_name" required placeholder="เช่น To The Moon Chumphon" style="' + inp + '"></div>'
             '<div style="margin-bottom:13px"><label>ประเภทธุรกิจ</label>'
@@ -3421,8 +3421,11 @@ def _build_form_html() -> str:
             '<div class="hint">มีแค่เพจ Facebook ก็พอ — ระบบไปหาข้อมูลให้เอง</div></div>'
             '<div style="margin-bottom:13px"><label>อยากได้เว็บแบบไหน / ข้อมูลเพิ่ม</label>'
             '<textarea name="detail" rows="3" placeholder="เช่น เน้นลูกค้าต่างชาติ, ขายกาแฟ+จองโต๊ะ, โทนอบอุ่น" style="' + inp + '"></textarea></div>'
-            '<div style="margin-bottom:4px"><label>ภาษาเว็บหลัก</label>'
+            '<div style="margin-bottom:13px"><label>ภาษาเว็บหลัก</label>'
             '<select name="language" style="' + inp + '"><option value="th">ไทย</option><option value="en">อังกฤษ (เน้นต่างชาติ)</option></select></div>'
+            '<div style="margin-bottom:4px"><label>📷 แนบรูป (อาหาร/ร้าน/ผลงาน — สูงสุด 6 รูป)</label>'
+            '<input type="file" name="photos" accept="image/*" multiple style="' + inp + '">'
+            '<div class="hint">รูปจริงของคุณจะถูกนำไปใส่ในเว็บที่ทีมสร้างให้</div></div>'
             '<button class="b" type="submit">ส่งคำขอ — ให้ทีมสร้างแบบให้</button>'
             '<div class="hint" style="text-align:center;margin-top:12px">ส่งแล้วทีมงานจะติดต่อกลับพร้อมแบบเว็บให้ดู</div>'
             '</form></div></div></body></html>')
@@ -3438,25 +3441,58 @@ async def build_form_page():
 @app.post("/api/public/web-request")
 async def submit_web_request(business_name: str = Form(""), biz_type: str = Form(""), contact: str = Form(""),
                              links: str = Form(""), detail: str = Form(""), language: str = Form("th"),
-                             _rl=Depends(rate_limit_auth)):
-    """ลูกค้ากรอกฟอร์มขอทำเว็บ (native submit) → เข้าคิว WebRequest + แจ้ง LINE แอดมิน → หน้าขอบคุณ"""
+                             photos: list[UploadFile] = File(default=[]), _rl=Depends(rate_limit_auth)):
+    """ลูกค้ากรอกฟอร์มขอทำเว็บ + แนบรูป (native submit) → เข้าคิว WebRequest + เก็บรูป + แจ้ง LINE → หน้าขอบคุณ"""
     from fastapi.responses import HTMLResponse
-    from app.db.models import WebRequest
+    from app.db.models import WebRequest, UploadedImage
     business_name = (business_name or "").strip()[:300]
     if not db.enabled() or not business_name or not (contact or "").strip():
         return HTMLResponse(_lead_thanks_html(ok=False), status_code=200)
+    n_photos = 0
     async with db.session() as s:
-        s.add(WebRequest(business_name=business_name, biz_type=(biz_type or "").strip()[:120],
-                         contact=(contact or "").strip()[:255], links=(links or "").strip()[:2000],
-                         detail=(detail or "").strip()[:3000],
-                         language=("en" if language == "en" else "th"), status="new"))
-        await s.commit()
+        wr = WebRequest(business_name=business_name, biz_type=(biz_type or "").strip()[:120],
+                        contact=(contact or "").strip()[:255], links=(links or "").strip()[:2000],
+                        detail=(detail or "").strip()[:3000],
+                        language=("en" if language == "en" else "th"), status="new")
+        s.add(wr); await s.commit(); await s.refresh(wr)
+        rid = wr.id
+        for f in (photos or []):                     # เก็บรูปที่แนบ (สูงสุด 6 · ≤4MB · เฉพาะ image/*)
+            if n_photos >= 6:
+                break
+            ct = (getattr(f, "content_type", "") or "").lower()
+            if not ct.startswith("image/"):
+                continue
+            try:
+                data = await f.read()
+            except Exception:  # noqa: BLE001
+                continue
+            if not data or len(data) > 4_000_000:
+                continue
+            s.add(UploadedImage(web_request_id=rid, data=data, content_type=ct[:60]))
+            n_photos += 1
+        if n_photos:
+            await s.commit()
     try:
-        await notify.send_line("🌐 คำขอทำเว็บใหม่!\nธุรกิจ: %s (%s)\nติดต่อ: %s\nลิงก์: %s"
-                               % (business_name, biz_type or "-", contact, (links or "-")[:200]))
+        await notify.send_line("🌐 คำขอทำเว็บใหม่!\nธุรกิจ: %s (%s)\nติดต่อ: %s\nลิงก์: %s\nแนบรูป: %d รูป"
+                               % (business_name, biz_type or "-", contact, (links or "-")[:200], n_photos))
     except Exception:  # noqa: BLE001
         pass
     return HTMLResponse(_lead_thanks_html(ok=True))
+
+
+@app.get("/api/media/{img_id}")
+async def serve_media(img_id: int):
+    """เสิร์ฟรูปที่ลูกค้าอัปโหลด (เก็บใน DB) — ใช้ในเว็บที่สร้าง + โชว์ในคิวแอดมิน"""
+    from fastapi.responses import Response
+    from app.db.models import UploadedImage
+    if not db.enabled():
+        raise HTTPException(404, "not found")
+    async with db.session() as s:
+        img = await s.get(UploadedImage, img_id)
+        if not img or not img.data:
+            raise HTTPException(404, "not found")
+        data, ct = img.data, (img.content_type or "image/jpeg")
+    return Response(content=data, media_type=ct, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/api/web-requests")
