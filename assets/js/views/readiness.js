@@ -63,12 +63,26 @@
         }).join('') + '</ol>'
       : '<div class="soft small">เว็บพื้นฐานแน่นแล้ว 🎉</div>';
 
+    // แถบเช็กลิสต์: นับปัจจัยที่ 'ผ่าน' vs ทั้งหมด (SEO + AEO/GEO) → เห็นชัดว่าขาดกี่ข้อ
+    var allF = (d.factors || []).concat(d.aeo_factors || []);
+    var passF = allF.filter(function (f) { return f.tone === 'ok'; }).length;
+    var lackF = allF.length - passF;
+    var checklistBar = allF.length
+      ? ui.card({ cls: 'mb', body:
+          '<div class="row between wrap" style="gap:8px"><div class="bb" style="font-size:16px">📋 เช็กลิสต์ความพร้อมเว็บ</div>' +
+          '<span class="badge ' + (lackF === 0 ? 'green' : 'amber') + '" style="font-size:14px">ผ่าน ' + passF + '/' + allF.length + ' ข้อ' +
+          (lackF ? ' · ต้องทำอีก ' + lackF + ' ข้อ' : ' · ครบแล้ว 🎉') + '</span></div>' +
+          '<div style="margin-top:8px">' + ui.bar(passF / allF.length * 100, lackF === 0 ? 'green' : '') + '</div>' +
+          '<div class="soft small" style="margin-top:6px">❌/🟡 ด้านล่างคือข้อที่ยัง "ขาด" — ทำครบเว็บพร้อมดันอันดับเต็มที่</div>' })
+      : '';
+
     out.innerHTML =
       '<div class="row wrap" style="gap:10px;margin-bottom:8px">' +
         scoreCard('🟦 SEO (ติดอันดับ Google)', d.score, d.grade) +
         scoreCard('🟪 AEO / GEO (AI แนะนำ)', d.aeo_score, d.aeo_grade) +
       '</div>' +
       '<div class="hint" style="margin-bottom:12px">' + esc(d.aeo_summary || d.summary || '') + '</div>' +
+      checklistBar +
 
       (((d.aeo_score == null || d.aeo_score < 70) || (d.score == null || d.score < 70)) ?
         '<div class="card card-pad" style="margin-bottom:12px;background:linear-gradient(135deg,#1a56ff,#5b4ff0);color:#fff">' +
