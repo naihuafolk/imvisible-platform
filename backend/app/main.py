@@ -2019,6 +2019,59 @@ async def set_credentials(project_id: int, req: CredentialUpdate, user=Depends(g
     return {"ok": True, "status": await creds.status(project_id)}
 
 
+@app.get("/api/projects/{project_id}/onboarding")
+async def project_onboarding(project_id: int, user=Depends(get_current_user)):
+    """เช็กลิสต์เซ็ตอัพ 'ต่อลูกค้า 1 ราย' (ประกอบการขาย/ส่งมอบ) — รับงานลูกค้าใหม่แล้วเห็นทันที
+    ว่าต้องเสียบอะไรให้ครบก่อนระบบดันอันดับอัตโนมัติ · ไม่คืนค่าลับ (เฉพาะ done/scope/why)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import creds
+    from app.connectors import indexing
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        name, domain = p.name, p.domain
+        pub = p.publish_mode or "managed"
+        has_ctx = bool((p.business_context or "").strip())
+        has_brand = bool((p.brand_terms or "").strip())
+        has_cta = bool((p.cta_json or "").strip())
+    st = await creds.status(project_id)
+    gsc_c = st.get("gsc", {})
+    serp_c = st.get("dataforseo", {})
+    wp_c = st.get("wordpress", {})
+    publish_done = (pub == "managed") or (pub == "wordpress" and bool(wp_c.get("connected")))
+    cite_ready = bool(settings.openai_api_key or settings.gemini_api_key
+                      or settings.perplexity_api_key or settings.anthropic_api_key)
+    items = [
+        {"key": "brief", "label": "ข้อมูลธุรกิจ (บริบท/บริการ)", "scope": "project", "required": True,
+         "why": "ป้อนเครื่องยนต์คอนเทนต์ให้เขียนตรงธุรกิจลูกค้า", "done": has_ctx, "action": "project_edit"},
+        {"key": "gsc", "label": "Google Search Console (อันดับจริง)", "scope": "project", "required": True,
+         "why": "ดึงคลิก/อันดับจริงจาก Google → ป้อน Striking-Distance Sniper",
+         "done": bool(gsc_c.get("connected")), "source": gsc_c.get("source", "none"), "action": "gsc_connect"},
+        {"key": "serp", "label": "SERP API (ตรวจอันดับรายวัน)", "scope": "project", "required": True,
+         "why": "ตรวจอันดับคีย์เวิร์ดรายวันของโดเมนลูกค้า",
+         "done": bool(serp_c.get("connected")), "source": serp_c.get("source", "none"), "action": "settings"},
+        {"key": "publish", "label": "ปลายทางเผยแพร่บทความ", "scope": "project", "required": True,
+         "why": "โพสต์บทความอัตโนมัติ (โฮสต์ให้ หรือส่งเข้า WordPress ลูกค้า)",
+         "done": bool(publish_done), "detail": pub, "action": "settings"},
+        {"key": "brand", "label": "คำแบรนด์ (วัด AI Citation)", "scope": "project", "required": True,
+         "why": "ใช้ตรวจว่า ChatGPT/Gemini เอ่ยถึงแบรนด์ลูกค้าไหม — จุดขาย AEO/GEO",
+         "done": has_brand, "action": "project_edit"},
+        {"key": "cta", "label": "กล่องดักลีดท้ายบทความ (CTA)", "scope": "project", "required": False,
+         "why": "เปลี่ยนคนอ่านเป็นลีด — เนียนขายบริการลูกค้า", "done": has_cta, "action": "project_edit"},
+        {"key": "indexing", "label": "Google Indexing API (ติด index เร็ว)", "scope": "platform", "required": False,
+         "why": "แจ้ง Google เก็บหน้าใหม่ใน 'ชั่วโมง' — ตั้งครั้งเดียว ใช้ได้ทุกลูกค้า",
+         "done": indexing.enabled(), "action": "settings"},
+        {"key": "citation", "label": "คีย์ AI (วัด AEO/GEO)", "scope": "platform", "required": False,
+         "why": "ยิงถาม ChatGPT/Gemini/Perplexity วัด Share of Voice — ตั้งครั้งเดียว",
+         "done": cite_ready, "action": "settings"},
+    ]
+    core = [i for i in items if i["scope"] == "project" and i["required"]]
+    done = sum(1 for i in core if i["done"])
+    pct = round(100 * done / len(core)) if core else 0
+    return {"project": {"id": project_id, "name": name, "domain": domain, "publish_mode": pub},
+            "ready_pct": pct, "done": done, "total": len(core), "items": items}
+
+
 @app.post("/api/projects/{project_id}/rank/check")
 async def project_rank_check(project_id: int, req: KeywordRequest, user=Depends(get_current_user)):
     """M5 · ตรวจอันดับสดด้วย 'โดเมนของโปรเจ็คเอง' + คีย์ DataForSEO ของลูกค้า แล้วบันทึกผล
