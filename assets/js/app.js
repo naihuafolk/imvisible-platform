@@ -42,6 +42,7 @@
     { section: 'ระบบ', items: [
       { id: 'projects', code: '', ico: '🗂️', lbl: 'จัดการโปรเจ็ค' },
       { id: 'setup', code: '', ico: '🚀', lbl: 'เช็กลิสต์ลูกค้า' },
+      { id: 'webreq', code: '', ico: '🌐', lbl: 'คำขอทำเว็บ' },
       { id: 'settings', code: '', ico: '⚙️', lbl: 'การตั้งค่า' }
     ]}
   ];
@@ -49,6 +50,7 @@
   var TITLES = {
     dashboard: 'แดชบอร์ดหลัก',
     setup: 'เช็กลิสต์เซ็ตอัพลูกค้า (Onboarding)',
+    webreq: 'คำขอทำเว็บจากลูกค้า (Web Requests)',
     prospect: 'รายงานคีย์เวิร์ด (ขายลูกค้า)',
     quote: 'ใบเสนอราคา (Quotation)',
     leads: 'ลีดของลูกค้า (Leads)',
@@ -97,7 +99,7 @@
       { section: 'ภาพรวม', items: [by.dashboard, by.report, by.activity] },
       { section: 'หาลูกค้า', items: [by.prospect, by.quote, by.leads, by.outreach, by.readiness, by.pantip, by.growth, by.reports, by.ads] },
       { section: 'คอนเทนต์', items: [by.blog, by.writeblog, by.leadmagnets] },
-      { section: 'สร้าง & โปรเจกต์', items: [by.setup, by.imweb, by.projects] },
+      { section: 'สร้าง & โปรเจกต์', items: [by.webreq, by.setup, by.imweb, by.projects] },
       { section: 'ระบบ', items: [by.settings] },
       { section: 'เครื่องมือ (ขั้นสูง)', collapsed: true, items: [by.m1, by.m2, by.m3, by.m4, by.m5, by.m6] }
     ];
