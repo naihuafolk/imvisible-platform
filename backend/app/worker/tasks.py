@@ -776,9 +776,10 @@ async def _approve_article(article_id: int) -> dict:
 
 
 @celery_app.task(name="app.worker.tasks.optimize_article")
-def optimize_article(article_id: int, min_score: int = 85) -> dict:
-    """🔧 ป้อนจุดอ่อนจาก AEO Score กลับให้เครื่องยนต์เขียนซ่อม → ดันคะแนน (บันทึกเฉพาะเมื่อดีขึ้น)"""
-    return _run(_optimize_article(article_id, min_score))
+def optimize_article(article_id: int, min_score: int = 85, deep: bool = False) -> dict:
+    """🔧 ป้อนจุดอ่อนจาก AEO Score กลับให้เครื่องยนต์เขียนซ่อม → ดันคะแนน (บันทึกเฉพาะเมื่อดีขึ้น)
+    deep=True (escalate เมื่ออันดับนิ่ง): เขียนมุมใหม่/เติมของสดแม้คะแนนสูงแล้ว + bump dateModified"""
+    return _run(_optimize_article(article_id, min_score, deep))
 
 
 def _score_art(art, proj) -> dict:
@@ -795,7 +796,7 @@ def _score_art(art, proj) -> dict:
                            freshness_days=getattr(proj, "freshness_days", 120) or 120)
 
 
-async def _optimize_article(article_id: int, min_score: int) -> dict:
+async def _optimize_article(article_id: int, min_score: int, deep: bool = False) -> dict:
     from app.db.models import Article, Project
     if not db.enabled():
         return {"error": "DB not configured"}
@@ -809,11 +810,16 @@ async def _optimize_article(article_id: int, min_score: int) -> dict:
         lang = "English" if str(getattr(proj, "language", "th")).lower().startswith("en") else "ภาษาไทย"
         before = _score_art(art, proj)
 
-    if before["score"] >= min_score or not before["top_fixes"]:
+    if not deep and (before["score"] >= min_score or not before["top_fixes"]):
         return {"article_id": article_id, "optimized": False, "score": before["score"],
                 "note": "คะแนนถึงเกณฑ์แล้ว/ไม่มีจุดต้องแก้"}
 
-    weaknesses = "\n".join("- %s — %s" % (f["label"], f.get("fix", "")) for f in before["top_fixes"])
+    if before["top_fixes"]:
+        weaknesses = "\n".join("- %s — %s" % (f["label"], f.get("fix", "")) for f in before["top_fixes"])
+    else:   # deep escalate + ไม่มีจุดอ่อนชัด → สั่งยกระดับมุมใหม่/ของสด (สำหรับหน้าที่อันดับนิ่ง)
+        weaknesses = ("ยกระดับให้เหนือคู่แข่ง: เพิ่มมุมมอง/ตัวอย่าง/ข้อมูลใหม่ที่ยังไม่มีในบทความ, "
+                      "เพิ่มหัวข้อย่อย + คำถาม FAQ ที่ผู้ค้นหาถามจริง, อัปเดตข้อมูลให้ทันสมัยปีปัจจุบัน, "
+                      "กระชับส่วนยืดเยื้อ และเสริมความน่าเชื่อ (ข้อมูล/แหล่งอ้างอิง)")
     try:
         imp = await content.improve(html, title, weaknesses, language=lang)
     except Exception as e:  # noqa: BLE001
@@ -828,7 +834,9 @@ async def _optimize_article(article_id: int, min_score: int) -> dict:
                             schema_json=new_schema, cover_url=getattr(art, "cover_url", "") or "",
                             keyword=title, target_words=1200)
 
-    if after["score"] <= before["score"]:                # ห้าม regress — เก็บของเดิมถ้าไม่ดีขึ้น
+    # ปกติ: ต้องดีขึ้นถึงเก็บ · deep(อันดับนิ่ง): เก็บได้ถ้าไม่แย่ลงเกิน 3 แต้ม (ยอมคะแนนคงที่เพื่อ 'มุมใหม่+สดใหม่')
+    min_keep = before["score"] - 3 if deep else before["score"]
+    if after["score"] <= min_keep:                       # ห้าม regress — เก็บของเดิมถ้าไม่ดีขึ้น/แย่ลง
         return {"article_id": article_id, "optimized": False,
                 "score_before": before["score"], "score_after": after["score"],
                 "note": "ผลใหม่ไม่ดีกว่าเดิม — คงบทความเดิมไว้"}
@@ -940,10 +948,12 @@ async def _boost_rankings(lo: int, hi: int, per_project: int) -> str:
                 select(RankSnapshot.keyword, RankSnapshot.rank, RankSnapshot.on_page1)
                 .where(RankSnapshot.project_id == pid)
                 .order_by(RankSnapshot.checked_at))).all()
-            latest, ever_p1 = {}, {}
+            latest, ever_p1, history = {}, {}, {}
             for kw, rank, op in snaps:                        # ไล่จากเก่า→ใหม่ → latest ได้ค่าล่าสุด
                 latest[kw] = (rank, bool(op))
                 ever_p1[kw] = ever_p1.get(kw, False) or bool(op)
+                if rank is not None:
+                    history.setdefault(kw, []).append(rank)
             # ⚡ #2 Striking-Distance Sniper: จัดคิวตัว 'จ่อหน้า 1 ที่สุด' ก่อน (#11-20 มาก่อน #21-40)
             #    ใช้แรง optimize ให้คุ้มสุด → ดันขึ้นหน้า 1 เร็ว (ROI สูงกว่าไล่สุ่ม)
             scored = []
@@ -959,7 +969,10 @@ async def _boost_rankings(lo: int, hi: int, per_project: int) -> str:
             for kw in targets[:per_project]:
                 aid = await _find_article_for_keyword(s, pid, kw)   # จับคู่ยืดหยุ่น (ไม่ใช่ชื่อตรงเป๊ะ)
                 if aid:
-                    optimize_article.delay(aid)
+                    h = history.get(kw, [])
+                    # อันดับนิ่ง = วัดแล้ว ≥4 รอบ แต่ 3 รอบล่าสุดไม่ขยับดีขึ้นเลย → escalate (deep rewrite มุมใหม่)
+                    stalled = len(h) >= 4 and min(h[-3:]) >= h[-4]
+                    optimize_article.delay(aid, 85, stalled)
                     n += 1
     return "queued rank-boost for %d pages (striking %d-%d / dropped off page1)" % (n, lo, hi)
 
