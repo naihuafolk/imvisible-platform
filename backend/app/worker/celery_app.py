@@ -103,6 +103,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.competitor_gap_scan",
         "schedule": crontab(hour=5, minute=0, day_of_week=5),
     },
+    "authority-sweep-weekly": {      # 🔗 คิว backlink/outreach (competitor gap → OutreachTask) ทุกศุกร์ 09:00
+        "task": "app.worker.tasks.authority_sweep",
+        "schedule": crontab(hour=9, minute=0, day_of_week=5),
+    },
     "learn-weekly": {                # M6 · สรุป+ปรับกลยุทธ์ ทุกวันอาทิตย์ 20:00
         "task": "app.worker.tasks.learning_loop",
         "schedule": crontab(hour=20, minute=0, day_of_week=0),

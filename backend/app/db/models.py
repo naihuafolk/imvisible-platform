@@ -282,3 +282,20 @@ class ReportLead(Base):
     contact: Mapped[str] = mapped_column(String(255), default="")            # LINE ID / อีเมล (ช่องทางเสริม)
     message: Mapped[str] = mapped_column(Text, default="")                   # ข้อความ/สิ่งที่อยากได้
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class OutreachTask(Base):
+    """คิว backlink/outreach ต่อโปรเจ็ค — ระบบเก็บ 'แหล่งที่ควรขอลิงก์' อัตโนมัติรายสัปดาห์
+    (จาก Competitor Backlink Gap จริง) แล้วคนตามสถานะ + กดส่งเอง · white-hat: ไม่ auto-โพสต์/ไม่ซื้อลิงก์
+    ตารางสร้างเองตอน startup (create_all)"""
+    __tablename__ = "outreach_tasks"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    source_domain: Mapped[str] = mapped_column(String(255), default="", index=True)   # เว็บเป้าที่จะไปขอลิงก์
+    kind: Mapped[str] = mapped_column(String(40), default="competitor-gap")            # competitor-gap | resource | mention
+    reason: Mapped[str] = mapped_column(String(400), default="")                       # เช่น "ลิงก์ให้คู่แข่ง 3 เจ้า: a, b, c"
+    authority: Mapped[int] = mapped_column(Integer, default=0)                         # backlinks/rank ของแหล่ง (ประกอบการตัดสินใจ)
+    status: Mapped[str] = mapped_column(String(20), default="todo", index=True)        # todo | contacted | won | skip
+    note: Mapped[str] = mapped_column(Text, default="")                                # โน้ตของทีม (ติดต่อใคร/ผลเป็นไง)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

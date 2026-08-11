@@ -1357,6 +1357,64 @@ async def _refresh_interlinks(per_project: int) -> str:
     return "refreshed internal links on %d articles" % n
 
 
+def _parse_competitors(raw) -> list:
+    raw = (raw or "").strip()
+    if not raw:
+        return []
+    try:
+        v = json.loads(raw)
+        if isinstance(v, list):
+            return [str(x).strip() for x in v if str(x).strip()][:8]
+    except Exception:  # noqa: BLE001
+        pass
+    return [x.strip() for x in raw.replace("\n", ",").split(",") if x.strip()][:8]
+
+
+@celery_app.task(name="app.worker.tasks.authority_sweep")
+def authority_sweep(per_project: int = 15) -> str:
+    """⚡ Authority queue (รายสัปดาห์): เก็บ 'แหล่งที่ควรไปขอลิงก์' จาก Competitor Backlink Gap จริง
+    → คิว OutreachTask ต่อโปรเจ็ค (คนรีวิว+ส่งเอง) · ต้องต่อ DataForSEO Backlinks · white-hat: ไม่ auto-โพสต์/ไม่ซื้อ"""
+    return _run(_authority_sweep(per_project))
+
+
+async def _authority_sweep(per_project: int) -> str:
+    from app.db.models import Project, OutreachTask
+    from app.connectors import growth
+    from app.config import settings as _s
+    if not db.enabled():
+        return "DB not configured"
+    if not (_s.dataforseo_login and _s.dataforseo_password):
+        return "skip: no DataForSEO creds (Backlinks API needed)"
+    async with db.session() as s:
+        projs = (await s.execute(select(Project.id, Project.domain, Project.ai_competitors)
+                                 .where(Project.active == True))).all()
+    added = 0
+    for pid, domain, comp_raw in projs:
+        comps = _parse_competitors(comp_raw)
+        if not comps:
+            continue
+        try:
+            opps = await growth.backlink_gaps(comps, our_domain=(domain or ""), limit=per_project * 2)
+        except Exception:  # noqa: BLE001
+            continue
+        if not opps:
+            continue
+        async with db.session() as s:
+            existing = set((await s.execute(select(OutreachTask.source_domain)
+                            .where(OutreachTask.project_id == pid))).scalars().all())
+            for o in opps[:per_project]:
+                dom = (o.get("domain") or "").strip().lower()
+                if not dom or dom in existing:
+                    continue
+                hit = ", ".join((o.get("competitors") or [])[:4])
+                s.add(OutreachTask(project_id=pid, source_domain=dom, kind="competitor-gap",
+                                   reason=("ลิงก์ให้คู่แข่ง %d เจ้า: %s" % (o.get("competitors_count") or 0, hit))[:400],
+                                   authority=int(o.get("backlinks") or 0), status="todo"))
+                existing.add(dom); added += 1
+            await s.commit()
+    return "authority_sweep: +%d outreach opportunities queued" % added
+
+
 @celery_app.task(name="app.worker.tasks.ensure_schema")
 def ensure_schema(per_project: int = 4) -> str:
     """⚡ #8 AEO Schema completeness: หาบทความที่ยังไม่มี schema (JSON-LD) → เข้าคิว optimize

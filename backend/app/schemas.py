@@ -177,6 +177,11 @@ class ProjectActiveUpdate(BaseModel):
     active: bool = True              # true = เปิดใช้ (ทำงานอัตโนมัติ) | false = พักไว้
 
 
+class OutreachUpdate(BaseModel):
+    status: str = ""                 # todo | contacted | won | skip
+    note: str | None = None
+
+
 class KeywordReportRequest(BaseModel):
     keyword: str = ""                # คีย์เวิร์ดหลัก/หัวข้อ (สำหรับรายงานขายลูกค้า)
     business: str = ""               # บริบทธุรกิจ (ช่วยให้คีย์ที่ดึงมาตรงขึ้น)

@@ -27,7 +27,7 @@ from app.schemas import (
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, KeywordReportRequest, ChannelUpdate, DraftRequest,
     BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, ImwebSaveRequest, ImwebPrefillRequest, PseoTopicsRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, SiteReportCreate, ReportLeadCreate, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
-    CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite, AdminCreateUser,
+    CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite, AdminCreateUser, OutreachUpdate,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social, billing, pagespeed
@@ -2991,6 +2991,81 @@ async def draft_reply_ep(project_id: int, req: DraftRequest, user=Depends(get_cu
         return await discovery.draft_reply(req.question, req.snippet, req.url, brand, lang)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, "ร่างคำตอบไม่ได้ (ตรวจคีย์ LLM): " + str(e)[:150])
+
+
+@app.get("/api/projects/{project_id}/outreach")
+async def outreach_list(project_id: int, user=Depends(get_current_user)):
+    """🔗 คิว backlink/outreach ของโปรเจ็ค (todo ก่อน, authority สูงก่อน) — auto เก็บรายสัปดาห์ + คนตามสถานะ"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import OutreachTask
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+        rows = (await s.execute(select(OutreachTask).where(OutreachTask.project_id == project_id)
+                .order_by(OutreachTask.status.asc(), OutreachTask.authority.desc()).limit(500))).scalars().all()
+        items = [{"id": r.id, "source_domain": r.source_domain, "kind": r.kind, "reason": r.reason,
+                  "authority": r.authority, "status": r.status, "note": r.note or ""} for r in rows]
+    counts = {}
+    for it in items:
+        counts[it["status"]] = counts.get(it["status"], 0) + 1
+    return {"items": items, "count": len(items), "counts": counts}
+
+
+@app.put("/api/outreach/{task_id}")
+async def outreach_update(task_id: int, req: OutreachUpdate, user=Depends(get_current_user)):
+    """อัปเดตสถานะ/โน้ต งาน outreach (todo/contacted/won/skip) — เจ้าของโปรเจ็คเท่านั้น"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import OutreachTask
+    async with db.session() as s:
+        t = await s.get(OutreachTask, task_id)
+        if not t:
+            raise HTTPException(404, "ไม่พบงาน")
+        await _own_project(s, t.project_id, user)
+        if req.status in ("todo", "contacted", "won", "skip"):
+            t.status = req.status
+        if req.note is not None:
+            t.note = (req.note or "")[:1000]
+        await s.commit()
+    return {"ok": True}
+
+
+@app.post("/api/projects/{project_id}/outreach/scan")
+async def outreach_scan(project_id: int, user=Depends(get_current_user)):
+    """สแกนหาโอกาส backlink เพิ่มทันที (Competitor Gap จริง) → เข้าคิว · คนไปติดต่อเอง (white-hat)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.config import settings as S
+    if not (S.dataforseo_login and S.dataforseo_password):
+        raise HTTPException(503, "ต้องตั้งคีย์ DataForSEO (Backlinks API) ก่อนถึงดึงข้อมูล backlink จริงได้")
+    from app.db.models import OutreachTask
+    from app.connectors import growth
+    from app.worker.tasks import _parse_competitors
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        domain, comp_raw = p.domain, getattr(p, "ai_competitors", "") or ""
+    comps = _parse_competitors(comp_raw)
+    if not comps:
+        raise HTTPException(422, "ยังไม่ได้ตั้งโดเมนคู่แข่งของโปรเจ็คนี้ก่อน")
+    try:
+        opps = await growth.backlink_gaps(comps, our_domain=domain or "", limit=30)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "ดึง backlink gap ไม่ได้ (เช็กเครดิต/สิทธิ์ Backlinks API): " + str(e)[:150])
+    added = 0
+    async with db.session() as s:
+        existing = set((await s.execute(select(OutreachTask.source_domain)
+                        .where(OutreachTask.project_id == project_id))).scalars().all())
+        for o in opps[:15]:
+            dom = (o.get("domain") or "").strip().lower()
+            if not dom or dom in existing:
+                continue
+            hit = ", ".join((o.get("competitors") or [])[:4])
+            s.add(OutreachTask(project_id=project_id, source_domain=dom, kind="competitor-gap",
+                               reason=("ลิงก์ให้คู่แข่ง %d เจ้า: %s" % (o.get("competitors_count") or 0, hit))[:400],
+                               authority=int(o.get("backlinks") or 0), status="todo"))
+            existing.add(dom); added += 1
+        await s.commit()
+    return {"ok": True, "added": added}
 
 
 @app.post("/api/projects/{project_id}/backlink-opportunities")
