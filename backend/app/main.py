@@ -3391,6 +3391,146 @@ async def public_article_lead(token: str = Form(""), name: str = Form(""), phone
     return HTMLResponse(_lead_thanks_html(ok=True))
 
 
+def _build_form_html() -> str:
+    """ฟอร์มสาธารณะ 'ขอทำเว็บ' — แอดมินส่งลิงก์ /build ให้ลูกค้ากรอก → submit เข้าคิวอนุมัติ"""
+    inp = ('font-family:inherit;width:100%;padding:11px 13px;border:1px solid #d7deea;border-radius:10px;'
+           'font-size:15px;box-sizing:border-box;margin-top:5px;background:#fff;color:#0f1b2d')
+    return ('<!doctype html><html lang="th"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1"><title>ขอทำเว็บกับ ImVisible</title>'
+            '<style>body{font-family:"Sarabun","Segoe UI",sans-serif;background:#f5f8fc;margin:0;color:#0f1b2d;line-height:1.6}'
+            '.wrap{max-width:560px;margin:0 auto;padding:28px 18px}.card{background:#fff;border:1px solid #e3e9f2;border-radius:18px;'
+            'padding:26px 24px;box-shadow:0 8px 30px rgba(16,28,48,.08)}h1{font-size:24px;margin:6px 0 2px;color:#0f1b2d}'
+            '.sub{color:#55647c;font-size:14px;margin-bottom:18px}label{font-weight:700;font-size:14px}'
+            '.hint{color:#8a97ab;font-size:12px}.b{background:#1657d6;color:#fff;border:0;border-radius:999px;padding:13px 30px;'
+            'font-size:16px;font-weight:800;cursor:pointer;width:100%;margin-top:18px;font-family:inherit}'
+            '.k{display:inline-flex;gap:8px;align-items:center;font-size:12px;font-weight:700;letter-spacing:.1em;color:#0e3fa0;'
+            'background:#eaf1ff;border:1px solid #e3e9f2;padding:5px 12px;border-radius:999px;text-transform:uppercase}</style></head>'
+            '<body><div class="wrap"><div class="card">'
+            '<span class="k">🌐 ImVisible · ขอทำเว็บ</span>'
+            '<h1>อยากได้เว็บที่ Google + AI แนะนำ?</h1>'
+            '<div class="sub">กรอกสั้น ๆ แล้วส่งมา — ทีมเราสร้างแบบให้ดูฟรี ไม่มีข้อผูกมัด · มีแค่เพจ Facebook ก็ได้</div>'
+            '<form action="/api/public/web-request" method="post">'
+            '<div style="margin-bottom:13px"><label>ชื่อธุรกิจ/ร้าน *</label>'
+            '<input name="business_name" required placeholder="เช่น To The Moon Chumphon" style="' + inp + '"></div>'
+            '<div style="margin-bottom:13px"><label>ประเภทธุรกิจ</label>'
+            '<input name="biz_type" placeholder="เช่น คาเฟ่ / ร้านอาหาร / คลินิก" style="' + inp + '"></div>'
+            '<div style="margin-bottom:13px"><label>เบอร์/LINE/อีเมล ติดต่อกลับ *</label>'
+            '<input name="contact" required placeholder="เช่น 08x-xxx-xxxx หรือ LINE ID" style="' + inp + '"></div>'
+            '<div style="margin-bottom:13px"><label>ลิงก์ที่มีอยู่</label>'
+            '<textarea name="links" rows="3" placeholder="วางลิงก์ Facebook / เว็บเดิม / IG (ระบบดึงข้อมูลให้เอง)" style="' + inp + '"></textarea>'
+            '<div class="hint">มีแค่เพจ Facebook ก็พอ — ระบบไปหาข้อมูลให้เอง</div></div>'
+            '<div style="margin-bottom:13px"><label>อยากได้เว็บแบบไหน / ข้อมูลเพิ่ม</label>'
+            '<textarea name="detail" rows="3" placeholder="เช่น เน้นลูกค้าต่างชาติ, ขายกาแฟ+จองโต๊ะ, โทนอบอุ่น" style="' + inp + '"></textarea></div>'
+            '<div style="margin-bottom:4px"><label>ภาษาเว็บหลัก</label>'
+            '<select name="language" style="' + inp + '"><option value="th">ไทย</option><option value="en">อังกฤษ (เน้นต่างชาติ)</option></select></div>'
+            '<button class="b" type="submit">ส่งคำขอ — ให้ทีมสร้างแบบให้</button>'
+            '<div class="hint" style="text-align:center;margin-top:12px">ส่งแล้วทีมงานจะติดต่อกลับพร้อมแบบเว็บให้ดู</div>'
+            '</form></div></div></body></html>')
+
+
+@app.get("/build")
+async def build_form_page():
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(_build_form_html(), headers={"Cache-Control": "public, max-age=300"})
+
+
+@app.post("/api/public/web-request")
+async def submit_web_request(business_name: str = Form(""), biz_type: str = Form(""), contact: str = Form(""),
+                             links: str = Form(""), detail: str = Form(""), language: str = Form("th"),
+                             _rl=Depends(rate_limit_auth)):
+    """ลูกค้ากรอกฟอร์มขอทำเว็บ (native submit) → เข้าคิว WebRequest + แจ้ง LINE แอดมิน → หน้าขอบคุณ"""
+    from fastapi.responses import HTMLResponse
+    from app.db.models import WebRequest
+    business_name = (business_name or "").strip()[:300]
+    if not db.enabled() or not business_name or not (contact or "").strip():
+        return HTMLResponse(_lead_thanks_html(ok=False), status_code=200)
+    async with db.session() as s:
+        s.add(WebRequest(business_name=business_name, biz_type=(biz_type or "").strip()[:120],
+                         contact=(contact or "").strip()[:255], links=(links or "").strip()[:2000],
+                         detail=(detail or "").strip()[:3000],
+                         language=("en" if language == "en" else "th"), status="new"))
+        await s.commit()
+    try:
+        await notify.send_line("🌐 คำขอทำเว็บใหม่!\nธุรกิจ: %s (%s)\nติดต่อ: %s\nลิงก์: %s"
+                               % (business_name, biz_type or "-", contact, (links or "-")[:200]))
+    except Exception:  # noqa: BLE001
+        pass
+    return HTMLResponse(_lead_thanks_html(ok=True))
+
+
+@app.get("/api/web-requests")
+async def web_requests_list(user=Depends(get_current_user)):
+    """คิวคำขอทำเว็บ (แอดมิน) — ใหม่ก่อน"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import usage
+    if (await usage.user_plan(user["id"])) != "admin":
+        raise HTTPException(403, "เฉพาะแอดมิน")
+    from app.db.models import WebRequest
+    async with db.session() as s:
+        rows = (await s.execute(select(WebRequest).order_by(WebRequest.status.asc(), WebRequest.created_at.desc())
+                .limit(300))).scalars().all()
+        items = [{"id": r.id, "business_name": r.business_name, "biz_type": r.biz_type, "contact": r.contact,
+                  "links": r.links, "detail": r.detail, "language": r.language, "status": r.status,
+                  "project_id": r.project_id, "preview_url": r.preview_url or "", "note": r.note or "",
+                  "created_at": r.created_at.isoformat() if r.created_at else ""} for r in rows]
+    return {"items": items, "count": len(items)}
+
+
+@app.post("/api/web-requests/{req_id}/approve")
+async def web_request_approve(req_id: int, user=Depends(get_current_user)):
+    """อนุมัติคำขอ → สร้างโปรเจ็ค (ระบบค้นเว็บจากลิงก์ให้เอง) + คืนลิงก์ให้ลูกค้าดูแบบ — แอดมิน"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import usage
+    if (await usage.user_plan(user["id"])) != "admin":
+        raise HTTPException(403, "เฉพาะแอดมิน")
+    from app.db.models import WebRequest
+    import re as _re2
+    async with db.session() as s:
+        wr = await s.get(WebRequest, req_id)
+        if not wr:
+            raise HTTPException(404, "ไม่พบคำขอ")
+        if wr.status == "approved" and wr.project_id:
+            raise HTTPException(409, "อนุมัติไปแล้ว")
+        name, links, lang = wr.business_name, wr.links or "", (wr.language or "th")
+    first = ""
+    for l in _re2.split(r"[\n,]", links):
+        if l.strip():
+            first = l.strip(); break
+    pc = ProjectCreate(name=name, url=first, language=lang, publish_mode="managed", mode="approve")
+    res = await create_project(pc, user)          # สร้าง + analyze (ค้นเว็บถ้า FB) + ผลิตบทความแรก
+    pid = res.get("id")
+    preview = res.get("public_home") or ""
+    async with db.session() as s:
+        wr = await s.get(WebRequest, req_id)
+        if wr:
+            wr.status = "approved"; wr.project_id = pid; wr.preview_url = preview
+            await s.commit()
+    try:
+        await notify.send_line("✅ อนุมัติ+สร้างโปรเจ็คแล้ว: %s\nดูแบบ: %s" % (name, preview or "-"))
+    except Exception:  # noqa: BLE001
+        pass
+    return {"ok": True, "project_id": pid, "preview_url": preview}
+
+
+@app.post("/api/web-requests/{req_id}/reject")
+async def web_request_reject(req_id: int, user=Depends(get_current_user)):
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import usage
+    if (await usage.user_plan(user["id"])) != "admin":
+        raise HTTPException(403, "เฉพาะแอดมิน")
+    from app.db.models import WebRequest
+    async with db.session() as s:
+        wr = await s.get(WebRequest, req_id)
+        if not wr:
+            raise HTTPException(404, "ไม่พบคำขอ")
+        wr.status = "rejected"
+        await s.commit()
+    return {"ok": True}
+
+
 @app.post("/api/contact")
 async def contact_form(req: ContactForm, _rl=Depends(rate_limit_auth)):
     """ฟอร์มติดต่อจากหน้าแรก (สาธารณะ) → เก็บลีด + แจ้งแอดมินทาง SMS และ/หรือ LINE ทันที · rate-limit กันสแปม"""

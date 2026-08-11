@@ -299,3 +299,21 @@ class OutreachTask(Base):
     note: Mapped[str] = mapped_column(Text, default="")                                # โน้ตของทีม (ติดต่อใคร/ผลเป็นไง)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class WebRequest(Base):
+    """คำขอสร้างเว็บจากลูกค้า — แอดมินส่ง 'ลิงก์ฟอร์ม' ให้ลูกค้ากรอก → submit → เข้าคิวอนุมัติ →
+    อนุมัติแล้วระบบสร้างโปรเจ็ค+เว็บให้ → ลูกค้ารอดูแบบ (preview) · ตารางสร้างเองตอน startup"""
+    __tablename__ = "web_requests"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_name: Mapped[str] = mapped_column(String(300), default="")
+    biz_type: Mapped[str] = mapped_column(String(120), default="")          # ประเภทธุรกิจ (คาเฟ่/คลินิก/ร้านค้า…)
+    contact: Mapped[str] = mapped_column(String(255), default="")           # เบอร์/LINE/อีเมล ติดต่อกลับ
+    links: Mapped[str] = mapped_column(Text, default="")                    # ลิงก์ที่มี (FB/เว็บเดิม/IG) — คั่นบรรทัด/comma
+    detail: Mapped[str] = mapped_column(Text, default="")                   # อยากได้เว็บแบบไหน/ข้อมูลเพิ่ม
+    language: Mapped[str] = mapped_column(String(10), default="th")         # th | en (เน้นลูกค้าต่างชาติ = en)
+    status: Mapped[str] = mapped_column(String(20), default="new", index=True)   # new | approved | rejected
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), nullable=True)  # โปรเจ็คที่สร้างหลังอนุมัติ
+    preview_url: Mapped[str] = mapped_column(String(600), default="")       # ลิงก์ให้ลูกค้าดูแบบ
+    note: Mapped[str] = mapped_column(Text, default="")                     # โน้ตแอดมิน
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
