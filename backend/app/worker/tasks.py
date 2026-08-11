@@ -1989,7 +1989,10 @@ async def _reprioritize_plan(project_id: int, clusters: list):
 async def _compose_report(user) -> str | None:
     """ประกอบรายงานรายสัปดาห์ 'จากผลจริง' ต่อผู้ใช้ (คะแนน AEO + อันดับ + ข้อค้นพบ)
     คืน None ถ้ายังไม่มีข้อมูลพอ (ไม่ส่งอีเมลว่างเปล่า)"""
-    from app.db.models import Project
+    from app.db.models import Project, Lead
+    from sqlalchemy import func as _func
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    week_ago = _dt.now(_tz.utc) - _td(days=7)
     async with db.session() as s:
         projs = (await s.execute(select(Project).where(Project.user_id == user.id))).scalars().all()
     if not projs:
@@ -1999,14 +2002,21 @@ async def _compose_report(user) -> str | None:
         ins = await _project_insights(p.id, p)
         if not ins.get("count"):
             continue
+        async with db.session() as s2:      # 🎯 ลีดที่เก็บได้ (พิสูจน์ ROI — ไม่ใช่แค่อันดับ)
+            leads_wk = int((await s2.execute(select(_func.count(Lead.id)).where(
+                Lead.project_id == p.id, Lead.created_at >= week_ago))).scalar() or 0)
+            leads_all = int((await s2.execute(select(_func.count(Lead.id)).where(
+                Lead.project_id == p.id))).scalar() or 0)
+        lead_line = ("<div style='color:#0f8a55;font-weight:700;font-size:14px;margin:2px 0 8px'>🎯 ลีดใหม่สัปดาห์นี้ %d คน (สะสม %d)</div>" % (leads_wk, leads_all)) if leads_all else ""
         items = "".join("<li>%s</li>" % _esc(i.get("text", "")) for i in ins.get("insights", [])[:4])
         blocks.append(
             "<div style='margin:0 0 22px;padding:16px;border:1px solid #e7ecf6;border-radius:12px'>"
             "<div style='font-weight:800;font-size:16px'>%s</div>"
             "<div style='color:#5a6a86;font-size:14px;margin:4px 0 8px'>บทความ %d · คะแนน AEO เฉลี่ย %s · ติดหน้า 1 %d คีย์เวิร์ด</div>"
+            "%s"
             "<ul style='margin:0;padding-left:18px;font-size:14px'>%s</ul></div>"
             % (_esc(p.name or p.domain), ins["count"],
-               ins.get("avg_score", "—"), ins.get("page1", 0), items or "<li>กำลังสะสมข้อมูลเพิ่ม</li>"))
+               ins.get("avg_score", "—"), ins.get("page1", 0), lead_line, items or "<li>กำลังสะสมข้อมูลเพิ่ม</li>"))
     if not blocks:
         return None
     return ("<div style='font-family:Sarabun,Segoe UI,sans-serif;max-width:640px;margin:auto'>"
