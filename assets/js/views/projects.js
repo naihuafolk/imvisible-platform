@@ -5,7 +5,8 @@
 (function (RP) {
   'use strict';
   var ui = RP.ui, esc = RP.esc, fmt = RP.fmt;
-  var PACKS = [10, 30, 50];   // แพ็กคีย์เวิร์ดต่อลูกค้า (ต้องตรงกับ plans.KEYWORD_PACKS ฝั่ง backend)
+  var PACKS = [10, 30, 50, 100, 200, 9999];   // แพ็กคีย์เวิร์ดต่อลูกค้า (ต้องตรงกับ plans.KEYWORD_PACKS ฝั่ง backend) · 9999 = ไม่จำกัด
+  function packLabel(pk) { return pk >= 9999 ? 'ไม่จำกัด (เว็บหลัก/ลูกค้าใหญ่)' : (pk + ' คีย์'); }
   var packMap = {};           // pid -> {pack, used} เติมจาก /api/projects/overview
   function normPack(n) { n = parseInt(n, 10) || 50; for (var i = 0; i < PACKS.length; i++) { if (n <= PACKS[i]) return PACKS[i]; } return PACKS[PACKS.length - 1]; }
 
@@ -150,7 +151,7 @@
       return '<label class="row gap-s" style="cursor:pointer;padding:10px 12px;border:1px solid ' + (on ? 'var(--brand-500,#6366f1)' : 'var(--border,#e5e7eb)') +
         ';border-radius:10px;margin-bottom:8px;background:' + (on ? 'var(--brand-50,#eef2ff)' : 'var(--card,#fff)') + '">' +
         '<input type="radio" name="pk_sel" value="' + pk + '"' + (on ? ' checked' : '') + '> ' +
-        '<span class="grow"><b>แพ็ก ' + pk + ' คีย์</b>' + (on ? ' <span class="soft small">(ปัจจุบัน)</span>' : '') + '</span>' +
+        '<span class="grow"><b>แพ็ก ' + packLabel(pk) + '</b>' + (on ? ' <span class="soft small">(ปัจจุบัน)</span>' : '') + '</span>' +
         (over ? '<span class="soft small" style="color:#c0392b">ใช้ไป ' + used + ' เกินแพ็กนี้</span>' : '') + '</label>';
     }).join('');
     ui.modal({ title: '🎟 เปลี่ยนแพ็กคีย์เวิร์ด', sub: esc(name) + ' · ใช้ไปแล้ว ' + used + ' คีย์', width: 460, body:
