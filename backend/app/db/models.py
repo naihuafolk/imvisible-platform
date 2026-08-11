@@ -63,6 +63,8 @@ class Project(Base):
     keyword_pack: Mapped[int] = mapped_column(Integer, default=50)      # โควตาคีย์เวิร์ดของลูกค้ารายนี้ (10/30/50) — แอดมินตั้ง
     sms_enabled: Mapped[bool] = mapped_column(Boolean, default=False)   # แจ้งเตือน SMS เมื่อคีย์ติด/ขยับขึ้น
     sms_to: Mapped[str] = mapped_column(String(40), default="")         # เบอร์ปลายทาง SMS (E.164 เช่น +66...)
+    lead_line_to: Mapped[str] = mapped_column(String(80), default="")    # LINE userId/groupId 'ของลูกค้าเจ้าของธุรกิจ' → ส่งลีดที่เก็บได้ให้เขาตรง (ไม่ใช่แค่แอดมินกลาง)
+    lead_email: Mapped[str] = mapped_column(String(255), default="")     # อีเมลลูกค้าสำหรับรับลีด/รายงาน (สำรอง)
     # --- ปลายทางเผยแพร่ (Phase 1: Managed Hosting) ---
     # ความ unique ของ slug + custom_domain บังคับด้วย unique index ใน migrate.py
     # (สร้างหลัง backfill — กัน hijack/ชน + กัน MultipleResultsFound)
@@ -217,7 +219,9 @@ class Lead(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     magnet_id: Mapped[int | None] = mapped_column(ForeignKey("lead_magnets.id"), nullable=True, index=True)
     email: Mapped[str] = mapped_column(String(255), default="", index=True)
+    phone: Mapped[str] = mapped_column(String(60), default="")           # ลีดจากฟอร์มบทความมักให้เบอร์ (ไทยนิยมโทร)
     name: Mapped[str] = mapped_column(String(200), default="")
+    message: Mapped[str] = mapped_column(Text, default="")               # ข้อความ/สิ่งที่ลูกค้าปลายทางอยากได้
     shared: Mapped[bool] = mapped_column(Boolean, default=False)
     source: Mapped[str] = mapped_column(String(160), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

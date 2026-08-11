@@ -3182,12 +3182,13 @@ async def public_lead_gate(token: str):
 @app.post("/api/lead/{token}/unlock")
 async def public_lead_unlock(token: str, req: LeadUnlock):
     """ปลดล็อกสื่อ: เก็บอีเมล (ลีด) → คืนเนื้อหาเต็ม · ไม่ต้องล็อกอิน · กันอีเมลซ้ำต่อสื่อ"""
-    from app.db.models import LeadMagnet, Lead
+    from app.db.models import LeadMagnet, Lead, Project
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     email = (req.email or "").strip().lower()
     if "@" not in email or len(email) < 5:
         raise HTTPException(422, "อีเมลไม่ถูกต้อง / invalid email")
+    alert = None
     async with db.session() as s:
         m = (await s.execute(select(LeadMagnet).where(
             LeadMagnet.token == (token or "").strip()).limit(1))).scalars().first()
@@ -3203,7 +3204,20 @@ async def public_lead_unlock(token: str, req: LeadUnlock):
                        source=("lead-magnet: " + (m.title or ""))[:160]))
             m.leads_count = (m.leads_count or 0) + 1
             await s.commit()
+            proj = await s.get(Project, m.project_id)
+            alert = {"title": m.title or "", "name": (req.name or "").strip(), "email": email,
+                     "pname": (proj.name if proj else "") or "",
+                     "lead_to": (getattr(proj, "lead_line_to", "") or "").strip() if proj else ""}
         content_html = m.content_html or ""
+    if alert:                                          # แจ้งลีดใหม่ → ลูกค้าเจ้าของธุรกิจ (ถ้าตั้ง LINE ไว้) + แอดมินกลาง
+        msg = ("🎯 ลีดใหม่จากสื่อแจกฟรี\nโปรเจ็ค: %s\nสื่อ: %s\nชื่อ: %s\nอีเมล: %s"
+               % (alert["pname"] or "-", alert["title"] or "-", alert["name"] or "-", alert["email"]))
+        try:
+            if alert["lead_to"]:
+                await notify.send_line(msg, to=alert["lead_to"])
+            await notify.send_line(msg)
+        except Exception:  # noqa: BLE001
+            pass
     return {"content_html": content_html}
 
 

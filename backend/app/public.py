@@ -1293,13 +1293,13 @@ def render_lead_magnet_gate(magnet, proj) -> str:
         '<input id="lm-email" type="email" required placeholder="%s" autocomplete="email">'
         '<button class="btn" id="lm-btn" type="submit">%s</button>'
         '<div style="opacity:.9;font-size:12px;margin-top:12px">%s</div></form></div>'
-        % (t("กรอกอีเมลเพื่อรับฟรีทันที", "Enter your email to get it free"),
-           t("ส่งให้ทางอีเมล + ปลดล็อกอ่านได้เลยด้านล่าง", "Delivered to your inbox + unlocked below instantly"),
+        % (t("กรอกอีเมลเพื่อปลดล็อกฟรีทันที", "Enter your email to unlock it free"),
+           t("ปลดล็อกอ่านได้ทันทีด้านล่าง", "Unlocked to read below instantly"),
            ('<button type="button" id="lm-share" class="share">%s</button><br>' % share_lbl),
            t("ชื่อ (ไม่บังคับ)", "Name (optional)"),
            t("อีเมลของคุณ", "Your email"),
            t("รับเลย — ปลดล็อกฟรี", "Get it — unlock free"),
-           t("ฟรี 100% · ส่งเข้าอีเมลทันที · ไม่สแปม", "100% free · instant to your inbox · no spam")))
+           t("ฟรี 100% · อ่านได้เลยด้านล่าง · ไม่สแปม", "100% free · read below now · no spam")))
     return (
         '<!doctype html><html lang="%s"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
