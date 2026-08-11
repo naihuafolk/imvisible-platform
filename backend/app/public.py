@@ -360,6 +360,10 @@ def _article_jsonld(proj, art, canonical, home, lang):
     if _sameas:
         _org_entity["sameAs"] = _sameas            # ลิงก์โซเชียลจริง (ถ้ามีใน brand_terms) → ยืนยันตัวตน
     out.append(json.dumps(_org_entity, ensure_ascii=False))
+    # Speakable — บอก AI/voice assistant ว่า 'ก้อนคำตอบสั้น (.tldr) + หัวเรื่อง' คือส่วนที่หยิบไปตอบได้ (ดัน AEO/GEO/voice)
+    out.append(json.dumps({"@context": "https://schema.org", "@type": "WebPage", "url": canonical,
+                           "speakable": {"@type": "SpeakableSpecification", "cssSelector": [".tldr", "h1"]}},
+                          ensure_ascii=False))
     return out
 
 
@@ -451,6 +455,12 @@ def render_article_page(proj, art, related=None) -> str:
         rel_html = '<section class="rel"><div class="lb">%s</div><div class="grid">%s</div></section>' % (t("อ่านต่อ", "Read more"), cards)
 
     header = "" if has_h1 else "<h1>%s</h1>" % _esc(art.title)
+    # 🎯 Answer Box (TL;DR) — ก้อนคำตอบสั้นบนสุด = ส่วนที่ AI/Google หยิบไปตอบเป๊ะ (คู่กับ Speakable schema)
+    _tldr = _desc(art)
+    tldr_html = ('<div class="tldr" style="background:#eef3ff;border-left:4px solid #1657d6;border-radius:0 12px 12px 0;'
+                 'padding:14px 18px;margin:2px 0 20px;font-size:1.02rem;line-height:1.65;color:#0f1b2d">'
+                 '<strong style="color:#0e3fa0">%s</strong> %s</div>'
+                 % (t("สรุปคำตอบ:", "In short:"), _esc(_tldr))) if _tldr else ""
     cover = getattr(art, "cover_url", "") or ""
     cover_html = ('<figure class="cover"><img src="%s" alt="%s" fetchpriority="high" decoding="async" width="1200" height="675"></figure>'
                   % (_esc(cover), _esc(art.title))) if cover else ""
