@@ -1851,6 +1851,24 @@ async def update_project(project_id: int, req: ProjectUpdate, user=Depends(get_c
         return {"ok": True, "id": p.id, "name": p.name, "domain": p.domain}
 
 
+@app.get("/api/projects/{project_id}/leads")
+async def project_leads(project_id: int, user=Depends(get_current_user)):
+    """📥 ลีดของแคมเปญ/โปรเจ็คนี้ (จากฟอร์มดักลูกค้าท้ายบทความ + สื่อแจกฟรี) — โผล่ในระบบ แยกตามลูกค้า
+    เอาไว้ให้เอเจนซี/ลูกค้าตามปิดการขาย (ตัวเลขจริงจากผู้กรอกเอง ไม่กุ)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.db.models import Lead
+    async with db.session() as s:
+        await _own_project(s, project_id, user)
+        rows = (await s.execute(select(Lead).where(Lead.project_id == project_id)
+                                .order_by(Lead.created_at.desc()).limit(500))).scalars().all()
+        leads = [{"id": r.id, "name": r.name or "", "phone": getattr(r, "phone", "") or "",
+                  "email": r.email or "", "message": getattr(r, "message", "") or "",
+                  "source": r.source or "",
+                  "created_at": r.created_at.isoformat() if r.created_at else ""} for r in rows]
+    return {"leads": leads, "count": len(leads)}
+
+
 @app.put("/api/projects/{project_id}/active")
 async def set_project_active(project_id: int, req: ProjectActiveUpdate, user=Depends(get_current_user)):
     """⏸/▶️ พัก/เปิดใช้โปรเจ็ค — พัก = หยุดผลิต/วัดอันดับ/citation อัตโนมัติ (ข้อมูลเดิมอยู่ครบ) · เจ้าของเท่านั้น"""

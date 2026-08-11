@@ -137,6 +137,7 @@
     projectGsc: function (pid, days) { return api._post('/api/projects/' + pid + '/gsc/summary', { days: days || 28 }); },
     gscConnect: function (pid) { return api._get('/api/projects/' + pid + '/gsc/connect'); },
     onboarding: function (pid) { return api._get('/api/projects/' + pid + '/onboarding'); },
+    projectLeads: function (pid) { return api._get('/api/projects/' + pid + '/leads'); },
     // ---- Distribution (ช่องทางกระจาย + Log โปร่งใส) ----
     getChannels: function (pid) { return api._get('/api/projects/' + pid + '/channels'); },
     setChannel: function (pid, o) { return api._put('/api/projects/' + pid + '/channels', o); },

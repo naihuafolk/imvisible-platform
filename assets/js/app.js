@@ -31,6 +31,7 @@
       { id: 'ads', code: '', ico: '📣', lbl: 'Google Ads' },
       { id: 'prospect', code: '', ico: '💼', lbl: 'รายงานคีย์เวิร์ด (ขาย)' },
       { id: 'quote', code: '', ico: '🧾', lbl: 'ใบเสนอราคา' },
+      { id: 'leads', code: '', ico: '📥', lbl: 'ลีดของลูกค้า' },
       { id: 'pantip', code: '', ico: '🎯', lbl: 'เรดาร์ Pantip' },
       { id: 'growth', code: '', ico: '🚀', lbl: 'เครื่องมือโต (Growth)' },
       { id: 'readiness', code: '', ico: '🩺', lbl: 'เช็กสุขภาพเว็บ (Readiness)' },
@@ -49,6 +50,7 @@
     setup: 'เช็กลิสต์เซ็ตอัพลูกค้า (Onboarding)',
     prospect: 'รายงานคีย์เวิร์ด (ขายลูกค้า)',
     quote: 'ใบเสนอราคา (Quotation)',
+    leads: 'ลีดของลูกค้า (Leads)',
     pantip: 'เรดาร์ Pantip (หากระทู้หน้า 1)',
     growth: 'เครื่องมือโต (Growth Tools)',
     readiness: 'เช็กสุขภาพเว็บ (Readiness)',
@@ -91,7 +93,7 @@
     };
     return [
       { section: 'ภาพรวม', items: [by.dashboard, by.report, by.activity] },
-      { section: 'หาลูกค้า', items: [by.prospect, by.quote, by.readiness, by.pantip, by.growth, by.reports, by.ads] },
+      { section: 'หาลูกค้า', items: [by.prospect, by.quote, by.leads, by.readiness, by.pantip, by.growth, by.reports, by.ads] },
       { section: 'คอนเทนต์', items: [by.blog, by.writeblog, by.leadmagnets] },
       { section: 'สร้าง & โปรเจกต์', items: [by.setup, by.imweb, by.projects] },
       { section: 'ระบบ', items: [by.settings] },
