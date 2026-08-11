@@ -162,6 +162,9 @@ async def check_url(url: str, keywords=None) -> dict:
     schema_ok, has_faq, stypes = _schema_types(html)
     imgs = _IMG.findall(html)
     imgs_alt = sum(1 for t in imgs if _HAS_ALT.search(t))
+    # 🕵️ ตรวจจับ JS app/SPA: เนื้อหา HTML ดิบบางมาก + สคริปต์เยอะ = เนื้อหาโหลดด้วย JS (อ่านไม่ครบ คะแนนต่ำกว่าจริง)
+    _scripts = len(re.findall(r"(?is)<script[\s>]", html))
+    js_app = (depth < depth_lo * 0.45) and (_scripts >= 3)
 
     factors = []
 
@@ -342,6 +345,7 @@ async def check_url(url: str, keywords=None) -> dict:
         # AEO Readiness (ชูเป็นพระเอก) — 'พร้อมถูก AI แนะนำแค่ไหน'
         "aeo_score": aeo_score, "aeo_grade": aeo_grade,
         "aeo_factors": aeo_f, "aeo_fixes": aeo_fixes[:6], "aeo_summary": aeo_summary,
+        "js_app": js_app,   # true = เว็บนี้เป็น JS app/SPA → อ่านเนื้อหาไม่ครบ คะแนนอาจต่ำกว่าจริง (เตือนผู้ใช้)
         "note": "คะแนนคำนวณจากปัจจัยที่วัดได้จริงจากหน้าแรกของเว็บคุณ (ไม่ใช่ค่าประเมินลอย ๆ) · "
                 "การครอบคลุมคีย์เวิร์ดเป็นการวัด 'บนหน้าเพจ' ไม่ใช่อันดับ Google จริง — "
                 "อันดับจริงเราวัดด้วยเครื่องมือระดับมืออาชีพให้ตอนเป็นลูกค้า",

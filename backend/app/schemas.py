@@ -230,6 +230,8 @@ class ContactForm(BaseModel):
 class SiteCheckRequest(BaseModel):
     url: str = ""                     # ลิงก์เว็บที่จะตรวจสุขภาพ (สาธารณะ — หน้าแรก)
     keywords: list[str] = []          # คีย์เวิร์ดที่อยากติด (สูงสุด 3) → ประเมินการครอบคลุมบนหน้าเพจ
+    business_name: str = ""           # ชื่อธุรกิจ (สำหรับเทส AI ว่าแนะนำแบรนด์นี้ไหม)
+    deep: bool = True                 # true = เพิ่มเทส AI สด + เช็ก Google index (จับต้องได้ · ช้ากว่า)
 
 
 class SiteReportCreate(BaseModel):

@@ -48,6 +48,43 @@
     return out;
   }
 
+  function jsWarn(d) {
+    if (!d.js_app) return '';
+    return '<div class="card card-pad mb" style="border:1px solid var(--amber-300,#fcd34d);background:var(--amber-50,#fffbeb)">' +
+      '<div class="bb" style="color:var(--amber-700,#b45309)">⚠️ เว็บนี้เป็น JavaScript app (SPA)</div>' +
+      '<div class="soft small" style="margin-top:4px">เนื้อหาโหลดด้วย JavaScript — ระบบอ่าน HTML ดิบไม่ครบ <b>คะแนนอาจต่ำกว่าจริง</b> · ควรตรวจ "หน้าเนื้อหาจริง" (บทความ/บริการ) ไม่ใช่หน้าแอป/ล็อกอิน</div></div>';
+  }
+  function googleSec(d) {
+    var g = d.google; if (!g) return '';
+    var idx = g.indexed_pages;
+    var idxLine = (idx == null) ? '<span class="soft">ตรวจไม่ได้ (ต้องต่อ SERP API)</span>'
+      : (idx > 0 ? '<b style="color:var(--green-600)">✅ Google เก็บหน้าเว็บคุณแล้ว (พบ ' + idx + ' หน้าในผลค้นหา)</b>'
+        : '<b style="color:var(--red-600,#dc2626)">❌ Google ยังไม่เก็บหน้าเว็บคุณเลย</b> = ยังไม่มีทางติดอันดับ → ต้องส่ง sitemap + ขอ index ก่อน');
+    var ranks = (g.ranks || []).map(function (r) {
+      var v = (r.rank == null) ? '<span style="color:var(--red-600,#dc2626)">ยังไม่ติด 100 อันดับแรก</span>'
+        : '<b style="color:' + (r.on_page1 ? 'var(--green-600)' : 'var(--amber-600)') + '">อันดับ ' + r.rank + (r.on_page1 ? ' · หน้า 1 🎉' : '') + '</b>';
+      return '<div class="list-row" style="padding:5px 0"><span class="grow">"' + esc(r.keyword) + '"</span>' + v + '</div>';
+    }).join('');
+    return ui.card({ cls: 'mb', body:
+      '<div class="bb" style="font-size:16px;margin-bottom:6px">🔎 ทำไมยังไม่ติด Google? (สถานะจริง)</div>' +
+      '<div style="margin-bottom:' + (ranks ? '10px' : '0') + '">' + idxLine + '</div>' +
+      (ranks ? ('<div class="soft small" style="margin-bottom:2px">อันดับคีย์เวิร์ดที่อยากติดตอนนี้:</div>' + ranks) : '') });
+  }
+  function aiSec(d) {
+    var a = d.ai_test; if (!a || !a.engines || !a.engines.length) return '';
+    var rows = a.engines.map(function (e) {
+      return '<div style="border-top:1px solid var(--border);padding:10px 0">' +
+        '<div class="row between"><b>' + esc(e.engine) + '</b>' +
+        (e.cited ? '<span class="badge green">✅ แนะนำคุณ</span>' : '<span class="badge amber">❌ ยังไม่แนะนำคุณ</span>') + '</div>' +
+        '<div class="soft small" style="margin-top:4px;font-style:italic">"' + esc((e.excerpt || '').slice(0, 280)) + '…"</div></div>';
+    }).join('');
+    var anyCited = a.engines.some(function (e) { return e.cited; });
+    return ui.card({ cls: 'mb', body:
+      '<div class="bb" style="font-size:16px">🤖 AI เริ่มแนะนำคุณยัง? (ถามจริง)</div>' +
+      '<div class="soft small" style="margin:2px 0 4px">ลองถาม AI ว่า: "<b>' + esc(a.question) + '</b>"</div>' + rows +
+      '<div class="hint" style="margin-top:8px">' + (anyCited ? 'AI เริ่มรู้จักคุณแล้ว 🎉 — ดันต่อให้เด่นขึ้น' : 'AI ยังไม่แนะนำคุณ = โอกาส blue-ocean · เราทำ AEO/GEO ให้ AI หยิบคุณไปตอบ') + '</div>' });
+  }
+
   function render(out, d, ctx) {
     if (!d || !d.ok) {
       out.innerHTML = ui.card({ body: RP.noData('อ่านเว็บไม่ได้', esc((d && d.note) || 'ใส่โดเมนเว็บสาธารณะที่รองรับ https')) });
@@ -82,6 +119,7 @@
         scoreCard('🟪 AEO / GEO (AI แนะนำ)', d.aeo_score, d.aeo_grade) +
       '</div>' +
       '<div class="hint" style="margin-bottom:12px">' + esc(d.aeo_summary || d.summary || '') + '</div>' +
+      jsWarn(d) + googleSec(d) + aiSec(d) +
       checklistBar +
 
       (((d.aeo_score == null || d.aeo_score < 70) || (d.score == null || d.score < 70)) ?
@@ -160,8 +198,8 @@
         if (!url) { ui.toast('ใส่ลิงก์เว็บก่อน'); return; }
         if (!(RP.api && RP.api.reachable())) { ui.toast('เชื่อมต่อ backend ไม่ได้ — เปิดโหมด Live ในหน้าตั้งค่า'); return; }
         go.disabled = true; go.textContent = 'กำลังตรวจ…';
-        out.innerHTML = '<div class="hint">⏳ กำลังอ่านหน้าเว็บจริง + ให้คะแนน SEO/AEO/GEO… (5–15 วิ)</div>';
-        RP.api.siteCheck(url, kw).then(function (d) {
+        out.innerHTML = '<div class="hint">⏳ กำลังอ่านเว็บ + เช็ก Google + ถาม AI จริงว่าแนะนำคุณไหม… (20–40 วิ)</div>';
+        RP.api.siteCheck(url, kw, biz).then(function (d) {
           render(out, d, { url: url, kw: kw, biz: biz });
         }).catch(function (e) {
           out.innerHTML = ui.card({ body: RP.noData('ตรวจไม่ได้', esc(e.message || String(e))) });

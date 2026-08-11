@@ -3581,7 +3581,56 @@ async def site_check(req: SiteCheckRequest, _rl=Depends(rate_limit_auth)):
     res = await sitecheck.check_url(url, req.keywords or [])
     if not res.get("ok"):
         raise HTTPException(422, res.get("note") or "เปิดเว็บไม่ได้ — ตรวจสอบลิงก์อีกครั้ง")
+    if req.deep:      # 🎯 สัญญาณจับต้องได้: Google เก็บ index กี่หน้า + คีย์เวิร์ดอันดับ + เทส AI สดว่าแนะนำไหม
+        try:
+            biz = (req.business_name or res.get("business") or "").strip()
+            res.update(await _report_extras(_domain_of(url), biz, req.keywords or []))
+        except Exception:  # noqa: BLE001
+            pass
     return res
+
+
+async def _report_extras(domain: str, biz: str, kws: list) -> dict:
+    """สัญญาณ 'จับต้องได้' สำหรับรายงานสุขภาพ (ตัวเลขจริง · best-effort ล้ม/ไม่มีคีย์ = ข้าม):
+    google = ติด index กี่หน้า + คีย์เวิร์ดอันดับเท่าไร · ai_test = ถาม ChatGPT/Gemini จริงว่าแนะนำแบรนด์นี้ไหม"""
+    import asyncio as _aio
+    from app.connectors import serp, citation
+    biz = (biz or (domain.split(".")[0] if domain else "")).strip()
+    kws = [str(k).strip() for k in (kws or []) if str(k).strip()][:3]
+
+    async def _google():
+        g = {"indexed_pages": None, "ranks": []}
+        try:
+            idx = await serp.search("site:" + domain, n=10)
+            g["indexed_pages"] = len(idx or [])
+        except Exception:  # noqa: BLE001
+            pass
+        for kw in kws:
+            try:
+                r = await serp.rank_check(kw, domain)
+                g["ranks"].append({"keyword": kw, "rank": r.get("our_rank"), "on_page1": bool(r.get("on_page1"))})
+            except Exception:  # noqa: BLE001
+                g["ranks"].append({"keyword": kw, "rank": None, "on_page1": False})
+        return g
+
+    async def _ai():
+        q = (kws[0] + " แนะนำที่ไหนดี") if kws else (biz + " ดีไหม แนะนำหน่อย")
+        brand_terms = [t for t in [biz, (domain.split(".")[0] if domain else "")] if t]
+        engines = []
+
+        async def one(name, fn):
+            try:
+                ans = await fn(q)
+                if ans:
+                    engines.append({"engine": name, "cited": bool(citation._is_cited(ans, brand_terms, domain)),
+                                    "excerpt": (ans or "").strip()[:420]})
+            except Exception:  # noqa: BLE001
+                pass
+        await _aio.gather(one("ChatGPT", citation._ask_openai), one("Gemini", citation._ask_gemini))
+        return {"question": q, "engines": engines}
+
+    g, a = await _aio.gather(_google(), _ai())
+    return {"google": g, "ai_test": a}
 
 
 def _domain_of(u: str) -> str:
