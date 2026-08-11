@@ -7,7 +7,7 @@ import secrets
 import time
 from collections import defaultdict, deque
 
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -697,12 +697,18 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user), def
             import json as _json
             p.topic_plan = _json.dumps([{"topic": k, "cluster": ""} for k in seeds], ensure_ascii=False)
             await s.commit()
-        if src == "facebook" and fb_url:             # 📘 กลไก FB: ตั้งกล่อง CTA ท้ายบทความ → ลิงก์ไปเพจ Facebook (คนอ่าน→ทักเพจ)
-            import json as _json
+        import json as _json
+        if src == "facebook" and fb_url:             # 📘 กลไก FB: CTA ท้ายบทความ → ลิงก์ไปเพจ Facebook (คนอ่าน→ทักเพจ)
             p.cta_json = _json.dumps({"enabled": True, "headline": "สนใจบริการ? ทักเราเลย",
                                       "text": "แชทกับเราทาง Facebook ได้ทันที", "button": "💬 ทักทาง Facebook",
                                       "url": fb_url}, ensure_ascii=False)
-            await s.commit()
+        elif not (p.cta_json or "").strip():         # 🎯 ทุกโปรเจ็ค: เปิดฟอร์มดักลีดท้ายบทความ default (เก็บชื่อ+เบอร์ → ส่งให้ลูกค้าเจ้าของธุรกิจ)
+            p.cta_json = _json.dumps({"enabled": True, "capture": True, "headline": "สนใจบริการของเรา?",
+                                      "text": "ทิ้งชื่อและเบอร์ไว้ เดี๋ยวทีมงานติดต่อกลับ", "button": "ให้เราติดต่อกลับ"},
+                                     ensure_ascii=False)
+        if not (getattr(p, "report_token", "") or "").strip():   # โทเคนสาธารณะ — ผูกลีดจากฟอร์มบทความ + ลิงก์รายงาน
+            p.report_token = secrets.token_urlsafe(16)
+        await s.commit()
         await s.refresh(p)
         result = _proj_dict(p)
         new_id = p.id
@@ -3219,6 +3225,51 @@ async def public_lead_unlock(token: str, req: LeadUnlock):
         except Exception:  # noqa: BLE001
             pass
     return {"content_html": content_html}
+
+
+def _lead_thanks_html(ok: bool = True) -> str:
+    msg = ("ได้รับข้อมูลแล้ว ✓<br>ทีมงานจะติดต่อกลับโดยเร็วที่สุด" if ok
+           else "ส่งข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")
+    return ('<!doctype html><html lang="th"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1"><title>ขอบคุณ</title>'
+            '<style>body{font-family:"Sarabun","Segoe UI",sans-serif;background:#f5f8fc;margin:0;'
+            'display:grid;place-items:center;min-height:100vh;color:#0f1b2d}'
+            '.c{background:#fff;border-radius:16px;padding:40px 44px;box-shadow:0 8px 30px rgba(0,0,0,.1);text-align:center;max-width:420px}'
+            '.i{font-size:52px;margin-bottom:8px}h1{font-size:22px;margin:6px 0}p{color:#55647c;line-height:1.7}'
+            'a{display:inline-block;margin-top:14px;color:#1657d6;text-decoration:none;font-weight:700}</style></head>'
+            '<body><div class="c"><div class="i">' + ('🎉' if ok else '⚠️') + '</div>'
+            '<h1>ขอบคุณครับ</h1><p>' + msg + '</p>'
+            '<a href="javascript:history.back()">← กลับไปอ่านต่อ</a></div></body></html>')
+
+
+@app.post("/api/public/lead")
+async def public_article_lead(token: str = Form(""), name: str = Form(""), phone: str = Form(""),
+                              message: str = Form(""), _rl=Depends(rate_limit_auth)):
+    """ลีดจากฟอร์มดักลูกค้าท้ายบทความ (native form submit — โพสต์ข้ามโดเมนได้ ไม่ติด CORS)
+    token = report_token ของโปรเจ็ค → เก็บ Lead + แจ้ง LINE 'ลูกค้าเจ้าของธุรกิจ' + แอดมิน → คืนหน้าขอบคุณ"""
+    from fastapi.responses import HTMLResponse
+    from app.db.models import Project, Lead
+    name = (name or "").strip()[:200]; phone = (phone or "").strip()[:60]; message = (message or "").strip()[:1000]
+    token = (token or "").strip()
+    if not db.enabled() or not token or not (name or phone):
+        return HTMLResponse(_lead_thanks_html(ok=False), status_code=200)
+    alert = None
+    async with db.session() as s:
+        p = (await s.execute(select(Project).where(Project.report_token == token).limit(1))).scalars().first()
+        if not p:
+            return HTMLResponse(_lead_thanks_html(ok=False), status_code=200)
+        s.add(Lead(project_id=p.id, name=name, phone=phone, message=message, source="article-cta"))
+        await s.commit()
+        alert = {"pname": p.name or "", "lead_to": (getattr(p, "lead_line_to", "") or "").strip()}
+    msg = ("🎯 ลีดใหม่จากบทความ\nโปรเจ็ค: %s\nชื่อ: %s\nเบอร์: %s%s"
+           % (alert["pname"] or "-", name or "-", phone or "-", ("\nข้อความ: " + message) if message else ""))
+    try:                                               # ส่งให้ลูกค้าเจ้าของธุรกิจ (ถ้าตั้ง LINE) + แอดมินกลาง
+        if alert["lead_to"]:
+            await notify.send_line(msg, to=alert["lead_to"])
+        await notify.send_line(msg)
+    except Exception:  # noqa: BLE001
+        pass
+    return HTMLResponse(_lead_thanks_html(ok=True))
 
 
 @app.post("/api/contact")

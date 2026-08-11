@@ -380,17 +380,34 @@ def _cta_box(proj) -> str:
     text = _esc((c.get("text") or "").strip())
     btn = _esc((c.get("button") or "ปรึกษาฟรี").strip())
     url = (c.get("url") or "").strip()
-    if not (headline or url):
-        return ""
+    capture = bool(c.get("capture"))
+    token = (getattr(proj, "report_token", "") or "").strip()
     box = ("background:linear-gradient(135deg,#3d6bff,#5b4ff0);color:#fff;border-radius:16px;"
            "padding:28px 26px;margin:34px 0;text-align:center")
-    btn_html = ('<a href="%s" target="_blank" rel="noopener" style="display:inline-block;margin-top:14px;'
-                'background:#fff;color:#3d6bff;font-weight:800;padding:12px 28px;border-radius:999px;'
-                'text-decoration:none">%s</a>' % (_esc(url), btn)) if url else ""
-    return ('<aside style="%s">' % box
-            + ('<div style="font-size:20px;font-weight:800;margin-bottom:6px">%s</div>' % headline if headline else "")
-            + ('<div style="opacity:.92;font-size:15px;line-height:1.6">%s</div>' % text if text else "")
-            + btn_html + "</aside>")
+    inner = ""
+    if headline:
+        inner += '<div style="font-size:20px;font-weight:800;margin-bottom:6px">%s</div>' % headline
+    if text:
+        inner += '<div style="opacity:.92;font-size:15px;line-height:1.6;margin-bottom:12px">%s</div>' % text
+    if capture and token:                              # ฟอร์มดักลีดจริง (native submit → เก็บ Lead + ส่งลูกค้า) — ข้ามโดเมนได้ ไม่ติด CORS
+        from app.config import settings as _s
+        action = (_s.app_base_url or "").rstrip("/") + "/api/public/lead"
+        istyle = ("width:100%;max-width:300px;margin:5px auto;display:block;padding:11px 14px;border:0;"
+                  "border-radius:10px;font-size:15px;box-sizing:border-box;color:#0f1b2d")
+        inner += ('<form action="%s" method="post" style="margin-top:2px">'
+                  '<input type="hidden" name="token" value="%s">'
+                  '<input name="name" placeholder="ชื่อของคุณ" style="%s">'
+                  '<input name="phone" required placeholder="เบอร์โทรติดต่อกลับ" style="%s">'
+                  '<button type="submit" style="margin-top:8px;background:#fff;color:#3d6bff;font-weight:800;'
+                  'padding:12px 30px;border:0;border-radius:999px;font-size:15px;cursor:pointer">%s</button>'
+                  '</form>' % (_esc(action), _esc(token), istyle, istyle, btn))
+    elif url:
+        inner += ('<a href="%s" target="_blank" rel="noopener" style="display:inline-block;margin-top:2px;'
+                  'background:#fff;color:#3d6bff;font-weight:800;padding:12px 28px;border-radius:999px;'
+                  'text-decoration:none">%s</a>' % (_esc(url), btn))
+    if not inner:
+        return ""
+    return '<aside style="%s">%s</aside>' % (box, inner)
 
 
 def render_article_page(proj, art, related=None) -> str:
