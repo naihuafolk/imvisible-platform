@@ -1326,14 +1326,21 @@ async def _refresh_interlinks(per_project: int) -> str:
     if not db.enabled():
         return "DB not configured"
     n = 0
+    from sqlalchemy import func as _func
     async with db.session() as s:
         pids = (await s.execute(select(Project.id).where(Project.active == True))).scalars().all()
+    day = datetime.now(timezone.utc).timetuple().tm_yday   # หมุนหน้าต่างทุกวัน → ครอบคลุม 'ทุกบทความ' ตามเวลา
     for pid in pids:
         async with db.session() as s:
+            total = int((await s.execute(select(_func.count(Article.id)).where(
+                Article.project_id == pid, Article.status == "published"))).scalar() or 0)
+            if not total:
+                continue
+            offset = (day * per_project) % total           # เดิมค้างที่ 10 บทความเก่าสุดตลอด (audit HIGH) → หมุนไปเรื่อย ๆ
             arts = (await s.execute(
                 select(Article.id, Article.title, Article.html)
                 .where(Article.project_id == pid, Article.status == "published")
-                .order_by(Article.id.asc()).limit(per_project))).all()
+                .order_by(Article.id.asc()).offset(offset).limit(per_project))).all()
         for aid, title, html in arts:
             try:
                 new_html = await _apply_internal_links(pid, title, html or "")
