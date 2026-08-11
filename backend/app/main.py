@@ -1351,11 +1351,27 @@ async def imweb_prefill(req: ImwebPrefillRequest, user=Depends(get_current_user)
     import re as _re, json as _json2
     from app.connectors import sitecheck, content
     base, html, err = await sitecheck._fetch_home(url)
-    if err or not html:
-        raise HTTPException(422, err or "อ่านเว็บ/เพจไม่ได้ — ใส่ลิงก์เว็บสาธารณะ (https) · เพจ Facebook บางทีอ่านไม่ได้เพราะบล็อกบอท")
-    text = _re.sub(r"(?is)<(script|style|noscript)[^>]*>.*?</\1>", " ", html)
-    text = _re.sub(r"(?s)<[^>]+>", " ", text)
-    text = _re.sub(r"\s+", " ", text).strip()[:5000]
+    text = ""
+    if html:
+        text = _re.sub(r"(?is)<(script|style|noscript)[^>]*>.*?</\1>", " ", html)
+        text = _re.sub(r"(?s)<[^>]+>", " ", text)
+        text = _re.sub(r"\s+", " ", text).strip()[:5000]
+    if len(text) < 400:      # อ่านไม่ได้/บางเกิน (Facebook/JS) → ให้บอทค้นเว็บสาธารณะเองจาก 'ชื่อธุรกิจ'
+        from app.connectors import site as _site
+        qn = ""
+        if html:             # เดาชื่อธุรกิจจาก og:title / <title> ที่เพจส่งมา (FB มักมี)
+            mt = _re.search(r'og:title["\']?\s*content=["\']([^"\']+)', html) or _re.search(r"(?is)<title[^>]*>(.*?)</title>", html)
+            if mt:
+                qn = _re.sub(r"\s+", " ", mt.group(1)).strip()[:80]
+        if not qn:           # ไม่มี → ใช้ slug จาก URL (เช่น .../tothemoonchumphon)
+            seg = url.rstrip("/").split("/")[-1].split("?")[0]
+            qn = _re.sub(r"[-_.]+", " ", seg).strip()
+        web = await _site._web_context(qn) if qn else {}
+        if (web or {}).get("text"):
+            text = web["text"][:5000]
+            base = base or url
+    if len(text) < 120:
+        raise HTTPException(422, "อ่านเว็บ/เพจไม่ได้ และค้นเว็บสาธารณะไม่พบข้อมูลพอ — ลองใส่ชื่อธุรกิจให้ชัดในลิงก์ หรือกรอกบรีฟสั้น ๆ เอง")
     sysmsg = ("คุณคือผู้ช่วยเก็บบรีฟทำเว็บ อ่านเนื้อหาหน้าเพจธุรกิจแล้วสกัด/เรียบเรียงเป็น 'บรีฟ' เป็น JSON เท่านั้น "
               "(ห้ามมีข้อความอื่นนอก JSON). คีย์: brand_name, biz_type, about, usp, audience, products, "
               'keywords (array ของ string), faqs (array ของ {"q":..,"a":..}), phone, line, email, facebook, instagram, address, hours. '
