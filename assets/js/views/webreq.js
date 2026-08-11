@@ -7,7 +7,7 @@
   'use strict';
   var ui = RP.ui, esc = RP.esc;
 
-  function formLink() { return (window.location.origin || '') + '/build'; }
+  function formLink() { return (window.location.origin || '') + '/api/build'; }
   function copyText(t) { try { navigator.clipboard.writeText(t); ui.toast('คัดลอกแล้ว ✓'); } catch (e) { var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); ui.toast('คัดลอกแล้ว ✓'); } catch (x) {} a.remove(); } }
   function fmtDate(iso) { if (!iso) return '—'; var d = new Date(iso); if (isNaN(d)) return esc(iso.slice(0, 10)); function p(n) { return n < 10 ? '0' + n : '' + n; } return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + (d.getFullYear() + 543); }
   function stBadge(s) { return s === 'approved' ? '<span class="badge green">อนุมัติแล้ว</span>' : s === 'rejected' ? '<span class="badge">ปฏิเสธ</span>' : '<span class="badge amber">ใหม่ · รออนุมัติ</span>'; }

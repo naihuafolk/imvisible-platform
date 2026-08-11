@@ -3428,8 +3428,9 @@ def _build_form_html() -> str:
             '</form></div></div></body></html>')
 
 
-@app.get("/build")
+@app.get("/api/build")
 async def build_form_page():
+    """ฟอร์มสาธารณะ 'ขอทำเว็บ' — อยู่ใต้ /api/ เพื่อให้ nginx proxy ถึง (เหมือน public page อื่น เช่น /api/report)"""
     from fastapi.responses import HTMLResponse
     return HTMLResponse(_build_form_html(), headers={"Cache-Control": "public, max-age=300"})
 
