@@ -143,6 +143,7 @@
     outreachScan: function (pid) { return api._post('/api/projects/' + pid + '/outreach/scan', {}); },
     backlinkPlan: function (pid) { return api._get('/api/projects/' + pid + '/backlink-plan'); },
     backlinkDirectory: function (pid, o) { return api._put('/api/projects/' + pid + '/backlink-directory', o); },
+    schemaPack: function (pid) { return api._get('/api/projects/' + pid + '/schema-pack'); },
     webRequests: function () { return api._get('/api/web-requests'); },
     webRequestApprove: function (id) { return api._post('/api/web-requests/' + id + '/approve', {}); },
     webRequestReject: function (id) { return api._post('/api/web-requests/' + id + '/reject', {}); },

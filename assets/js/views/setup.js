@@ -104,6 +104,45 @@
     });
   }
 
+  function copyText(t) { try { navigator.clipboard.writeText(t); ui.toast('คัดลอกโค้ดแล้ว ✓'); } catch (e) { var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); ui.toast('คัดลอกโค้ดแล้ว ✓'); } catch (x) {} a.remove(); } }
+
+  /* 🏷️ Schema Pack — โค้ด JSON-LD ให้เว็บลูกค้าแปะ (เว็บลูกค้าส่วนใหญ่ schema=0 = Google/AI อ่านไม่ออก) */
+  function renderPack(box, p) {
+    if (!box) return;
+    var types = (p.types || []).map(function (t) { return '<span class="chip">' + esc(t) + '</span>'; }).join(' ');
+    var faqline = p.faq_source === 'articles'
+      ? '<span class="badge green">รวม FAQPage จาก ' + (p.faq_count || 0) + ' คำถามจริงในบทความ</span>'
+      : (p.faq_questions_available && p.faq_questions_available.length
+        ? '<span class="badge amber">มีคำถามลูกค้า ' + p.faq_questions_available.length + ' ข้อ แต่ยังไม่มีคำตอบ → เติมคำตอบ (เขียนบทความ FAQ) เพื่อได้ FAQPage</span>'
+        : '<span class="badge">ยังไม่มี FAQ — เพิ่มส่วนคำถาม-คำตอบในบทความ เพื่อได้ FAQPage (AI หยิบ 2 เท่า)</span>');
+    var missing = (p.missing || []).length
+      ? '<div class="soft small" style="margin-top:8px">➕ เติมข้อมูลนี้ schema แข็งขึ้น: ' + p.missing.map(esc).join(' · ') + '</div>' : '';
+    box.innerHTML =
+      '<div class="row wrap" style="gap:6px;margin-bottom:8px">' + types + ' ' + faqline + '</div>' +
+      '<textarea class="input" id="sp_code" rows="12" readonly style="width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;line-height:1.45">' + esc(p.script || '') + '</textarea>' +
+      '<div class="row wrap" style="margin-top:8px;gap:8px;align-items:center"><button class="btn btn-primary btn-sm" id="sp_copy">📋 คัดลอกโค้ด</button>' +
+      '<span class="soft small">' + esc(p.note || 'แปะในส่วน <head> ของทุกหน้า') + '</span></div>' + missing;
+    var cp = box.querySelector('#sp_copy'); if (cp) cp.onclick = function () { copyText(p.script || ''); };
+  }
+
+  function schemaCard(root, pid) {
+    var slot = root.querySelector('#sp_slot'); if (!slot) return;
+    if (!pid) { slot.innerHTML = ''; return; }
+    slot.innerHTML = '<div class="card mb"><div class="card-pad">' +
+      '<div class="bb">🏷️ Schema Pack — โค้ดให้เว็บลูกค้าแปะ</div>' +
+      '<div class="soft small" style="margin:4px 0 10px">เว็บลูกค้าส่วนใหญ่ Google/AI “อ่านไม่ออก” เพราะไม่มี schema — สร้างโค้ด JSON-LD (ข้อมูลธุรกิจ + FAQ จริง) ให้ก็อปวางใน &lt;head&gt; → Google โชว์สวย + AI หยิบไปแนะนำ · ของฟรี ทำครั้งเดียว</div>' +
+      '<button class="btn btn-primary" id="sp_gen">🏷️ สร้าง Schema Pack</button>' +
+      '<div id="sp_out" style="margin-top:12px"></div></div></div>';
+    var gen = slot.querySelector('#sp_gen');
+    gen.onclick = function () {
+      if (!(RP.api && RP.api.reachable && RP.api.reachable())) { ui.toast('เปิดโหมด Live ก่อน'); return; }
+      gen.disabled = true; gen.textContent = 'กำลังสร้าง…';
+      RP.api.schemaPack(pid).then(function (p) { renderPack(slot.querySelector('#sp_out'), p); })
+        .catch(function (e) { ui.toast('สร้างไม่ได้: ' + esc((e && e.message) || '')); })
+        .then(function () { gen.disabled = false; gen.textContent = '🏷️ สร้างใหม่'; });
+    };
+  }
+
   RP.views.setup = function () {
     var projs = realProjects();
     if (!projs.length) {
@@ -129,16 +168,17 @@
       '<div class="bb" style="font-size:16px">🚀 เช็กลิสต์เซ็ตอัพลูกค้า</div>' +
       '<div class="soft small" style="margin-top:4px">รับลูกค้าใหม่ → เสียบให้ครบทีละขั้น → ระบบดันอันดับให้อัตโนมัติ · สถานะดึงจริงจาก backend (ไม่ติ๊กถูกมั่ว)</div>' +
       '</div></div>' + selector +
-      '<div id="ob_slot"></div>';
+      '<div id="ob_slot"></div><div id="sp_slot"></div>';
     return {
       html: html,
       mount: function (root) {
         var pick = sel;
         load(root, dbId(pick));
+        schemaCard(root, dbId(pick));
         var dd = root.querySelector('#ob_proj');
         if (dd) dd.onchange = function () {
           var p = projs.filter(function (x) { return x.id === dd.value; })[0];
-          if (p) load(root, dbId(p));
+          if (p) { load(root, dbId(p)); schemaCard(root, dbId(p)); }
         };
       }
     };

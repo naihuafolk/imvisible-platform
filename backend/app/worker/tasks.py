@@ -1441,18 +1441,42 @@ async def _ensure_schema(per_project: int) -> str:
     return "queued schema/optimize for %d articles missing schema" % n
 
 
+_FAQ_QWORDS = ("ไหม", "หรือไม่", "อย่างไร", "ยังไง", "อะไร", "ทำไม", "เท่าไร", "เท่าไหร่",
+               "กี่", "เมื่อไร", "เมื่อไหร่", "ที่ไหน", "ใคร", "ควร", "?", "how", "what",
+               "why", "when", "where", "which", "who", "can ", "does ", "is ", "are ", "do ")
+
+
+def _looks_like_question(t: str) -> bool:
+    tl = (t or "").strip().lower()
+    return bool(tl) and (tl.endswith("?") or any(w in tl for w in _FAQ_QWORDS))
+
+
 def _faq_from_html(html: str) -> list:
-    """ดึงคู่ Q/A จากส่วน 'คำถามที่พบบ่อย' ของบทความ → ทำ FAQPage schema (AEO: ชิง snippet + AI หยิบง่าย)"""
+    """ดึงคู่ Q/A จากบทความ → FAQPage schema (AEO: ชิง snippet + AI หยิบง่าย)
+    รองรับหลายรูปแบบ: h2/h3/h4 เป็นคำถาม + คำตอบเป็น p/ul/ol, และ <dl><dt>/<dd> — ทนแท็กคั่น
+    (เดิมจับแค่ h3+p แคบเกิน → บทความส่วนใหญ่เลยไม่ได้ FAQPage)"""
     import re as _re
-    m = _re.search(r"คำถามที่พบบ่อย|FAQ", html or "", _re.I)
-    seg = (html or "")[m.start():] if m else (html or "")
-    out = []
-    for mm in _re.finditer(r"<h3[^>]*>(.*?)</h3>\s*<p[^>]*>(.*?)</p>", seg, _re.S | _re.I):
-        q = _re.sub(r"<[^>]+>", "", mm.group(1)).strip()
-        a = _re.sub(r"<[^>]+>", "", mm.group(2)).strip()
-        if q and a:
+    src = html or ""
+
+    def _txt(s):
+        return _re.sub(r"\s+", " ", _re.sub(r"<[^>]+>", " ", s or "")).strip()
+
+    # โฟกัสส่วน FAQ ถ้าเจอหัวข้อ (ไม่เจอก็สแกนทั้งหน้า — คำถามชัดในตัวอยู่แล้ว)
+    m = _re.search(r"คำถามที่พบบ่อย|FAQ|Q\s*&\s*A|ถาม-ตอบ|คำถามยอดฮิต", src, _re.I)
+    seg = src[m.start():] if m else src
+    out, seen = [], set()
+    # หัวข้อ (h2/h3/h4/dt) → คำตอบ = บล็อกถัดไปจนถึงหัวข้อถัดไป (เอา p/li/dd มาต่อกัน)
+    for mm in _re.finditer(r"<(h[234]|dt)\b[^>]*>(.*?)</\1>(.*?)(?=<(?:h[1-6]|dt)\b|$)",
+                           seg, _re.S | _re.I):
+        q = _txt(mm.group(2))
+        rest = mm.group(3) or ""
+        parts = _re.findall(r"<(?:p|li|dd)\b[^>]*>(.*?)</(?:p|li|dd)>", rest, _re.S | _re.I)
+        a = _txt(" ".join(parts)) if parts else _txt(rest)
+        k = q.lower()
+        if q and a and _looks_like_question(q) and len(q) <= 200 and len(a) >= 10 and k not in seen:
+            seen.add(k)
             out.append((q[:200], a[:900]))
-        if len(out) >= 8:
+        if len(out) >= 10:
             break
     return out
 

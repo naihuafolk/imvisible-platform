@@ -3083,6 +3083,45 @@ async def backlink_directory(project_id: int, req: BacklinkDirUpdate, user=Depen
     return {"ok": True, "dir_id": dir_id, "done": bool(req.done)}
 
 
+@app.get("/api/projects/{project_id}/schema-pack")
+async def project_schema_pack(project_id: int, user=Depends(get_current_user)):
+    """🏷️ Schema Pack — สร้าง JSON-LD (structured data) 'พร้อมก็อปวาง' ให้เว็บลูกค้า
+    ประกอบจากข้อมูลจริง: ธุรกิจ (name/url/desc) + WebSite + FAQPage (จาก Q&A ในบทความจริง)
+    เว็บลูกค้าเกือบทุกเจ้า schema=0 → นี่คือของฟรีที่ยก AEO/GEO ทันที (FAQPage = AI หยิบ 2.1x)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.connectors import schema as _schema
+    from app.worker.tasks import _faq_from_html, _aeo_questions_of
+    from app.db.models import Article
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        name = (p.name or p.domain or "").strip()
+        domain = (p.domain or "").strip()
+        biz = getattr(p, "business_context", "") or ""
+        brand = getattr(p, "brand_terms", "") or ""
+        email = getattr(p, "lead_email", "") or ""
+        lang = "en" if str(p.language).lower().startswith("en") else "th"
+        htmls = (await s.execute(select(Article.html).where(
+            Article.project_id == project_id, Article.status == "published").limit(20))).scalars().all()
+        aeo_qs = _aeo_questions_of(p)
+    # FAQ 'จริง' จาก Q&A ที่มีอยู่แล้วในบทความ (ไม่กุคำตอบ)
+    faqs, seen = [], set()
+    for h in htmls:
+        for q, a in _faq_from_html(h or ""):
+            if q.lower() in seen:
+                continue
+            seen.add(q.lower()); faqs.append({"q": q, "a": a})
+        if len(faqs) >= 12:
+            break
+    home = domain if domain.startswith("http") else ("https://" + domain if domain else "")
+    pack = _schema.schema_pack(name=name, home=home, business_context=biz, brand_terms=brand,
+                               faqs=faqs, email=email, lang=lang)
+    pack["faq_source"] = "articles" if faqs else "none"
+    if not faqs and aeo_qs:                     # มีคำถามที่ลูกค้าตั้ง แต่ยังไม่มีคำตอบ → แนะให้เติม
+        pack["faq_questions_available"] = aeo_qs[:8]
+    return pack
+
+
 @app.put("/api/outreach/{task_id}")
 async def outreach_update(task_id: int, req: OutreachUpdate, user=Depends(get_current_user)):
     """อัปเดตสถานะ/โน้ต งาน outreach (todo/contacted/won/skip) — เจ้าของโปรเจ็คเท่านั้น"""
