@@ -1619,19 +1619,40 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
     contact = brief.get("contact") or {}
     # 1) Claude เขียนคอนเทนต์
     copy = await _client_site_copy(name, biz_type or about[:60], about, lang)
-    # 2) Imgentic เจนภาพ hero พรีเมียม (ถ้าพร้อม) — ไม่พร้อม/พลาด = ใช้รูปจริงลูกค้าเป็น hero
+    cd = copy if isinstance(copy, dict) else {}
+    # 2) Imgentic เจนภาพ hero + ภาพ 'ล้อไปกับเมนู/จุดเด่น' (ตามที่ Claude เขียน) หลายรูป → ขนานกัน
+    #    เติมให้แกลเลอรีเต็ม (รูปลูกค้ามักน้อย) · ไม่พร้อม/พลาด = ใช้รูปจริงลูกค้าแทน
     hero_img = ""
+    gen_gallery: list[str] = []
     if imgentic.image_ready():
+        hay = (biz_type + " " + about).lower()
+        is_food = any(k in hay for k in ("อาหาร", "cafe", "restaurant", "บาร์", "bar", "food", "คาเฟ่",
+                                         "bistro", "ซูชิ", "sushi", "ครัว", "กาแฟ", "เบเกอรี"))
+        style = ("appetizing food & cozy interior photography, natural light" if is_food
+                 else "clean premium editorial brand photography")
+        base_desc = ((cd.get("about_body") or "") or about or biz_type or name)[:160]
+        prompts = ["Premium website hero image for '%s' (%s). %s. %s, cinematic, magazine quality, no text, no logo, no watermark."
+                   % (name, biz_type or "business", base_desc, style)]
+        for f in (cd.get("features") or [])[:3]:               # 1 ภาพต่อ 1 จุดเด่น/เมนู ที่ Claude เขียน
+            ft = (f.get("title") or "").strip()
+            fd = (f.get("desc") or "").strip()
+            if ft:
+                prompts.append("%s for '%s': %s — %s. %s, high-end, appetizing, no text, no logo, no watermark."
+                               % ("Signature dish/menu photo" if is_food else "Feature/service image", name, ft, fd, style))
+        need = max(0, 5 - len(prompts))                       # เติมภาพบรรยากาศให้รวม ~5 ภาพเจน
+        for _ in range(need):
+            prompts.append("Ambiance/detail photo for '%s' (%s). %s, high-end, no text, no logo, no watermark."
+                           % (name, biz_type or "business", style))
         try:
-            desc = ((copy.get("about_body") if isinstance(copy, dict) else "") or about or biz_type or name)[:200]
-            hay = (biz_type + " " + about).lower()
-            style = ("appetizing warm food & interior photography" if any(k in hay for k in ("อาหาร", "cafe", "restaurant", "บาร์", "bar", "food", "คาเฟ่", "bistro"))
-                     else "clean premium editorial brand photography")
-            prompt = ("Premium website hero image for '%s' (%s). %s. %s, cinematic lighting, high-end, magazine quality, no text, no logo, no watermark."
-                      % (name, biz_type or "business", desc, style))
-            hero_img = (await imgentic.generate_image(prompt)) or ""
+            import asyncio as _aio
+            results = await _aio.gather(*[imgentic.generate_image(p) for p in prompts[:5]], return_exceptions=True)
+            urls = [r for r in results if isinstance(r, str) and r.startswith("http")]
+            if urls:
+                hero_img = urls[0]
+                gen_gallery = urls[1:]                         # ที่เหลือ = ภาพเมนู/จุดเด่น → ลงแกลเลอรี
         except Exception:  # noqa: BLE001
-            hero_img = ""
+            pass
+    photo_urls = (photo_urls or []) + gen_gallery              # รูปจริงลูกค้าก่อน + ภาพที่เจนล้อกับเมนู
     # 3) เก็บ 'บรีฟเว็บ' (copy+hero+รูป) → ใช้ re-render ได้ทั้ง 3 variants ในหน้าเลือกแบบ
     import json as _json2
     brief_store = {"copy": copy if isinstance(copy, dict) else {}, "hero_img": hero_img,

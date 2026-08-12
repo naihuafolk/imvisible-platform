@@ -3512,6 +3512,11 @@ def _build_form_html() -> str:
             '<input name="biz_type" placeholder="เช่น คาเฟ่ / ร้านอาหาร / คลินิก" style="' + inp + '"></div>'
             '<div style="margin-bottom:13px"><label>เบอร์/LINE/อีเมล ติดต่อกลับ *</label>'
             '<input name="contact" required placeholder="เช่น 08x-xxx-xxxx หรือ LINE ID" style="' + inp + '"></div>'
+            '<div style="margin-bottom:13px"><label>ที่อยู่ร้าน (ทำแผนที่)</label>'
+            '<input name="address" placeholder="เช่น 123 หาดทรายรี อ.เมือง ชุมพร" style="' + inp + '"></div>'
+            '<div style="margin-bottom:13px"><label>ลิงก์ Google Maps (ถ้ามี)</label>'
+            '<input name="map_url" placeholder="วางลิงก์จาก Google Maps (ปักหมุดร้าน)" style="' + inp + '">'
+            '<div class="hint">มีที่อยู่/ลิงก์แมพ = เว็บมีแผนที่ + ติด Google Maps ง่ายขึ้น</div></div>'
             '<div style="margin-bottom:13px"><label>ลิงก์ที่มีอยู่</label>'
             '<textarea name="links" rows="3" placeholder="วางลิงก์ Facebook / เว็บเดิม / IG (ระบบดึงข้อมูลให้เอง)" style="' + inp + '"></textarea>'
             '<div class="hint">มีแค่เพจ Facebook ก็พอ — ระบบไปหาข้อมูลให้เอง</div></div>'
@@ -3536,6 +3541,7 @@ async def build_form_page():
 
 @app.post("/api/public/web-request")
 async def submit_web_request(business_name: str = Form(""), biz_type: str = Form(""), contact: str = Form(""),
+                             address: str = Form(""), map_url: str = Form(""),
                              links: str = Form(""), detail: str = Form(""), language: str = Form("th"),
                              photos: list[UploadFile] = File(default=[]), _rl=Depends(rate_limit_auth)):
     """ลูกค้ากรอกฟอร์มขอทำเว็บ + แนบรูป (native submit) → เข้าคิว WebRequest + เก็บรูป + แจ้ง LINE → หน้าขอบคุณ"""
@@ -3547,7 +3553,8 @@ async def submit_web_request(business_name: str = Form(""), biz_type: str = Form
     n_photos = 0
     async with db.session() as s:
         wr = WebRequest(business_name=business_name, biz_type=(biz_type or "").strip()[:120],
-                        contact=(contact or "").strip()[:255], links=(links or "").strip()[:2000],
+                        contact=(contact or "").strip()[:255], address=(address or "").strip()[:400],
+                        map_url=(map_url or "").strip()[:600], links=(links or "").strip()[:2000],
                         detail=(detail or "").strip()[:3000],
                         language=("en" if language == "en" else "th"), status="new")
         s.add(wr); await s.commit(); await s.refresh(wr)
@@ -3636,6 +3643,7 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
             raise HTTPException(409, "อนุมัติไปแล้ว")
         name, links, lang = wr.business_name, wr.links or "", (wr.language or "th")
         biz_type, about, contact_raw = (wr.biz_type or ""), (wr.detail or ""), (wr.contact or "")
+        addr_v, map_v = (getattr(wr, "address", "") or ""), (getattr(wr, "map_url", "") or "")
     first = ""
     for l in _re2.split(r"[\n,]", links):
         if l.strip():
@@ -3660,7 +3668,8 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
         cr = (contact_raw or "").strip()
         contact = {"email": cr if "@" in cr else "",
                    "phone": cr if ("@" not in cr and any(c.isdigit() for c in cr)) else "",
-                   "line": cr if ("@" not in cr and not any(c.isdigit() for c in cr)) else ""}
+                   "line": cr if ("@" not in cr and not any(c.isdigit() for c in cr)) else "",
+                   "address": addr_v, "map": map_v}
         home = _public.render_client_home(name, biz_type, about, contact, photo_urls, lang, rtoken, variant=1)
         home = _public.inject_aeo_geo(home, name=name, home=home_base, lang=("en" if str(lang).startswith("en") else "th"), brief={})
         wr = await s.get(WebRequest, req_id)

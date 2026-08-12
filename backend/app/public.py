@@ -463,6 +463,22 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
                 '<button type="submit">%s</button></form>'
                 % (_esc(action), _esc(report_token), t("ชื่อของคุณ", "Your name"),
                    t("เบอร์ติดต่อกลับ", "Your phone"), t("ให้เราติดต่อกลับ", "Contact me")))
+    # แผนที่ร้าน (Google Maps embed) — จาก map link ที่ลูกค้าให้ หรือจาก 'ที่อยู่' (ไม่ต้องใช้ API key)
+    import urllib.parse as _up
+    addr = (contact.get("address") or "").strip() if contact else ""
+    mp = (contact.get("map") or "").strip() if contact else ""
+    map_url = ""
+    if mp and ("output=embed" in mp or "/maps/embed" in mp):
+        map_url = mp
+    elif addr:
+        map_url = "https://www.google.com/maps?q=%s&output=embed" % _up.quote(addr)
+    map_sec = ""
+    if map_url:
+        map_sec = ('<section class="cs-sec" id="location"><div class="cs-wrap"><span class="cs-eyebrow cs-c">%s</span>'
+                   '<h2 class="cs-c">%s</h2>'
+                   '<div class="cs-map"><iframe src="%s" loading="lazy" referrerpolicy="no-referrer-when-downgrade" '
+                   'style="width:100%%;height:400px;border:0;border-radius:18px;box-shadow:0 14px 40px #0000001f"></iframe></div></div></section>'
+                   % (t("ที่ตั้ง", "Find Us"), t("แผนที่ร้าน", "Our Location"), _esc(map_url)))
     contact_sec = ('<section class="cs-sec cs-contact" id="contact"><div class="cs-wrap cs-contact-box">'
                    '<span class="cs-eyebrow cs-c">%s</span><h2 class="cs-c">%s</h2>'
                    '<div class="cs-ci-row">%s</div>%s</div></section>'
@@ -557,7 +573,7 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
                 '<a class="cs-btn" href="#contact">%s</a></div></header>'
                 % (bgcss, eyebrow, headline, subhead, cta))
     foot = '<footer class="cs-foot">%s · %s</footer>' % (nm, t("สร้างเว็บโดย ImVisible", "Built with ImVisible"))
-    return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + gallery + why + contact_sec + foot + '</main>'
+    return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + gallery + why + map_sec + contact_sec + foot + '</main>'
 
 
 _CS_VARIANTS = [("1", "✨ Luxe", ("หรู มินิมอล · hero เต็มจอ", "Luxe · full-screen hero")),

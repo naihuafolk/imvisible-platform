@@ -313,6 +313,8 @@ class WebRequest(Base):
     business_name: Mapped[str] = mapped_column(String(300), default="")
     biz_type: Mapped[str] = mapped_column(String(120), default="")          # ประเภทธุรกิจ (คาเฟ่/คลินิก/ร้านค้า…)
     contact: Mapped[str] = mapped_column(String(255), default="")           # เบอร์/LINE/อีเมล ติดต่อกลับ
+    address: Mapped[str] = mapped_column(String(400), default="")           # ที่อยู่ร้าน → ทำแผนที่ + LocalBusiness schema
+    map_url: Mapped[str] = mapped_column(String(600), default="")           # ลิงก์ Google Maps (ถ้ามี) → ฝังแผนที่ตรง
     links: Mapped[str] = mapped_column(Text, default="")                    # ลิงก์ที่มี (FB/เว็บเดิม/IG) — คั่นบรรทัด/comma
     detail: Mapped[str] = mapped_column(Text, default="")                   # อยากได้เว็บแบบไหน/ข้อมูลเพิ่ม
     language: Mapped[str] = mapped_column(String(10), default="th")         # th | en (เน้นลูกค้าต่างชาติ = en)
