@@ -3683,7 +3683,7 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
     try:
         from app.worker.tasks import build_client_site
         build_client_site.delay(pid, {"name": name, "biz_type": biz_type, "about": about,
-                                      "contact": contact, "lang": lang})
+                                      "contact": contact, "lang": lang, "links": links})
     except Exception:  # noqa: BLE001
         pass
     choose_url = (base + "/api/site/" + stoken) if base else ("/api/site/" + stoken)
@@ -3724,7 +3724,8 @@ def _render_variant_from_brief(_public, p, variant: int) -> str:
         br.get("name") or p.name, br.get("biz_type") or "", br.get("about") or "",
         br.get("contact") or {}, br.get("photo_urls") or [], br.get("lang") or "th",
         br.get("report_token") or "", copy=br.get("copy") or {},
-        hero_img=br.get("hero_img") or "", variant=variant)
+        hero_img=br.get("hero_img") or "", variant=variant,
+        blog=br.get("blog") or [], social=br.get("social") or [])
     try:
         home = _public.inject_aeo_geo(home, name=br.get("name") or p.name, home=br.get("home_url") or "",
                                       lang=("en" if str(br.get("lang") or "th").startswith("en") else "th"), brief={})

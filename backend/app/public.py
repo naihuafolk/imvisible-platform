@@ -395,7 +395,7 @@ def _cs_palette(biz_type: str, about: str) -> tuple:
 
 def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="th",
                        report_token="", copy: dict | None = None, hero_img: str = "",
-                       variant: int = 1) -> str:
+                       variant: int = 1, blog: list | None = None, social: list | None = None) -> str:
     """สร้าง 'หน้าเว็บพรีเมียม' ให้ลูกค้า — template สวยขายได้ (ไม่พึ่ง IM WEB)
     ถ้ามี copy (Claude เขียน) + hero_img (Imgentic) จะสวยเต็มรูป · ไม่มีก็ fallback บรีฟดิบได้
     variant 1=Luxe (hero เต็มจอ) · 2=Modern (hero แบ่งซ้าย-ขวา) · 3=Warm (hero การ์ดซ้อน)
@@ -454,10 +454,22 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
                % (t("ทำไมเลือกเรา", "Why Us"), t("ทำไมต้องเลือกเรา", "Why choose us"), items))
 
     ci = []
-    for k, ic in (("phone", "📞"), ("line", "💬"), ("email", "✉️"), ("address", "📍"), ("hours", "🕒")):
+    for k, ic in (("phone", "📞"), ("line", "💬 LINE"), ("email", "✉️"), ("address", "📍"), ("hours", "🕒")):
         v = _esc((contact.get(k) or "").strip()) if contact else ""
         if v:
             ci.append('<div class="cs-ci">%s <span>%s</span></div>' % (ic, v))
+
+    def _sname(u):                                     # ป้ายชื่อโซเชียลจาก URL
+        ul = u.lower()
+        if "facebook" in ul or "fb.com" in ul: return "📘 Facebook"
+        if "instagram" in ul: return "📷 Instagram"
+        if "line.me" in ul or "lin.ee" in ul: return "💬 LINE"
+        if "tiktok" in ul: return "🎵 TikTok"
+        if "youtube" in ul or "youtu.be" in ul: return "▶️ YouTube"
+        return "🔗 " + u.replace("https://", "").replace("http://", "")[:22]
+    sl = [u for u in (social or []) if str(u).startswith("http")]
+    social_html = ('<div class="cs-social">' + "".join('<a href="%s" target="_blank" rel="noopener">%s</a>'
+                   % (_esc(u), _sname(u)) for u in sl[:5]) + '</div>') if sl else ""
     form = ""
     if (report_token or "").strip():
         from app.config import settings as _s
@@ -506,11 +518,27 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
                        % (t("จองโต๊ะ", "Reserve"), t("จองโต๊ะล่วงหน้า", "Book a Table"), _esc(baction), _esc(report_token),
                           bi + ";border:1px solid #0000001a", bi + ";border:1px solid #0000001a", t("จำนวนคน", "Guests"), bi + ";border:1px solid #0000001a",
                           t("ชื่อ", "Your name"), bi, t("เบอร์โทร", "Phone"), bi, gold, t("ยืนยันการจอง", "Reserve Now")))
+    # 📝 บล็อก/บทความ — การ์ดลิงก์ไปบทความจริงที่ระบบผลิต (SEO/AEO) → เว็บมีชีวิต + ลูกค้าเห็นเนื้อหา
+    blog_sec = ""
+    bl = [a for a in (blog or []) if isinstance(a, dict) and (a.get("title") and a.get("url"))][:6]
+    if bl:
+        cards = ""
+        for a in bl:
+            cov = (a.get("cover") or "").strip()
+            imgd = ('<div class="cs-blog-img" style="background-image:url(\'%s\')"></div>' % _esc(cov)) if cov \
+                else '<div class="cs-blog-img cs-blog-noimg"></div>'
+            cards += ('<a class="cs-blog-card" href="%s" target="_blank" rel="noopener">%s'
+                      '<div class="cs-blog-b"><h3>%s</h3><p>%s</p></div></a>'
+                      % (_esc(a.get("url")), imgd, _esc((a.get("title") or "")[:90]), _esc((a.get("desc") or "")[:120])))
+        blog_sec = ('<section class="cs-sec cs-blog" id="blog"><div class="cs-wrap"><span class="cs-eyebrow cs-c">%s</span>'
+                    '<h2 class="cs-c">%s</h2><div class="cs-blog-grid">%s</div></div></section>'
+                    % (t("บทความ", "Journal"), t("เรื่องราว & บทความ", "From Our Blog"), cards))
+    # ติดต่อ (ครบขึ้น): ช่องทางติดต่อ + โซเชียล + ฟอร์มดักลีด
     contact_sec = ('<section class="cs-sec cs-contact" id="contact"><div class="cs-wrap cs-contact-box">'
                    '<span class="cs-eyebrow cs-c">%s</span><h2 class="cs-c">%s</h2>'
-                   '<div class="cs-ci-row">%s</div>%s</div></section>'
+                   '<div class="cs-ci-row">%s</div>%s%s</div></section>'
                    % (t("ติดต่อ", "Contact"), _esc((c.get("contact_title") or "").strip() or t("สนใจ? ติดต่อเราเลย", "Get in touch")),
-                      "".join(ci), form))
+                      "".join(ci), social_html, form))
 
     css = ("""<style>
 :root{--cs-ink:%s;--cs-gold:%s;--cs-cream:%s}
@@ -559,7 +587,17 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
 .cs-form input{flex:1;min-width:200px;max-width:260px;padding:14px 18px;border:0;border-radius:12px;font-size:1rem;font-family:inherit}
 .cs-form button{background:var(--cs-gold);color:#fff;font-weight:800;padding:14px 34px;border:0;border-radius:12px;font-size:1rem;cursor:pointer}
 .cs-foot{background:var(--cs-ink);color:#fff9;text-align:center;padding:26px;font-size:.88rem;border-top:1px solid #ffffff14}
-@media(max-width:760px){.cs-about{grid-template-columns:1fr;text-align:center}.cs-grid3{grid-template-columns:1fr}.cs-gal{grid-template-columns:1fr 1fr}.cs-gal img:nth-child(1){grid-column:span 2;min-height:230px}}
+.cs-social{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:16px 0 4px}
+.cs-social a{color:#fff;background:#ffffff22;padding:8px 16px;border-radius:999px;text-decoration:none;font-size:.9rem;font-weight:600}
+.cs-social a:hover{background:#ffffff38}
+.cs-blog-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:26px}
+.cs-blog-card{text-decoration:none;color:inherit;background:var(--cs-cream);border-radius:16px;overflow:hidden;display:block;transition:transform .15s,box-shadow .15s}
+.cs-blog-card:hover{transform:translateY(-5px);box-shadow:0 18px 44px #00000022}
+.cs-blog-img{height:180px;background-size:cover;background-position:center}
+.cs-blog-noimg{background:linear-gradient(135deg,var(--cs-ink),var(--cs-gold))}
+.cs-blog-b{padding:16px 18px}.cs-blog-b h3{margin:0 0 6px;font-size:1.06rem;font-weight:800;line-height:1.3}
+.cs-blog-b p{margin:0;color:#00000099;font-size:.9rem}
+@media(max-width:760px){.cs-about{grid-template-columns:1fr;text-align:center}.cs-grid3{grid-template-columns:1fr}.cs-gal{grid-template-columns:1fr 1fr}.cs-gal img:nth-child(1){grid-column:span 2;min-height:230px}.cs-blog-grid{grid-template-columns:1fr}}
 </style>""" % (ink, gold, cream, ink, ink, ink, ink, gold))
 
     css += ("""<style>
@@ -600,7 +638,7 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
                 '<a class="cs-btn" href="#contact">%s</a></div></header>'
                 % (bgcss, eyebrow, headline, subhead, cta))
     foot = '<footer class="cs-foot">%s · %s</footer>' % (nm, t("สร้างเว็บโดย ImVisible", "Built with ImVisible"))
-    return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + gallery + why + booking_sec + map_sec + contact_sec + foot + '</main>'
+    return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + gallery + why + blog_sec + booking_sec + map_sec + contact_sec + foot + '</main>'
 
 
 _CS_VARIANTS = [("1", "✨ Luxe", ("หรู มินิมอล · hero เต็มจอ", "Luxe · full-screen hero")),

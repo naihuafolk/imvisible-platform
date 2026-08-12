@@ -1621,6 +1621,24 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
             prev_copy = (_jp.loads(getattr(p, "site_brief", "") or "{}") or {}).get("copy") or {}
         except Exception:  # noqa: BLE001
             prev_copy = {}
+        # 📝 บทความจริงที่ระบบผลิต → section บล็อกในเว็บลูกค้า (มีชีวิต + SEO/AEO)
+        from app.db.models import Article
+        from app import urls as _urls
+        import re as _re3
+        arts = (await s.execute(select(Article).where(
+            Article.project_id == project_id, Article.status == "published")
+            .order_by(Article.id.desc()).limit(6))).scalars().all()
+        blog = []
+        for a in arts:
+            try:
+                au = _urls.public_url_for(p, a)
+            except Exception:  # noqa: BLE001
+                au = getattr(a, "url", "") or ""
+            if (a.title or "").strip() and au:
+                blog.append({"title": a.title, "url": au, "cover": getattr(a, "cover_url", "") or "",
+                             "desc": (getattr(a, "description", "") or "")[:120]})
+        social = [l.strip() for l in _re3.split(r"[\n,]", brief.get("links") or "")
+                  if l.strip().lower().startswith("http")][:5]      # โซเชียล (FB/IG) จากลิงก์ที่ลูกค้าให้
     contact = brief.get("contact") or {}
     # 1) Claude เขียนคอนเทนต์ — LLM ล่ม/quota หมด → ใช้คอนเทนต์เดิม (ไม่ทับให้กลายเป็น generic)
     copy = await _client_site_copy(name, biz_type or about[:60], about, lang)
@@ -1677,14 +1695,16 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
     import json as _json2
     brief_store = {"copy": copy if isinstance(copy, dict) else {}, "hero_img": hero_img,
                    "photo_urls": photo_urls, "name": name, "biz_type": biz_type, "about": about,
-                   "contact": contact, "lang": lang, "report_token": rtoken, "home_url": home_url}
+                   "contact": contact, "lang": lang, "report_token": rtoken, "home_url": home_url,
+                   "blog": blog, "social": social}
     async with db.session() as s:
         p = await s.get(Project, project_id)
         if p:
             p.site_brief = _json2.dumps(brief_store, ensure_ascii=False)
             variant = getattr(p, "site_variant", 0) or 1        # เลือกไว้แล้วใช้อันนั้น · ไม่งั้น default 1
             home = _public.render_client_home(name, biz_type, about, contact, photo_urls, lang, rtoken,
-                                              copy=brief_store["copy"], hero_img=hero_img, variant=variant)
+                                              copy=brief_store["copy"], hero_img=hero_img, variant=variant,
+                                              blog=blog, social=social)
             try:
                 home = _public.inject_aeo_geo(home, name=name, home=home_url,
                                               lang=("en" if str(lang).lower().startswith("en") else "th"), brief={})
