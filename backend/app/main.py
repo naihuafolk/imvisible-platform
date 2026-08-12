@@ -27,7 +27,7 @@ from app.schemas import (
     ContentGenerateRequest, PublishRequest, MineRequest,
     RegisterRequest, LoginRequest, ProjectCreate, PublishTargetUpdate, ProjectModeUpdate, ProjectUpdate, ProjectActiveUpdate, KeywordReportRequest, ChannelUpdate, DraftRequest,
     BacklinkOutreachRequest, PantipRadarRequest, PantipReplyRequest, SocialRadarRequest, BacklinkGapsRequest, ContentGapRequest, SnippetSniperRequest, ImwebGenerateRequest, ImwebSaveRequest, ImwebPrefillRequest, PseoTopicsRequest, LeadMagnetCreate, LeadUnlock, ContactForm, SiteCheckRequest, SiteReportCreate, ReportLeadCreate, KeywordPackUpdate, SmsAlertUpdate, FacebookConvert,
-    CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite, AdminCreateUser, OutreachUpdate,
+    CredentialUpdate, KeywordRequest, GSCDaysRequest, CheckoutRequest, ScheduleRequest, TeamInvite, AdminCreateUser, OutreachUpdate, BacklinkDirUpdate,
     KeywordSuggestRequest, KeywordsAddRequest, AeoQuestionsUpdate, AdCreativeRequest, PostCreate, CtaUpdate,
 )
 from app.connectors import serp, gsc, citation, content, publish, mining, social, billing, pagespeed
@@ -3037,6 +3037,50 @@ async def outreach_list(project_id: int, user=Depends(get_current_user)):
     for it in items:
         counts[it["status"]] = counts.get(it["status"], 0) + 1
     return {"items": items, "count": len(items), "counts": counts}
+
+
+@app.get("/api/projects/{project_id}/backlink-plan")
+async def backlink_plan(project_id: int, user=Depends(get_current_user)):
+    """🧭 Backlink Autopilot — แผนแบ็กลิงก์ 'พร้อมทำ' ต่อโปรเจ็ค:
+    (1) ข้อมูลลูกค้าจัดฟอร์แมตพร้อมวาง (2) ลิสต์แหล่งขาวคุณภาพ + สถานะ (3) คิว outreach + ความคืบหน้า
+    ทุกอย่าง white-hat: ระบบเตรียมให้ operator แค่ 'เปิด→วาง→submit' / 'กดส่ง' (ไม่ auto-โพสต์)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.connectors import backlinks
+    from app.db.models import OutreachTask
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        plan = backlinks.build_plan(p)
+        rows = (await s.execute(select(OutreachTask.status).where(
+            OutreachTask.project_id == project_id))).scalars().all()
+    oc = {}
+    for st in rows:
+        oc[st] = oc.get(st, 0) + 1
+    plan["outreach"] = {"total": len(rows), "todo": oc.get("todo", 0),
+                        "contacted": oc.get("contacted", 0), "won": oc.get("won", 0)}
+    return plan
+
+
+@app.put("/api/projects/{project_id}/backlink-directory")
+async def backlink_directory(project_id: int, req: BacklinkDirUpdate, user=Depends(get_current_user)):
+    """ติ๊กว่าลงไดเรกทอรี/โซเชียลนั้นแล้ว (หรือยกเลิก) + เก็บลิงก์โปรไฟล์ไว้ตรวจย้อน — เจ้าของโปรเจ็คเท่านั้น"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app.connectors import backlinks
+    from datetime import datetime, timezone
+    dir_id = (req.dir_id or "").strip()
+    if not dir_id:
+        raise HTTPException(422, "ต้องระบุ dir_id")
+    async with db.session() as s:
+        p = await _own_project(s, project_id, user)
+        try:
+            p.backlink_state = backlinks.set_directory(
+                p, dir_id, bool(req.done), req.url or "",
+                datetime.now(timezone.utc).date().isoformat())
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        await s.commit()
+    return {"ok": True, "dir_id": dir_id, "done": bool(req.done)}
 
 
 @app.put("/api/outreach/{task_id}")

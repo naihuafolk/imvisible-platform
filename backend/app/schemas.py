@@ -182,6 +182,12 @@ class OutreachUpdate(BaseModel):
     note: str | None = None
 
 
+class BacklinkDirUpdate(BaseModel):
+    dir_id: str = ""                 # id ไดเรกทอรี (เช่น gbp, facebook)
+    done: bool = True                # ทำแล้ว/ยัง
+    url: str = ""                    # ลิงก์โปรไฟล์/หน้าที่ลงเสร็จ (ไว้ตรวจย้อน)
+
+
 class KeywordReportRequest(BaseModel):
     keyword: str = ""                # คีย์เวิร์ดหลัก/หัวข้อ (สำหรับรายงานขายลูกค้า)
     business: str = ""               # บริบทธุรกิจ (ช่วยให้คีย์ที่ดึงมาตรงขึ้น)

@@ -141,6 +141,8 @@
     outreachList: function (pid) { return api._get('/api/projects/' + pid + '/outreach'); },
     outreachUpdate: function (id, o) { return api._put('/api/outreach/' + id, o); },
     outreachScan: function (pid) { return api._post('/api/projects/' + pid + '/outreach/scan', {}); },
+    backlinkPlan: function (pid) { return api._get('/api/projects/' + pid + '/backlink-plan'); },
+    backlinkDirectory: function (pid, o) { return api._put('/api/projects/' + pid + '/backlink-directory', o); },
     webRequests: function () { return api._get('/api/web-requests'); },
     webRequestApprove: function (id) { return api._post('/api/web-requests/' + id + '/approve', {}); },
     webRequestReject: function (id) { return api._post('/api/web-requests/' + id + '/reject', {}); },
