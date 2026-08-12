@@ -42,7 +42,13 @@
         if (!confirm('อนุมัติ + สร้างโปรเจ็ค/เว็บให้ลูกค้ารายนี้?')) return;
         b.disabled = true; b.textContent = 'กำลังสร้าง…';
         RP.api.webRequestApprove(b.getAttribute('data-id')).then(function (r) {
-          ui.toast('สร้างแล้ว ✓ — ดูแบบ: ' + (r.preview_url || '')); load(root);
+          var cu = r.choose_url || '';
+          if (cu) { try { navigator.clipboard.writeText(cu); } catch (e) {} }
+          var box = b.closest('.card') || b.parentNode;
+          box.innerHTML = '<div class="bb" style="color:var(--green-600,#0f8a55)">✅ สร้าง 3 แบบแล้ว — ส่งลิงก์นี้ให้ลูกค้าเลือกดีไซน์</div>' +
+            '<div class="soft small" style="margin:6px 0">คัดลอกให้แล้ว · Claude กำลังเขียนคอนเทนต์เพิ่ม ~15 วิ</div>' +
+            '<div class="row wrap" style="gap:8px"><input class="input" readonly value="' + esc(cu) + '" style="flex:1;min-width:220px">' +
+            '<a class="btn btn-sm btn-primary" href="' + esc(cu) + '" target="_blank" rel="noopener">👁️ เปิดหน้าเลือกแบบ</a></div>';
         }).catch(function (e) { b.disabled = false; b.textContent = '✅ อนุมัติ + สร้างเว็บ'; ui.toast('ไม่สำเร็จ: ' + esc((e && e.message) || '')); });
       };
     });

@@ -394,10 +394,13 @@ def _cs_palette(biz_type: str, about: str) -> tuple:
 
 
 def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="th",
-                       report_token="", copy: dict | None = None, hero_img: str = "") -> str:
+                       report_token="", copy: dict | None = None, hero_img: str = "",
+                       variant: int = 1) -> str:
     """สร้าง 'หน้าเว็บพรีเมียม' ให้ลูกค้า — template สวยขายได้ (ไม่พึ่ง IM WEB)
     ถ้ามี copy (Claude เขียน) + hero_img (Imgentic) จะสวยเต็มรูป · ไม่มีก็ fallback บรีฟดิบได้
+    variant 1=Luxe (hero เต็มจอ) · 2=Modern (hero แบ่งซ้าย-ขวา) · 3=Warm (hero การ์ดซ้อน)
     โครง: nav · hero · about · จุดเด่น(3) · แกลเลอรีรูปจริง · ทำไมเลือกเรา · ติดต่อ+ฟอร์ม · footer"""
+    variant = variant if variant in (1, 2, 3) else 1
     en = str(lang).startswith("en")
     def t(th, e): return e if en else th
     c = copy or {}
@@ -516,16 +519,100 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
 @media(max-width:760px){.cs-about{grid-template-columns:1fr;text-align:center}.cs-grid3{grid-template-columns:1fr}.cs-gal{grid-template-columns:1fr 1fr}.cs-gal img:nth-child(1){grid-column:span 2;min-height:230px}}
 </style>""" % (ink, gold, cream, ink, ink, ink, ink, gold))
 
-    hero_bg_div = ('<div class="cs-hero-bg" style="background-image:url(\'%s\')"></div>' % _esc(hero_bg)) if hero_bg else \
-                  ('<div class="cs-hero-bg" style="background:linear-gradient(135deg,%s,%s)"></div>' % (ink, gold))
+    css += ("""<style>
+.cs-v2 .cs-hero{min-height:auto;text-align:left;color:var(--cs-ink)}
+.cs-v2 .cs-split{display:grid;grid-template-columns:1fr 1fr;gap:0;align-items:stretch;min-height:88vh}
+.cs-v2 .cs-split-txt{display:flex;flex-direction:column;justify-content:center;padding:60px clamp(24px,5vw,72px)}
+.cs-v2 .cs-split-txt .cs-eyebrow{color:var(--cs-gold)}
+.cs-v2 .cs-split-txt h1{font-size:clamp(2.2rem,4.5vw,3.6rem);text-shadow:none;margin:8px 0 16px}
+.cs-v2 .cs-split-txt p{color:#00000099;opacity:1}
+.cs-v2 .cs-split-img{background-size:cover;background-position:center;min-height:340px}
+.cs-v3 .cs-hero{align-items:end;text-align:left}
+.cs-v3 .cs-hero .cs-wrap{width:100%%;padding-bottom:54px}
+.cs-v3 .cs-hero-cardbox{background:#fffffff2;color:var(--cs-ink);max-width:560px;padding:40px 42px;border-radius:22px;box-shadow:0 30px 80px #00000040}
+.cs-v3 .cs-hero-cardbox .cs-eyebrow{color:var(--cs-gold)}
+.cs-v3 .cs-hero-cardbox h1{font-size:clamp(2rem,4.4vw,3.2rem);text-shadow:none;margin:6px 0 12px}
+.cs-v3 .cs-hero-cardbox p{opacity:1;color:#00000099}
+.cs-v3 .cs-card{border-radius:24px}.cs-v3 .cs-gal img{border-radius:22px}
+@media(max-width:760px){.cs-v2 .cs-split{grid-template-columns:1fr}.cs-v2 .cs-split-img{min-height:260px;order:-1}}
+</style>""")
     nav = ('<nav class="cs-nav"><div class="cs-wrap"><span class="cs-brand">%s</span>'
            '<a class="cs-cta" href="#contact">%s</a></div></nav>' % (nm, cta))
-    hero = ('<header class="cs-hero">%s<div class="cs-hero-in">'
-            '<span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
-            '<a class="cs-btn" href="#contact">%s</a></div></header>'
-            % (hero_bg_div, biz or t("ยินดีต้อนรับ", "Welcome"), headline, subhead, cta))
+    eyebrow = biz or t("ยินดีต้อนรับ", "Welcome")
+    bgcss = ("url('%s')" % _esc(hero_bg)) if hero_bg else ("linear-gradient(135deg,%s,%s)" % (ink, gold))
+    if variant == 2:                      # Modern — hero แบ่งซ้าย-ขวา
+        hero = ('<header class="cs-hero"><div class="cs-wrap cs-split">'
+                '<div class="cs-split-txt"><span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
+                '<a class="cs-btn" href="#contact">%s</a></div>'
+                '<div class="cs-split-img" style="background-image:%s"></div></div></header>'
+                % (eyebrow, headline, subhead, cta, bgcss))
+    elif variant == 3:                    # Warm — hero การ์ดซ้อนบนรูป
+        hero = ('<header class="cs-hero"><div class="cs-hero-bg" style="background:%s;background-size:cover;background-position:center"></div>'
+                '<div class="cs-wrap"><div class="cs-hero-cardbox"><span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
+                '<a class="cs-btn" href="#contact">%s</a></div></div></header>'
+                % (bgcss, eyebrow, headline, subhead, cta))
+    else:                                 # Luxe — hero เต็มจอ กลาง (default)
+        hero = ('<header class="cs-hero"><div class="cs-hero-bg" style="background:%s;background-size:cover;background-position:center"></div>'
+                '<div class="cs-hero-in"><span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
+                '<a class="cs-btn" href="#contact">%s</a></div></header>'
+                % (bgcss, eyebrow, headline, subhead, cta))
     foot = '<footer class="cs-foot">%s · %s</footer>' % (nm, t("สร้างเว็บโดย ImVisible", "Built with ImVisible"))
-    return ('<main class="cs-site">' + css + nav + hero + about_sec + feats + gallery + why + contact_sec + foot + '</main>')
+    return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + gallery + why + contact_sec + foot + '</main>'
+
+
+_CS_VARIANTS = [("1", "✨ Luxe", ("หรู มินิมอล · hero เต็มจอ", "Luxe · full-screen hero")),
+                ("2", "◧ Modern", ("โมเดิร์น · hero แบ่งซ้าย-ขวา", "Modern · split hero")),
+                ("3", "☕ Warm", ("อบอุ่น · การ์ดซ้อนบนรูป", "Warm · card over photo"))]
+
+
+def render_site_chooser(name, token, base, lang="th", chosen: int = 0) -> str:
+    """หน้าสาธารณะให้ 'ลูกค้าเลือกดีไซน์' 3 แบบ (พรีวิวสด) → กดเลือก → ระบบสร้างจริง"""
+    en = str(lang).startswith("en")
+    def t(th, e): return e if en else th
+    nm = _esc((name or "").strip() or t("เว็บของคุณ", "Your website"))
+    tk = _esc((token or "").strip())
+    b = (base or "").rstrip("/")
+    cards = ""
+    for v, title, (dth, den) in _CS_VARIANTS:
+        prev = "%s/api/site/%s/preview?v=%s" % (b, tk, v)
+        picked = (str(chosen) == v)
+        cards += ('<div class="ch-card%s"><div class="ch-frame"><iframe src="%s" loading="lazy" title="%s"></iframe>'
+                  '<a class="ch-full" href="%s" target="_blank" rel="noopener">%s</a></div>'
+                  '<div class="ch-body"><div class="ch-t">%s</div><div class="ch-d">%s</div>'
+                  '<form method="post" action="%s/api/site/%s/select"><input type="hidden" name="v" value="%s">'
+                  '<button type="submit"%s>%s</button></form></div></div>'
+                  % (" ch-on" if picked else "", _esc(prev), _esc(title), _esc(prev), t("เปิดดูเต็มจอ ↗", "Open full ↗"),
+                     _esc(title), _esc(den if en else dth), b, tk, v,
+                     " disabled" if picked else "", t("เลือกแล้ว ✓", "Chosen ✓") if picked else t("เลือกแบบนี้", "Choose this")))
+    head = t("เลือกดีไซน์เว็บที่คุณชอบ", "Choose your website design")
+    sub = t("เราออกแบบให้ 3 สไตล์จากข้อมูลร้านคุณ — กดเลือกแบบที่ใช่ แล้วเราลงมือทำให้จริงทันที",
+            "3 styles designed from your business info — pick your favorite and we'll build it")
+    return ("""<!doctype html><html lang="%s"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>%s · %s</title>
+<meta name="robots" content="noindex">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:'Sarabun','Prompt','Segoe UI',sans-serif;background:#0f1524;color:#eaf1fb}
+.ch-hd{text-align:center;padding:44px 20px 8px}.ch-hd h1{font-size:clamp(1.5rem,4vw,2.2rem);margin:0 0 8px;font-weight:800}
+.ch-hd p{color:#9fb0c8;margin:0 auto;max-width:560px;font-size:1.02rem}
+.ch-brand{color:#4f8cff;font-weight:800;letter-spacing:.16em;text-transform:uppercase;font-size:.74rem;margin-bottom:10px}
+.ch-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:1240px;margin:26px auto;padding:0 20px}
+.ch-card{background:#16223a;border:1px solid #26374f;border-radius:18px;overflow:hidden;transition:transform .15s,border-color .15s}
+.ch-card:hover{transform:translateY(-4px);border-color:#4f8cff}
+.ch-card.ch-on{border-color:#35c98a;box-shadow:0 0 0 2px #35c98a55}
+.ch-frame{position:relative;height:420px;overflow:hidden;background:#fff}
+.ch-frame iframe{width:1280px;height:1050px;border:0;transform:scale(.372);transform-origin:top left;pointer-events:none}
+.ch-full{position:absolute;top:10px;right:10px;background:#0009;color:#fff;text-decoration:none;font-size:.78rem;padding:6px 12px;border-radius:999px;backdrop-filter:blur(4px)}
+.ch-body{padding:16px 18px 20px}.ch-t{font-weight:800;font-size:1.12rem}.ch-d{color:#9fb0c8;font-size:.9rem;margin:2px 0 14px}
+.ch-body button{width:100%%;background:#4f8cff;color:#fff;border:0;border-radius:12px;padding:13px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit}
+.ch-body button:hover{background:#3b78ec}.ch-body button:disabled{background:#35c98a;cursor:default}
+.ch-foot{text-align:center;color:#6b7c96;padding:24px;font-size:.85rem}
+@media(max-width:900px){.ch-grid{grid-template-columns:1fr}.ch-frame{height:460px}.ch-frame iframe{transform:scale(.62)}}
+</style></head><body>
+<div class="ch-hd"><div class="ch-brand">ImVisible</div><h1>%s</h1><p>%s</p></div>
+<div class="ch-grid">%s</div>
+<div class="ch-foot">%s</div></body></html>""" % (
+        "en" if en else "th", nm, head, head, _esc(sub), cards,
+        t("ยังไม่ถูกใจ? ตอบกลับแอดมินได้เลย เราปรับให้", "Not quite right? Reply to us and we'll adjust")))
 
 
 def inject_photos(html: str, urls, lang="th") -> str:

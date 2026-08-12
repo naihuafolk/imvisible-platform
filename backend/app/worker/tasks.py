@@ -1632,20 +1632,26 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
             hero_img = (await imgentic.generate_image(prompt)) or ""
         except Exception:  # noqa: BLE001
             hero_img = ""
-    # 3) render template สวย + ฝัง schema
-    home = _public.render_client_home(name, biz_type, about, contact, photo_urls, lang, rtoken,
-                                      copy=copy if isinstance(copy, dict) else {}, hero_img=hero_img)
-    try:
-        home = _public.inject_aeo_geo(home, name=name, home=home_url,
-                                      lang=("en" if str(lang).lower().startswith("en") else "th"), brief={})
-    except Exception:  # noqa: BLE001
-        pass
+    # 3) เก็บ 'บรีฟเว็บ' (copy+hero+รูป) → ใช้ re-render ได้ทั้ง 3 variants ในหน้าเลือกแบบ
+    import json as _json2
+    brief_store = {"copy": copy if isinstance(copy, dict) else {}, "hero_img": hero_img,
+                   "photo_urls": photo_urls, "name": name, "biz_type": biz_type, "about": about,
+                   "contact": contact, "lang": lang, "report_token": rtoken, "home_url": home_url}
     async with db.session() as s:
         p = await s.get(Project, project_id)
         if p:
+            p.site_brief = _json2.dumps(brief_store, ensure_ascii=False)
+            variant = getattr(p, "site_variant", 0) or 1        # เลือกไว้แล้วใช้อันนั้น · ไม่งั้น default 1
+            home = _public.render_client_home(name, biz_type, about, contact, photo_urls, lang, rtoken,
+                                              copy=brief_store["copy"], hero_img=hero_img, variant=variant)
+            try:
+                home = _public.inject_aeo_geo(home, name=name, home=home_url,
+                                              lang=("en" if str(lang).lower().startswith("en") else "th"), brief={})
+            except Exception:  # noqa: BLE001
+                pass
             p.home_html = home
             await s.commit()
-    return "built site: %s (copy=%s hero=%s photos=%d)" % (name, bool(copy), bool(hero_img), len(photo_urls))
+    return "built site brief: %s (copy=%s hero=%s photos=%d)" % (name, bool(copy), bool(hero_img), len(photo_urls))
 
 
 @celery_app.task(name="app.worker.tasks.backfill_covers")

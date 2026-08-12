@@ -3645,6 +3645,7 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
     pid = res.get("id")
     preview = res.get("public_home") or ""
     base = (settings.app_base_url or "").rstrip("/")
+    stoken = secrets.token_urlsafe(9)          # โทเคนหน้า 'เลือกแบบเว็บ' (ลูกค้าเปิดลิงก์เลือก 3 ดีไซน์)
     # ผูกรูปที่ลูกค้าแนบเข้าโปรเจกต์ + สร้าง 'หน้าเว็บจริง' จากบรีฟ + รูปจริง (เชื่อถือได้ ไม่พึ่ง IM WEB)
     async with db.session() as s:
         from app.db.models import UploadedImage, Project
@@ -3660,11 +3661,12 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
         contact = {"email": cr if "@" in cr else "",
                    "phone": cr if ("@" not in cr and any(c.isdigit() for c in cr)) else "",
                    "line": cr if ("@" not in cr and not any(c.isdigit() for c in cr)) else ""}
-        home = _public.render_client_home(name, biz_type, about, contact, photo_urls, lang, rtoken)
+        home = _public.render_client_home(name, biz_type, about, contact, photo_urls, lang, rtoken, variant=1)
         home = _public.inject_aeo_geo(home, name=name, home=home_base, lang=("en" if str(lang).startswith("en") else "th"), brief={})
         wr = await s.get(WebRequest, req_id)
         if p:
             p.home_html = home
+            p.site_token = stoken
         if wr:
             wr.status = "approved"; wr.project_id = pid; wr.preview_url = preview
         await s.commit()
@@ -3675,11 +3677,12 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
                                       "contact": contact, "lang": lang})
     except Exception:  # noqa: BLE001
         pass
+    choose_url = (base + "/api/site/" + stoken) if base else ("/api/site/" + stoken)
     try:
-        await notify.send_line("✅ อนุมัติ+สร้างเว็บแล้ว: %s (%d รูป)\nดูแบบ: %s" % (name, len(photo_urls), preview or "-"))
+        await notify.send_line("✅ อนุมัติ+สร้างเว็บแล้ว: %s (%d รูป)\nส่งให้ลูกค้าเลือกแบบ: %s" % (name, len(photo_urls), choose_url))
     except Exception:  # noqa: BLE001
         pass
-    return {"ok": True, "project_id": pid, "preview_url": preview, "photos": len(photo_urls)}
+    return {"ok": True, "project_id": pid, "preview_url": preview, "photos": len(photo_urls), "choose_url": choose_url}
 
 
 @app.post("/api/web-requests/{req_id}/reject")
@@ -3697,6 +3700,97 @@ async def web_request_reject(req_id: int, user=Depends(get_current_user)):
         wr.status = "rejected"
         await s.commit()
     return {"ok": True}
+
+
+def _render_variant_from_brief(_public, p, variant: int) -> str:
+    """เรนเดอร์เว็บ variant N จาก site_brief ที่เก็บไว้ (copy+hero+รูป) — ใช้ทั้ง preview และ select"""
+    import json as _json
+    try:
+        br = _json.loads(getattr(p, "site_brief", "") or "{}")
+    except Exception:  # noqa: BLE001
+        br = {}
+    if not br:
+        return getattr(p, "home_html", "") or ""
+    home = _public.render_client_home(
+        br.get("name") or p.name, br.get("biz_type") or "", br.get("about") or "",
+        br.get("contact") or {}, br.get("photo_urls") or [], br.get("lang") or "th",
+        br.get("report_token") or "", copy=br.get("copy") or {},
+        hero_img=br.get("hero_img") or "", variant=variant)
+    try:
+        home = _public.inject_aeo_geo(home, name=br.get("name") or p.name, home=br.get("home_url") or "",
+                                      lang=("en" if str(br.get("lang") or "th").startswith("en") else "th"), brief={})
+    except Exception:  # noqa: BLE001
+        pass
+    return home
+
+
+@app.get("/api/site/{token}")
+async def site_chooser(token: str):
+    """หน้าสาธารณะให้ 'ลูกค้าเลือกดีไซน์เว็บ' 3 แบบ (โทเคน = กุญแจ ไม่ต้องล็อกอิน)"""
+    from fastapi.responses import HTMLResponse
+    from app import public as _public
+    from app.db.models import Project
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่พร้อม")
+    async with db.session() as s:
+        p = (await s.execute(select(Project).where(Project.site_token == (token or "").strip()))).scalar_one_or_none()
+    if not p:
+        raise HTTPException(404, "ไม่พบลิงก์นี้")
+    base = (settings.app_base_url or "").rstrip("/")
+    lang = "en" if str(p.language).lower().startswith("en") else "th"
+    html = _public.render_site_chooser(p.name, p.site_token, base, lang, chosen=getattr(p, "site_variant", 0) or 0)
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/api/site/{token}/preview")
+async def site_preview(token: str, v: int = 1):
+    """เรนเดอร์เว็บ variant (จาก site_brief) — ใช้ใน iframe หน้าเลือกแบบ + เปิดดูเต็มจอ"""
+    from fastapi.responses import HTMLResponse
+    from app import public as _public
+    from app.db.models import Project
+    async with db.session() as s:
+        p = (await s.execute(select(Project).where(Project.site_token == (token or "").strip()))).scalar_one_or_none()
+    if not p:
+        raise HTTPException(404, "ไม่พบ")
+    home = _render_variant_from_brief(_public, p, v if v in (1, 2, 3) else 1)
+    page = ("<!doctype html><html><head><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+            "<meta name='robots' content='noindex'></head><body style='margin:0'>%s</body></html>" % home)
+    return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
+
+
+@app.post("/api/site/{token}/select")
+async def site_select(token: str, v: int = Form(1)):
+    """ลูกค้ากด 'เลือกแบบนี้' → ระบบ set variant + สร้าง home_html จริง → เว็บพร้อมใช้"""
+    from fastapi.responses import HTMLResponse
+    from app import public as _public
+    from app.db.models import Project
+    variant = v if v in (1, 2, 3) else 1
+    async with db.session() as s:
+        p = (await s.execute(select(Project).where(Project.site_token == (token or "").strip()))).scalar_one_or_none()
+        if not p:
+            raise HTTPException(404, "ไม่พบ")
+        p.site_variant = variant
+        home = _render_variant_from_brief(_public, p, variant)
+        if home:
+            p.home_html = home
+        try:
+            pub = _public.project_public_home(p) or ""
+        except Exception:  # noqa: BLE001
+            pub = ""
+        name = p.name
+        en = str(p.language).lower().startswith("en")
+        await s.commit()
+    try:
+        await notify.send_line("🎨 ลูกค้าเลือกแบบเว็บแล้ว: %s (แบบ %d)\n%s" % (name, variant, pub))
+    except Exception:  # noqa: BLE001
+        pass
+    from html import escape as _h
+    msg = "Thank you! Your website is ready 🎉" if en else "ขอบคุณ! เว็บของคุณพร้อมแล้ว 🎉"
+    link = ('<p style="margin-top:14px"><a href="%s" style="color:#4f8cff;font-weight:700">%s</a></p>' % (_h(pub), _h(pub))) if pub else ""
+    return HTMLResponse("<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+                        "<body style='font-family:Sarabun,Prompt,sans-serif;text-align:center;padding:70px 20px;background:#0f1524;color:#eaf1fb'>"
+                        "<div style='font-size:3rem'>✅</div><h1>%s</h1>%s</body>" % (msg, link))
 
 
 @app.post("/api/contact")

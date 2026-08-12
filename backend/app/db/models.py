@@ -81,6 +81,9 @@ class Project(Base):
     report_token: Mapped[str] = mapped_column(String(64), default="", index=True)  # โทเคนลิงก์รายงานสาธารณะ (ส่งให้ลูกค้าเปิดดูได้โดยไม่ต้องล็อกอิน)
     ai_competitors: Mapped[str] = mapped_column(Text, default="")               # แบรนด์ที่ AI แนะนำในหมวดเรา (JSON) — คู่แข่งที่ต้องแซงในสนาม AEO
     backlink_state: Mapped[str] = mapped_column(Text, default="")               # สถานะเช็กลิสต์แบ็กลิงก์ (JSON) — ไดเรกทอรี/โซเชียลที่ทำแล้ว (Backlink Autopilot)
+    site_brief: Mapped[str] = mapped_column(Text, default="")                   # JSON: copy(Claude)+hero+รูป+บรีฟ → ใช้ re-render เว็บลูกค้า 3 แบบ
+    site_token: Mapped[str] = mapped_column(String(64), default="", index=True) # โทเคนหน้าเลือกแบบ (ลูกค้าเปิดลิงก์เลือกดีไซน์เอง)
+    site_variant: Mapped[int] = mapped_column(Integer, default=0)               # แบบที่ลูกค้าเลือก (0=ยังไม่เลือก · 1/2/3)
     analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
