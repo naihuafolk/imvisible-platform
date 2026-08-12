@@ -1633,15 +1633,20 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
         base_desc = ((cd.get("about_body") or "") or about or biz_type or name)[:160]
         prompts = ["Premium website hero image for '%s' (%s). %s. %s, cinematic, magazine quality, no text, no logo, no watermark."
                    % (name, biz_type or "business", base_desc, style)]
+        if is_food:                                            # ร้านอาหาร: เติม 'รูปหน้าร้าน' + บรรยากาศ ให้เว็บไม่โล้น
+            prompts.append("Restaurant storefront and facade of '%s' at golden hour, warm glowing lights, inviting entrance, "
+                           "premium, photorealistic, magazine quality, no text, no logo, no watermark." % name)
+            prompts.append("Cozy elegant interior of '%s' — warm ambiance, beautifully set tables, inviting atmosphere, "
+                           "photorealistic, high-end, no text, no logo, no watermark." % name)
         for f in (cd.get("features") or [])[:3]:               # 1 ภาพต่อ 1 จุดเด่น/เมนู ที่ Claude เขียน
             ft = (f.get("title") or "").strip()
             fd = (f.get("desc") or "").strip()
             if ft:
-                prompts.append("%s for '%s': %s — %s. %s, high-end, appetizing, no text, no logo, no watermark."
+                prompts.append("%s for '%s': %s — %s. %s, close-up, high-end, appetizing, no text, no logo, no watermark."
                                % ("Signature dish/menu photo" if is_food else "Feature/service image", name, ft, fd, style))
-        need = max(0, 4 - len(prompts))                       # เติมภาพบรรยากาศให้รวม ~4 ภาพเจน
-        for _ in range(need):
-            prompts.append("Ambiance/detail photo for '%s' (%s). %s, high-end, no text, no logo, no watermark."
+        target = 6 if is_food else 4                           # ร้านอาหารเน้นภาพเยอะ (เว็บไม่โล้น)
+        for _ in range(max(0, target - len(prompts))):
+            prompts.append("Ambiance/detail/menu photo for '%s' (%s). %s, high-end, appetizing, no text, no logo, no watermark."
                            % (name, biz_type or "business", style))
         import asyncio as _aio
         _sem = _aio.Semaphore(2)                              # ยิงทีละ 2 กันโดน rate-limit (429)
@@ -1657,7 +1662,7 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
                         pass
                     await _aio.sleep(5)
                 return ""
-        urls = [u for u in await _aio.gather(*[_gen(p) for p in prompts[:4]]) if u]
+        urls = [u for u in await _aio.gather(*[_gen(p) for p in prompts[:6]]) if u]
         if urls:
             hero_img = urls[0]
             gen_gallery = urls[1:]                             # ที่เหลือ = ภาพเมนู/จุดเด่น → ลงแกลเลอรี

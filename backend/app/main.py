@@ -3802,6 +3802,37 @@ async def site_select(token: str, v: int = Form(1)):
                         "<div style='font-size:3rem'>✅</div><h1>%s</h1>%s</body>" % (msg, link))
 
 
+@app.post("/api/public/booking")
+async def public_booking(token: str = Form(""), date: str = Form(""), time: str = Form(""),
+                         guests: str = Form(""), name: str = Form(""), phone: str = Form(""),
+                         _rl=Depends(rate_limit_auth)):
+    """📅 จองโต๊ะจากหน้าเว็บร้านอาหาร (สาธารณะ) → เก็บเป็นลีด (source=booking) + แจ้ง LINE ร้านทันที"""
+    from fastapi.responses import HTMLResponse
+    from app.db.models import Project, Lead
+    token = (token or "").strip()
+    name = (name or "").strip()[:200]
+    phone = (phone or "").strip()[:60]
+    if not db.enabled() or not token or not (name and phone):
+        return HTMLResponse(_lead_thanks_html(ok=False), status_code=200)
+    booking = "จองโต๊ะ %s %s · %s ท่าน" % ((date or "-"), (time or "-"), (guests or "-"))
+    alert = None
+    async with db.session() as s:
+        p = (await s.execute(select(Project).where(Project.report_token == token).limit(1))).scalars().first()
+        if not p:
+            return HTMLResponse(_lead_thanks_html(ok=False), status_code=200)
+        s.add(Lead(project_id=p.id, name=name, phone=phone, message=booking, source="booking"))
+        await s.commit()
+        alert = {"pname": p.name or "", "lead_to": (getattr(p, "lead_line_to", "") or "").strip()}
+    msg = "📅 จองโต๊ะใหม่!\nร้าน: %s\n%s\nชื่อ: %s\nเบอร์: %s" % (alert["pname"] or "-", booking, name, phone)
+    try:
+        if alert["lead_to"]:
+            await notify.send_line(msg, to=alert["lead_to"])
+        await notify.send_line(msg)
+    except Exception:  # noqa: BLE001
+        pass
+    return HTMLResponse(_lead_thanks_html(ok=True))
+
+
 @app.post("/api/contact")
 async def contact_form(req: ContactForm, _rl=Depends(rate_limit_auth)):
     """ฟอร์มติดต่อจากหน้าแรก (สาธารณะ) → เก็บลีด + แจ้งแอดมินทาง SMS และ/หรือ LINE ทันที · rate-limit กันสแปม"""

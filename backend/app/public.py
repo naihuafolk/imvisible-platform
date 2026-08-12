@@ -407,7 +407,11 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
     nm = _esc((name or "").strip() or t("ธุรกิจของเรา", "Our Business"))
     biz = _esc((biz_type or "").strip())
     ink, gold, cream = _cs_palette(biz_type, about)
-    photos = [u for u in (photo_urls or []) if u][:8]
+    _hay = (biz_type + " " + about).lower()
+    is_food = any(k in _hay for k in ("อาหาร", "คาเฟ่", "กาแฟ", "restaurant", "cafe", "coffee",
+                                      "บาร์", "bar", "bistro", "ซูชิ", "sushi", "ครัว", "bakery",
+                                      "เบเกอรี", "brunch", "บรันช์", "ก๋วยเตี๋ยว", "ชาบู", "หมูกระทะ"))
+    photos = [u for u in (photo_urls or []) if u][:10]
     hero_bg = (hero_img or "").strip() or (photos[0] if photos else "")
 
     headline = _esc((c.get("hero_headline") or "").strip() or nm)
@@ -479,6 +483,29 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
                    '<div class="cs-map"><iframe src="%s" loading="lazy" referrerpolicy="no-referrer-when-downgrade" '
                    'style="width:100%%;height:400px;border:0;border-radius:18px;box-shadow:0 14px 40px #0000001f"></iframe></div></div></section>'
                    % (t("ที่ตั้ง", "Find Us"), t("แผนที่ร้าน", "Our Location"), _esc(map_url)))
+    # ⭐ รีวิว Google (ร้านอาหาร) — ปุ่มไปดู/รีวิวบน Google Maps (โชว์รีวิวรายอันจริงต้องใช้ Places API)
+    if is_food and (mp or addr) and map_sec:
+        gmaps = mp if (mp and mp.startswith("http")) else ("https://www.google.com/maps/search/%s" % _up.quote(addr))
+        rev = ('<div style="text-align:center;margin-top:18px"><a class="cs-btn" href="%s" target="_blank" rel="noopener" '
+               'style="background:#fbbc04;color:#1a1a1a">%s</a></div>' % (_esc(gmaps), t("⭐ ดูรีวิว & รีวิวเราบน Google", "⭐ See & write reviews on Google")))
+        map_sec = map_sec.replace("</div></section>", rev + "</div></section>", 1)
+    # 📅 จองโต๊ะ (ร้านอาหาร) — ฟอร์มจอง → แจ้ง LINE ร้านทันที
+    booking_sec = ""
+    if is_food and (report_token or "").strip():
+        from app.config import settings as _s2
+        baction = (_s2.app_base_url or "").rstrip("/") + "/api/public/booking"
+        bi = "padding:13px 15px;border:0;border-radius:12px;font-size:15px;font-family:inherit;min-width:120px;flex:1"
+        booking_sec = ('<section class="cs-sec" id="booking" style="background:var(--cs-cream)"><div class="cs-wrap cs-contact-box" style="max-width:680px;text-align:center">'
+                       '<span class="cs-eyebrow">%s</span><h2>%s</h2>'
+                       '<form action="%s" method="post" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px">'
+                       '<input type="hidden" name="token" value="%s">'
+                       '<input name="date" type="date" required style="%s"><input name="time" type="time" required style="%s">'
+                       '<input name="guests" type="number" min="1" placeholder="%s" required style="%s">'
+                       '<input name="name" placeholder="%s" required style="%s;border:1px solid #0000001a"><input name="phone" placeholder="%s" required style="%s;border:1px solid #0000001a">'
+                       '<button type="submit" style="background:%s;color:#fff;font-weight:800;padding:13px 34px;border:0;border-radius:12px;font-size:1rem;cursor:pointer;font-family:inherit">%s</button></form></div></section>'
+                       % (t("จองโต๊ะ", "Reserve"), t("จองโต๊ะล่วงหน้า", "Book a Table"), _esc(baction), _esc(report_token),
+                          bi + ";border:1px solid #0000001a", bi + ";border:1px solid #0000001a", t("จำนวนคน", "Guests"), bi + ";border:1px solid #0000001a",
+                          t("ชื่อ", "Your name"), bi, t("เบอร์โทร", "Phone"), bi, gold, t("ยืนยันการจอง", "Reserve Now")))
     contact_sec = ('<section class="cs-sec cs-contact" id="contact"><div class="cs-wrap cs-contact-box">'
                    '<span class="cs-eyebrow cs-c">%s</span><h2 class="cs-c">%s</h2>'
                    '<div class="cs-ci-row">%s</div>%s</div></section>'
@@ -573,7 +600,7 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
                 '<a class="cs-btn" href="#contact">%s</a></div></header>'
                 % (bgcss, eyebrow, headline, subhead, cta))
     foot = '<footer class="cs-foot">%s · %s</footer>' % (nm, t("สร้างเว็บโดย ImVisible", "Built with ImVisible"))
-    return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + gallery + why + map_sec + contact_sec + foot + '</main>'
+    return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + gallery + why + booking_sec + map_sec + contact_sec + foot + '</main>'
 
 
 _CS_VARIANTS = [("1", "✨ Luxe", ("หรู มินิมอล · hero เต็มจอ", "Luxe · full-screen hero")),
