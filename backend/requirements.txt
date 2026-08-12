@@ -1,6 +1,8 @@
 # RankPilot AI — Backend (FastAPI) dependencies
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
+# รับ Form data / อัปโหลดไฟล์ (หน้ารับบรีฟ /api/build, ฟอร์มลีด, แนบรูป) — FastAPI ต้องมีตัวนี้ ไม่งั้น import พังทั้งแอป
+python-multipart==0.0.32
 httpx==0.28.1
 pydantic==2.10.4
 pydantic-settings==2.7.1
