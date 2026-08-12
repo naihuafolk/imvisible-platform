@@ -3626,6 +3626,7 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
     if (await usage.user_plan(user["id"])) != "admin":
         raise HTTPException(403, "เฉพาะแอดมิน")
     from app.db.models import WebRequest
+    from app import public as _public
     import re as _re2
     async with db.session() as s:
         wr = await s.get(WebRequest, req_id)
