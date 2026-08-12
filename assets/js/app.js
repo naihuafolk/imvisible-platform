@@ -81,7 +81,19 @@
 
   function currentRoute() {
     var h = (location.hash || '').replace(/^#\/?/, '');
-    return RP.views[h] ? h : 'dashboard';
+    if (RP.views[h]) return h;
+    // h เป็นเมนูจริง (ชื่ออยู่ใน TITLES) แต่ view ยังไม่ลงทะเบียน = index.html/JS เก่าค้างใน browser cache
+    // → บังคับโหลดใหม่แบบข้าม cache 'ครั้งเดียวต่อเมนู/เซสชัน' (self-heal) เลิกเด้งกลับแดชบอร์ดซ้ำ ๆ
+    if (h && TITLES[h]) {
+      try {
+        if (!sessionStorage.getItem('rp-stale-' + h)) {
+          sessionStorage.setItem('rp-stale-' + h, '1');
+          location.replace(location.pathname + '?r=' + (new Date().getTime()) + location.hash);
+          return h;   // กำลังจะรีโหลดเอง
+        }
+      } catch (e) { /* sessionStorage ปิดอยู่ → ข้ามการ self-heal */ }
+    }
+    return 'dashboard';
   }
 
   /* เมนูตามบัญชี: บัญชีจริง = มินิมอลสุด (ภาพรวม + จัดการ + ตั้งค่า) · M1–M6 = เครื่องยนต์เบื้องหลัง ยุบไว้ใต้ "ขั้นสูง" */
