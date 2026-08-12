@@ -1616,10 +1616,16 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
         base = (S.app_base_url or "").rstrip("/")
         imgs = (await s.execute(select(UploadedImage).where(UploadedImage.project_id == project_id))).scalars().all()
         photo_urls = [base + "/api/media/" + str(im.id) for im in imgs]
+        try:                                  # คอนเทนต์เดิม (กันทับเป็น generic ถ้า LLM ล่ม)
+            import json as _jp
+            prev_copy = (_jp.loads(getattr(p, "site_brief", "") or "{}") or {}).get("copy") or {}
+        except Exception:  # noqa: BLE001
+            prev_copy = {}
     contact = brief.get("contact") or {}
-    # 1) Claude เขียนคอนเทนต์
+    # 1) Claude เขียนคอนเทนต์ — LLM ล่ม/quota หมด → ใช้คอนเทนต์เดิม (ไม่ทับให้กลายเป็น generic)
     copy = await _client_site_copy(name, biz_type or about[:60], about, lang)
-    cd = copy if isinstance(copy, dict) else {}
+    cd = copy if (isinstance(copy, dict) and copy) else prev_copy
+    copy = cd
     # 2) Imgentic เจนภาพ hero + ภาพ 'ล้อไปกับเมนู/จุดเด่น' (ตามที่ Claude เขียน) หลายรูป → ขนานกัน
     #    เติมให้แกลเลอรีเต็ม (รูปลูกค้ามักน้อย) · ไม่พร้อม/พลาด = ใช้รูปจริงลูกค้าแทน
     hero_img = ""
