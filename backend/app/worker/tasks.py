@@ -1639,19 +1639,28 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
             if ft:
                 prompts.append("%s for '%s': %s — %s. %s, high-end, appetizing, no text, no logo, no watermark."
                                % ("Signature dish/menu photo" if is_food else "Feature/service image", name, ft, fd, style))
-        need = max(0, 5 - len(prompts))                       # เติมภาพบรรยากาศให้รวม ~5 ภาพเจน
+        need = max(0, 4 - len(prompts))                       # เติมภาพบรรยากาศให้รวม ~4 ภาพเจน
         for _ in range(need):
             prompts.append("Ambiance/detail photo for '%s' (%s). %s, high-end, no text, no logo, no watermark."
                            % (name, biz_type or "business", style))
-        try:
-            import asyncio as _aio
-            results = await _aio.gather(*[imgentic.generate_image(p) for p in prompts[:5]], return_exceptions=True)
-            urls = [r for r in results if isinstance(r, str) and r.startswith("http")]
-            if urls:
-                hero_img = urls[0]
-                gen_gallery = urls[1:]                         # ที่เหลือ = ภาพเมนู/จุดเด่น → ลงแกลเลอรี
-        except Exception:  # noqa: BLE001
-            pass
+        import asyncio as _aio
+        _sem = _aio.Semaphore(2)                              # ยิงทีละ 2 กันโดน rate-limit (429)
+
+        async def _gen(pr):
+            async with _sem:
+                for _try in range(2):                         # retry 1 ครั้งถ้าพลาด/429
+                    try:
+                        u = await imgentic.generate_image(pr)
+                        if u and str(u).startswith("http"):
+                            return u
+                    except Exception:  # noqa: BLE001
+                        pass
+                    await _aio.sleep(5)
+                return ""
+        urls = [u for u in await _aio.gather(*[_gen(p) for p in prompts[:4]]) if u]
+        if urls:
+            hero_img = urls[0]
+            gen_gallery = urls[1:]                             # ที่เหลือ = ภาพเมนู/จุดเด่น → ลงแกลเลอรี
     photo_urls = (photo_urls or []) + gen_gallery              # รูปจริงลูกค้าก่อน + ภาพที่เจนล้อกับเมนู
     # 3) เก็บ 'บรีฟเว็บ' (copy+hero+รูป) → ใช้ re-render ได้ทั้ง 3 variants ในหน้าเลือกแบบ
     import json as _json2
