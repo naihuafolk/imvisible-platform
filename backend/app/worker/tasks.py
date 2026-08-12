@@ -1650,7 +1650,7 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
             if ft:
                 prompts.append("%s for '%s': %s — %s. %s, close-up, high-end, appetizing, no text, no logo, no watermark."
                                % ("Signature dish/menu photo" if is_food else "Feature/service image", name, ft, fd, style))
-        target = 6 if is_food else 4                           # ร้านอาหารเน้นภาพเยอะ (เว็บไม่โล้น)
+        target = 8 if is_food else 5                           # ร้านอาหารเน้นภาพเยอะ (เว็บไม่โล้น)
         for _ in range(max(0, target - len(prompts))):
             prompts.append("Ambiance/detail/menu photo for '%s' (%s). %s, high-end, appetizing, no text, no logo, no watermark."
                            % (name, biz_type or "business", style))
@@ -1668,7 +1668,7 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
                         pass
                     await _aio.sleep(5)
                 return ""
-        urls = [u for u in await _aio.gather(*[_gen(p) for p in prompts[:6]]) if u]
+        urls = [u for u in await _aio.gather(*[_gen(p) for p in prompts[:8]]) if u]
         if urls:
             hero_img = urls[0]
             gen_gallery = urls[1:]                             # ที่เหลือ = ภาพเมนู/จุดเด่น → ลงแกลเลอรี
