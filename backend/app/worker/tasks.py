@@ -1557,6 +1557,97 @@ async def _backfill_schema(project_id: int, cap: int) -> str:
     return "backfilled schema on %d articles" % fixed
 
 
+# ── สร้างเว็บลูกค้า 'สวยขายได้' — Claude เขียนคอนเทนต์ + Imgentic ทำ hero + รูปจริงลูกค้า ──
+async def _client_site_copy(name: str, biz_type: str, about: str, lang: str) -> dict:
+    """ให้ Claude เขียนคอนเทนต์หน้าแรกเว็บ (โครงพร้อม render) จากบรีฟจริง — no-faking (ไม่กุสถิติ/รีวิว/รางวัล)"""
+    from app.connectors import content
+    import json as _json, re as _re
+    en = str(lang).lower().startswith("en")
+    L = "English" if en else "ภาษาไทยที่เป็นธรรมชาติ สละสลวย"
+    system = ("คุณเป็นนักเขียนคอนเทนต์เว็บธุรกิจ + copywriter ระดับพรีเมียม เขียนเป็น%s. "
+              "เขียนคอนเทนต์หน้าแรกเว็บที่ 'ดูแพง น่าเชื่อถือ ชวนติดต่อ'. "
+              "กฎเหล็ก: ห้ามกุข้อมูลเท็จเด็ดขาด — ห้ามแต่งสถิติ/ตัวเลข/รีวิว/รางวัล/ปีที่ก่อตั้ง/จำนวนลูกค้า ที่ไม่ได้ระบุมา. "
+              "เขียนจากสิ่งที่ธุรกิจ 'เป็นจริง' เท่านั้น กระชับ ทรงพลัง. ตอบกลับเป็น JSON ล้วนเท่านั้น ไม่มีข้อความอื่น." % L)
+    user = ("ข้อมูลธุรกิจ:\nชื่อ: %s\nประเภท: %s\nรายละเอียด/บรีฟ: %s\n\n"
+            "สร้าง JSON โครงนี้ (ทุกฟิลด์เป็น%s):\n"
+            "{\n \"hero_headline\": พาดหัวหลักสั้นทรงพลัง 4-9 คำ (ไม่ใช่แค่ชื่อร้าน),\n"
+            " \"hero_sub\": 1 ประโยคขยายชวนมาใช้บริการ,\n"
+            " \"cta\": ข้อความปุ่ม 2-3 คำ (เช่น จองโต๊ะ / สั่งเลย / ติดต่อเรา),\n"
+            " \"about_title\": หัวข้อ about,\n \"about_body\": 2-3 ประโยคเล่าจุดเด่น/เรื่องราวจริงของธุรกิจ,\n"
+            " \"features\": [{\"icon\": อีโมจิ 1 ตัว, \"title\": สั้น, \"desc\": 1 ประโยค} 3 จุดเด่น/บริการ],\n"
+            " \"why\": [เหตุผลเลือกเรา 3 ข้อ สั้นกระชับ],\n"
+            " \"gallery_title\": หัวข้อแกลเลอรี,\n \"contact_title\": หัวข้อชวนติดต่อ\n}"
+            % (name, biz_type, (about or "")[:600], L))
+    try:
+        _prov, text = await content._llm(system, user, tier="strong")   # tier=strong = Claude (คุณภาพสูง)
+        m = _re.search(r"\{.*\}", text or "", _re.S)
+        d = _json.loads(m.group(0)) if m else {}
+        return d if isinstance(d, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+@celery_app.task(name="app.worker.tasks.build_client_site")
+def build_client_site(project_id: int, brief: dict | None = None) -> str:
+    return _run(_build_client_site(project_id, brief or {}))
+
+
+async def _build_client_site(project_id: int, brief: dict) -> str:
+    """ยกระดับ home_html ของลูกค้าให้ 'สวยขายได้': Claude เขียนคอนเทนต์ + Imgentic เจน hero + รูปจริง + schema"""
+    from app.db.models import Project, UploadedImage
+    from app import public as _public
+    from app.connectors import imgentic
+    from app.config import settings as S
+    if not db.enabled():
+        return "no db"
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if not p:
+            return "no project"
+        name = (brief.get("name") or p.name or "").strip()
+        biz_type = (brief.get("biz_type") or "").strip()
+        about = (brief.get("about") or getattr(p, "business_context", "") or "").strip()
+        lang = brief.get("lang") or ("en" if str(p.language).lower().startswith("en") else "th")
+        rtoken = getattr(p, "report_token", "") or ""
+        try:
+            home_url = _public.project_public_home(p) or ""
+        except Exception:  # noqa: BLE001
+            home_url = ""
+        base = (S.app_base_url or "").rstrip("/")
+        imgs = (await s.execute(select(UploadedImage).where(UploadedImage.project_id == project_id))).scalars().all()
+        photo_urls = [base + "/api/media/" + str(im.id) for im in imgs]
+    contact = brief.get("contact") or {}
+    # 1) Claude เขียนคอนเทนต์
+    copy = await _client_site_copy(name, biz_type or about[:60], about, lang)
+    # 2) Imgentic เจนภาพ hero พรีเมียม (ถ้าพร้อม) — ไม่พร้อม/พลาด = ใช้รูปจริงลูกค้าเป็น hero
+    hero_img = ""
+    if imgentic.image_ready():
+        try:
+            desc = ((copy.get("about_body") if isinstance(copy, dict) else "") or about or biz_type or name)[:200]
+            hay = (biz_type + " " + about).lower()
+            style = ("appetizing warm food & interior photography" if any(k in hay for k in ("อาหาร", "cafe", "restaurant", "บาร์", "bar", "food", "คาเฟ่", "bistro"))
+                     else "clean premium editorial brand photography")
+            prompt = ("Premium website hero image for '%s' (%s). %s. %s, cinematic lighting, high-end, magazine quality, no text, no logo, no watermark."
+                      % (name, biz_type or "business", desc, style))
+            hero_img = (await imgentic.generate_image(prompt)) or ""
+        except Exception:  # noqa: BLE001
+            hero_img = ""
+    # 3) render template สวย + ฝัง schema
+    home = _public.render_client_home(name, biz_type, about, contact, photo_urls, lang, rtoken,
+                                      copy=copy if isinstance(copy, dict) else {}, hero_img=hero_img)
+    try:
+        home = _public.inject_aeo_geo(home, name=name, home=home_url,
+                                      lang=("en" if str(lang).lower().startswith("en") else "th"), brief={})
+    except Exception:  # noqa: BLE001
+        pass
+    async with db.session() as s:
+        p = await s.get(Project, project_id)
+        if p:
+            p.home_html = home
+            await s.commit()
+    return "built site: %s (copy=%s hero=%s photos=%d)" % (name, bool(copy), bool(hero_img), len(photo_urls))
+
+
 @celery_app.task(name="app.worker.tasks.backfill_covers")
 def backfill_covers(project_id: int = 0, cap: int = 40, force: bool = False) -> str:
     """⚡ เติมรูปปก + รูปในเนื้อ + ภาพสรุป ให้บทความ → หน้าบทความมีภาพครบ ดูพรีเมียม

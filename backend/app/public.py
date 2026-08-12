@@ -367,51 +367,165 @@ def _article_jsonld(proj, art, canonical, home, lang):
     return out
 
 
-def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="th", report_token="") -> str:
-    """สร้าง 'หน้าเว็บจริง' ให้ลูกค้าจากบรีฟ + รูปที่แนบมา (เชื่อถือได้ ไม่พึ่ง IM WEB) —
-    hero+about+แกลเลอรีรูปจริง+ติดต่อ+ฟอร์มดักลีด · เอาไปฝัง schema (inject_aeo_geo) ต่อได้"""
+_CS_PALETTES = {          # โทนสีต่อประเภทธุรกิจ (พรีเมียม ดูแพง) — เลือกจาก biz_type/keyword
+    "food":    ("#1a1410", "#c8892f", "#fbf7f0"),   # ร้านอาหาร/คาเฟ่ — ครีม-ทองอบอุ่น
+    "beauty":  ("#2a1a24", "#c0567a", "#fbf3f6"),   # คลินิก/สปา/ความงาม — ชมพูโรสโกลด์
+    "hotel":   ("#12212b", "#2f9a9a", "#f0f7f7"),   # โรงแรม/ที่พัก — เขียวมรกต
+    "tech":    ("#0c1424", "#3b6fe0", "#eef2fb"),   # เทค/เอเจนซี — น้ำเงินสด
+    "shop":    ("#171a24", "#5b6ee0", "#f0f2fb"),   # ร้านค้า/ผลิต — ม่วงน้ำเงิน
+    "default": ("#111827", "#1657d6", "#f4f7fc"),
+}
+
+
+def _cs_palette(biz_type: str, about: str) -> tuple:
+    h = ((biz_type or "") + " " + (about or "")).lower()
+    def has(*ks): return any(k in h for k in ks)
+    if has("อาหาร", "คาเฟ่", "กาแฟ", "restaurant", "cafe", "coffee", "บาร์", "bar", "bistro", "sushi", "บรันช์", "brunch"):
+        return _CS_PALETTES["food"]
+    if has("คลินิก", "clinic", "ความงาม", "beauty", "สปา", "spa", "ผิว", "salon", "ทันตกรรม"):
+        return _CS_PALETTES["beauty"]
+    if has("โรงแรม", "ที่พัก", "รีสอร์ท", "hotel", "resort", "hostel"):
+        return _CS_PALETTES["hotel"]
+    if has("เว็บ", "ซอฟต์แวร์", "software", "app", "แพลตฟอร์ม", "seo", "agency", "digital", "ai", "tech"):
+        return _CS_PALETTES["tech"]
+    if has("ร้าน", "shop", "store", "ผลิต", "โรงพิมพ์", "กล่อง", "จำหน่าย"):
+        return _CS_PALETTES["shop"]
+    return _CS_PALETTES["default"]
+
+
+def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="th",
+                       report_token="", copy: dict | None = None, hero_img: str = "") -> str:
+    """สร้าง 'หน้าเว็บพรีเมียม' ให้ลูกค้า — template สวยขายได้ (ไม่พึ่ง IM WEB)
+    ถ้ามี copy (Claude เขียน) + hero_img (Imgentic) จะสวยเต็มรูป · ไม่มีก็ fallback บรีฟดิบได้
+    โครง: nav · hero · about · จุดเด่น(3) · แกลเลอรีรูปจริง · ทำไมเลือกเรา · ติดต่อ+ฟอร์ม · footer"""
     en = str(lang).startswith("en")
     def t(th, e): return e if en else th
-    name = _esc((name or "").strip() or (t("ธุรกิจของเรา", "Our Business")))
-    biz_type = _esc((biz_type or "").strip())
-    about = _esc((about or "").strip())
-    photos = [u for u in (photo_urls or []) if u][:6]
-    hero_img = photos[0] if photos else ""
-    hero = ('<section style="position:relative;min-height:56vh;display:grid;place-items:center;text-align:center;color:#fff;padding:60px 20px;'
-            'background:linear-gradient(rgba(10,18,32,.55),rgba(10,18,32,.55))%s;background-size:cover;background-position:center">'
-            '<div><h1 style="font-size:clamp(2rem,6vw,3.4rem);margin:0 0 8px;font-weight:800">%s</h1>'
-            '<div style="font-size:1.1rem;opacity:.95">%s</div>'
-            '<a href="#contact" style="display:inline-block;margin-top:20px;background:#fff;color:#1657d6;font-weight:800;padding:13px 32px;border-radius:999px;text-decoration:none">%s</a></div></section>'
-            % ((",url('%s')" % _esc(hero_img)) if hero_img else "", name, biz_type or t("ยินดีต้อนรับ", "Welcome"), t("ติดต่อเรา", "Contact us")))
-    about_sec = ('<section style="max-width:800px;margin:50px auto;padding:0 20px;text-align:center">'
-                 '<h2 style="font-size:1.6rem;margin-bottom:12px">%s</h2><p style="color:#55647c;line-height:1.8;font-size:1.05rem">%s</p></section>'
-                 % (t("เกี่ยวกับเรา", "About Us"), about)) if about else ""
+    c = copy or {}
+    nm = _esc((name or "").strip() or t("ธุรกิจของเรา", "Our Business"))
+    biz = _esc((biz_type or "").strip())
+    ink, gold, cream = _cs_palette(biz_type, about)
+    photos = [u for u in (photo_urls or []) if u][:8]
+    hero_bg = (hero_img or "").strip() or (photos[0] if photos else "")
+
+    headline = _esc((c.get("hero_headline") or "").strip() or nm)
+    subhead = _esc((c.get("hero_sub") or "").strip() or biz or t("ยินดีต้อนรับ", "Welcome"))
+    cta = _esc((c.get("cta") or "").strip() or t("ติดต่อเรา", "Get in touch"))
+    about_title = _esc((c.get("about_title") or "").strip() or t("เกี่ยวกับเรา", "About Us"))
+    about_body = _esc((c.get("about_body") or "").strip() or (about or "").strip())
+
+    # จุดเด่น 3 อย่าง (Claude) — ไม่มีก็ข้าม (ไม่กุ)
+    feats = ""
+    fl = [f for f in (c.get("features") or []) if isinstance(f, dict) and (f.get("title") or "").strip()][:3]
+    if fl:
+        cards = "".join(
+            '<div class="cs-card"><div class="cs-ico">%s</div><h3>%s</h3><p>%s</p></div>'
+            % (_esc((f.get("icon") or "✦")).strip()[:4], _esc((f.get("title") or "").strip()),
+               _esc((f.get("desc") or "").strip())) for f in fl)
+        feats = ('<section class="cs-sec"><div class="cs-wrap"><div class="cs-grid3">%s</div></div></section>' % cards)
+
+    about_sec = ""
+    if about_body:
+        aimg = photos[1] if len(photos) > 1 else (photos[0] if photos else "")
+        media = ('<div class="cs-about-img" style="background-image:url(\'%s\')"></div>' % _esc(aimg)) if aimg else ""
+        about_sec = ('<section class="cs-sec" id="about"><div class="cs-wrap cs-about%s">'
+                     '<div class="cs-about-txt"><span class="cs-eyebrow">%s</span><h2>%s</h2><p>%s</p></div>%s</div></section>'
+                     % (" cs-about-solo" if not media else "", t("เกี่ยวกับเรา", "About"), about_title, about_body, media))
+
     gallery = ""
     if photos:
-        cells = "".join('<img src="%s" alt="%s" loading="lazy" style="width:100%%;height:240px;object-fit:cover;border-radius:14px">' % (_esc(u), name) for u in photos)
-        gallery = ('<section style="max-width:1100px;margin:40px auto;padding:0 20px"><h2 style="text-align:center;font-size:1.6rem;margin-bottom:20px">%s</h2>'
-                   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">%s</div></section>'
-                   % (t("รูปภาพ", "Gallery"), cells))
+        cells = "".join('<img src="%s" alt="%s" loading="lazy">' % (_esc(u), nm) for u in photos)
+        gallery = ('<section class="cs-sec" id="gallery"><div class="cs-wrap"><span class="cs-eyebrow cs-c">%s</span>'
+                   '<h2 class="cs-c">%s</h2><div class="cs-gal">%s</div></div></section>'
+                   % (t("ผลงาน", "Our Work"), _esc((c.get("gallery_title") or "").strip() or t("บรรยากาศ & ผลงานจริง", "Gallery")), cells))
+
+    why = ""
+    wl = [w for w in (c.get("why") or []) if str(w).strip()][:3]
+    if wl:
+        items = "".join('<li><span>✓</span>%s</li>' % _esc(str(w).strip()) for w in wl)
+        why = ('<section class="cs-sec cs-why"><div class="cs-wrap"><span class="cs-eyebrow cs-c">%s</span>'
+               '<h2 class="cs-c">%s</h2><ul class="cs-why-list">%s</ul></div></section>'
+               % (t("ทำไมเลือกเรา", "Why Us"), t("ทำไมต้องเลือกเรา", "Why choose us"), items))
+
     ci = []
-    for k, ic in (("phone", "📞"), ("line", "💬 LINE"), ("email", "✉️"), ("address", "📍"), ("hours", "🕒")):
+    for k, ic in (("phone", "📞"), ("line", "💬"), ("email", "✉️"), ("address", "📍"), ("hours", "🕒")):
         v = _esc((contact.get(k) or "").strip()) if contact else ""
         if v:
-            ci.append('<div style="margin:5px 0">%s %s</div>' % (ic, v))
+            ci.append('<div class="cs-ci">%s <span>%s</span></div>' % (ic, v))
     form = ""
     if (report_token or "").strip():
         from app.config import settings as _s
         action = (_s.app_base_url or "").rstrip("/") + "/api/public/lead"
-        ist = "width:100%;max-width:320px;margin:5px auto;display:block;padding:11px 14px;border:1px solid #d7deea;border-radius:10px;font-size:15px;box-sizing:border-box"
-        form = ('<form action="%s" method="post" style="margin-top:14px">'
-                '<input type="hidden" name="token" value="%s">'
-                '<input name="name" placeholder="%s" style="%s"><input name="phone" required placeholder="%s" style="%s">'
-                '<button type="submit" style="margin-top:8px;background:#1657d6;color:#fff;font-weight:800;padding:12px 30px;border:0;border-radius:999px;font-size:15px;cursor:pointer">%s</button></form>'
-                % (_esc(action), _esc(report_token), t("ชื่อของคุณ", "Your name"), ist, t("เบอร์ติดต่อกลับ", "Your phone"), ist, t("ให้เราติดต่อกลับ", "Contact me")))
-    contact_sec = ('<section id="contact" style="max-width:640px;margin:40px auto 60px;padding:30px 20px;text-align:center;background:#f5f8fc;border-radius:18px">'
-                   '<h2 style="font-size:1.6rem;margin-bottom:14px">%s</h2>%s%s</section>'
-                   % (t("ติดต่อเรา", "Contact Us"), "".join(ci), form))
-    return ('<main style="font-family:\'Sarabun\',\'Segoe UI\',sans-serif;color:#0f1b2d">'
-            + hero + about_sec + gallery + contact_sec + '</main>')
+        form = ('<form class="cs-form" action="%s" method="post"><input type="hidden" name="token" value="%s">'
+                '<input name="name" placeholder="%s"><input name="phone" required placeholder="%s">'
+                '<button type="submit">%s</button></form>'
+                % (_esc(action), _esc(report_token), t("ชื่อของคุณ", "Your name"),
+                   t("เบอร์ติดต่อกลับ", "Your phone"), t("ให้เราติดต่อกลับ", "Contact me")))
+    contact_sec = ('<section class="cs-sec cs-contact" id="contact"><div class="cs-wrap cs-contact-box">'
+                   '<span class="cs-eyebrow cs-c">%s</span><h2 class="cs-c">%s</h2>'
+                   '<div class="cs-ci-row">%s</div>%s</div></section>'
+                   % (t("ติดต่อ", "Contact"), _esc((c.get("contact_title") or "").strip() or t("สนใจ? ติดต่อเราเลย", "Get in touch")),
+                      "".join(ci), form))
+
+    css = ("""<style>
+:root{--cs-ink:%s;--cs-gold:%s;--cs-cream:%s}
+.cs-site{font-family:'Sarabun','Prompt','Segoe UI',sans-serif;color:var(--cs-ink);background:#fff;line-height:1.7}
+.cs-site *{box-sizing:border-box}
+.cs-wrap{max-width:1120px;margin:0 auto;padding:0 22px}
+.cs-nav{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid #0000000f}
+.cs-nav .cs-wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.cs-brand{font-weight:800;font-size:1.15rem;letter-spacing:-.01em}
+.cs-nav a.cs-cta{background:var(--cs-gold);color:#fff;padding:9px 20px;border-radius:999px;text-decoration:none;font-weight:700;font-size:.92rem}
+.cs-hero{position:relative;min-height:78vh;display:grid;place-items:center;text-align:center;color:#fff;overflow:hidden}
+.cs-hero-bg{position:absolute;inset:0;background-size:cover;background-position:center;transform:scale(1.03)}
+.cs-hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,%s00 0%%,%scc 100%%),linear-gradient(%s99,%s99)}
+.cs-hero-in{position:relative;z-index:2;padding:80px 22px;max-width:820px}
+.cs-hero .cs-eyebrow{color:#fff;opacity:.9}
+.cs-hero h1{font-size:clamp(2.2rem,6.5vw,4rem);line-height:1.05;margin:10px 0 14px;font-weight:800;letter-spacing:-.02em;text-shadow:0 2px 30px #0006}
+.cs-hero p{font-size:clamp(1.05rem,2.4vw,1.35rem);opacity:.96;margin:0 auto 28px;max-width:600px}
+.cs-btn{display:inline-block;background:var(--cs-gold);color:#fff;font-weight:800;padding:15px 40px;border-radius:999px;text-decoration:none;font-size:1.05rem;box-shadow:0 12px 30px %s55;transition:transform .15s}
+.cs-btn:hover{transform:translateY(-2px)}
+.cs-eyebrow{display:inline-block;text-transform:uppercase;letter-spacing:.18em;font-size:.72rem;font-weight:800;color:var(--cs-gold);margin-bottom:8px}
+.cs-c{text-align:center;display:block}
+.cs-sec{padding:clamp(48px,8vw,90px) 0}
+.cs-sec h2{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:800;letter-spacing:-.02em;margin:0 0 16px}
+.cs-about{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+.cs-about.cs-about-solo{grid-template-columns:1fr;max-width:760px;text-align:center}
+.cs-about-txt p{color:#00000099;font-size:1.08rem;margin:0}
+.cs-about-img{border-radius:20px;min-height:360px;background-size:cover;background-position:center;box-shadow:0 24px 60px #0000001f}
+.cs-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.cs-card{background:var(--cs-cream);border-radius:18px;padding:30px 26px;text-align:center}
+.cs-card .cs-ico{font-size:2.2rem;margin-bottom:10px}
+.cs-card h3{margin:0 0 8px;font-size:1.2rem;font-weight:800}
+.cs-card p{margin:0;color:#00000099;font-size:.98rem}
+.cs-gal{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:26px}
+.cs-gal img{width:100%%;height:230px;object-fit:cover;border-radius:16px;box-shadow:0 10px 26px #0000001a}
+.cs-gal img:nth-child(1){grid-column:span 2;grid-row:span 2;height:auto;min-height:474px}
+.cs-why{background:var(--cs-cream)}
+.cs-why-list{list-style:none;padding:0;max-width:640px;margin:26px auto 0;display:grid;gap:14px}
+.cs-why-list li{display:flex;gap:14px;align-items:flex-start;font-size:1.1rem;font-weight:600}
+.cs-why-list li span{flex:none;width:28px;height:28px;border-radius:50%%;background:var(--cs-gold);color:#fff;display:grid;place-items:center;font-size:.9rem}
+.cs-contact{background:var(--cs-ink);color:#fff}
+.cs-contact h2,.cs-contact .cs-eyebrow{color:#fff}.cs-contact .cs-eyebrow{opacity:.7}
+.cs-contact-box{max-width:620px;text-align:center}
+.cs-ci-row{display:flex;flex-wrap:wrap;gap:10px 26px;justify-content:center;margin:18px 0 6px}
+.cs-ci{opacity:.92;font-size:1.02rem}
+.cs-form{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:22px}
+.cs-form input{flex:1;min-width:200px;max-width:260px;padding:14px 18px;border:0;border-radius:12px;font-size:1rem;font-family:inherit}
+.cs-form button{background:var(--cs-gold);color:#fff;font-weight:800;padding:14px 34px;border:0;border-radius:12px;font-size:1rem;cursor:pointer}
+.cs-foot{background:var(--cs-ink);color:#fff9;text-align:center;padding:26px;font-size:.88rem;border-top:1px solid #ffffff14}
+@media(max-width:760px){.cs-about{grid-template-columns:1fr;text-align:center}.cs-grid3{grid-template-columns:1fr}.cs-gal{grid-template-columns:1fr 1fr}.cs-gal img:nth-child(1){grid-column:span 2;min-height:230px}}
+</style>""" % (ink, gold, cream, ink, ink, ink, ink, gold))
+
+    hero_bg_div = ('<div class="cs-hero-bg" style="background-image:url(\'%s\')"></div>' % _esc(hero_bg)) if hero_bg else \
+                  ('<div class="cs-hero-bg" style="background:linear-gradient(135deg,%s,%s)"></div>' % (ink, gold))
+    nav = ('<nav class="cs-nav"><div class="cs-wrap"><span class="cs-brand">%s</span>'
+           '<a class="cs-cta" href="#contact">%s</a></div></nav>' % (nm, cta))
+    hero = ('<header class="cs-hero">%s<div class="cs-hero-in">'
+            '<span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
+            '<a class="cs-btn" href="#contact">%s</a></div></header>'
+            % (hero_bg_div, biz or t("ยินดีต้อนรับ", "Welcome"), headline, subhead, cta))
+    foot = '<footer class="cs-foot">%s · %s</footer>' % (nm, t("สร้างเว็บโดย ImVisible", "Built with ImVisible"))
+    return ('<main class="cs-site">' + css + nav + hero + about_sec + feats + gallery + why + contact_sec + foot + '</main>')
 
 
 def inject_photos(html: str, urls, lang="th") -> str:

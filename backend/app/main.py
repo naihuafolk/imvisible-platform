@@ -3668,6 +3668,13 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
         if wr:
             wr.status = "approved"; wr.project_id = pid; wr.preview_url = preview
         await s.commit()
+    # ยกระดับเว็บด้วย AI เบื้องหลัง: Claude เขียนคอนเทนต์จากบรีฟลูกค้า + Imgentic เจน hero (สวยขายได้)
+    try:
+        from app.worker.tasks import build_client_site
+        build_client_site.delay(pid, {"name": name, "biz_type": biz_type, "about": about,
+                                      "contact": contact, "lang": lang})
+    except Exception:  # noqa: BLE001
+        pass
     try:
         await notify.send_line("✅ อนุมัติ+สร้างเว็บแล้ว: %s (%d รูป)\nดูแบบ: %s" % (name, len(photo_urls), preview or "-"))
     except Exception:  # noqa: BLE001
