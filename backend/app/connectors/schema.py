@@ -21,8 +21,9 @@ _TYPE_RULES = [
       "หมูกระทะ", "ชาบู", "bakery", "เบเกอรี", "ภัตตาคาร"), "Restaurant"),
     (("สอน", "คอร์สเรียน", "โรงเรียน", "ติว", "course", "school", "education", "academy",
       "หนังสือ", "book", "e-learning", "ครู"), "EducationalOrganization"),
-    (("ทำเว็บ", "ซอฟต์แวร์", "แอป", "software", "saas", "แพลตฟอร์ม", "เทคโนโลยี",
-      "seo", "การตลาด", "agency", "เอเจนซี", "ดิจิทัล", "digital", "รับทำ"), "ProfessionalService"),
+    (("ทำเว็บ", "สร้างเว็บ", "เว็บไซต์", "website", "ซอฟต์แวร์", "แอป", "software", "saas",
+      "แพลตฟอร์ม", "platform", "เทคโนโลยี", "seo", "การตลาด", "agency", "เอเจนซี",
+      "ดิจิทัล", "digital", "รับทำ"), "ProfessionalService"),
     (("ร้าน", "ขาย", "shop", "store", "จำหน่าย", "อีคอมเมิร์ซ", "ecommerce", "ขายส่ง"), "Store"),
 ]
 
@@ -57,7 +58,9 @@ def schema_pack(*, name: str, home: str, business_context: str = "", brand_terms
     name = (name or "").strip()
     home = (home or "").strip()
     has_addr = bool((address or "").strip())
-    btype = infer_type(business_context, brand_terms, has_addr)
+    # เดาชนิดจาก 'คำอธิบายหลัก' (140 ตัวแรก มักบอกว่าธุรกิจคืออะไร) + ชื่อ + brand
+    # → เลี่ยงคำ 'ตัวอย่างธุรกิจ' ที่มักอยู่ท้าย context (เช่น 'เช่น คลินิก ร้านอาหาร') ที่ทำให้แมตช์ผิด
+    btype = infer_type(name + " " + (business_context or "")[:140], brand_terms, has_addr)
 
     ent = {"@type": btype, "name": name}
     if home:
