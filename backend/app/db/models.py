@@ -335,4 +335,5 @@ class UploadedImage(Base):
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
     data: Mapped[bytes] = mapped_column(LargeBinary)
     content_type: Mapped[str] = mapped_column(String(60), default="image/jpeg")
+    kind: Mapped[str] = mapped_column(String(20), default="gallery")        # gallery | menu | logo → แยกไปวางในเว็บคนละที่
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

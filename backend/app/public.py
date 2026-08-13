@@ -424,7 +424,8 @@ def parse_menu_text(text: str) -> list:
 def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="th",
                        report_token="", copy: dict | None = None, hero_img: str = "",
                        variant: int = 1, blog: list | None = None, social: list | None = None,
-                       menu: list | None = None, menu_note: str = "", logo: str = "") -> str:
+                       menu: list | None = None, menu_note: str = "", logo: str = "",
+                       menu_images: list | None = None) -> str:
     """สร้าง 'หน้าเว็บพรีเมียม' ให้ลูกค้า — template สวยขายได้ (ไม่พึ่ง IM WEB)
     ถ้ามี copy (Claude เขียน) + hero_img (Imgentic) จะสวยเต็มรูป · ไม่มีก็ fallback บรีฟดิบได้
     variant 1=Luxe (hero เต็มจอ) · 2=Modern (hero แบ่งซ้าย-ขวา) · 3=Warm (hero การ์ดซ้อน)
@@ -562,9 +563,15 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
         blog_sec = ('<section class="cs-sec cs-blog" id="blog"><div class="cs-wrap"><span class="cs-eyebrow cs-c">%s</span>'
                     '<h2 class="cs-c">%s</h2><div class="cs-blog-grid">%s</div></div></section>'
                     % (t("บทความ", "Journal"), t("เรื่องราว & บทความ", "From Our Blog"), cards))
-    # 🍽️ เมนูจริง + ราคาจริง (ร้านอาหาร) — no-faking: มาจากเมนูจริงที่ลูกค้าส่งบรีฟ/แคปมาให้
+    # 🍽️ เมนูจริง (ร้านอาหาร) — no-faking: รูปเมนูจริง / หรือเมนู+ราคาที่ลูกค้าส่งมา
     menu_sec = ""
+    mimgs = [u for u in (menu_images or []) if u]
     ml = [m for m in (menu or []) if isinstance(m, dict) and m.get("items")]
+    menu_inner = ""
+    if mimgs:                                    # รูปโปสเตอร์เมนู (ลูกค้าอัปมา) → โชว์เต็มอัตราส่วน คลิกซูมได้
+        cells = "".join('<a class="cs-menuimg" href="%s" target="_blank" rel="noopener"><img src="%s" alt="%s" loading="lazy"></a>'
+                        % (_esc(u), _esc(u), nm + " menu") for u in mimgs[:12])
+        menu_inner += '<div class="cs-menuimgs">%s</div>' % cells
     if ml:
         cats = ""
         for m in ml:
@@ -584,10 +591,12 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
             cats += ('<div class="cs-mcat"><h3>%s</h3>%s<div class="cs-mi-list">%s</div></div>'
                      % (_esc((m.get("cat") or "").strip()), ('<p class="cs-mcat-note">%s</p>' % cnote) if cnote else "", rows))
         mnote = _esc((menu_note or "").strip())
+        menu_inner += ('<div class="cs-mcats">%s</div>%s'
+                       % (cats, ('<p class="cs-menu-foot">%s</p>' % mnote) if mnote else ""))
+    if menu_inner:
         menu_sec = ('<section class="cs-sec cs-menu" id="menu" style="background:var(--cs-cream)"><div class="cs-wrap">'
-                    '<span class="cs-eyebrow cs-c">%s</span><h2 class="cs-c">%s</h2><div class="cs-mcats">%s</div>%s</div></section>'
-                    % (t("เมนู", "Menu"), t("เมนูแนะนำ & ราคา", "Menu & Prices"), cats,
-                       ('<p class="cs-menu-foot">%s</p>' % mnote) if mnote else ""))
+                    '<span class="cs-eyebrow cs-c">%s</span><h2 class="cs-c">%s</h2>%s</div></section>'
+                    % (t("เมนู", "Menu"), t("เมนู & ราคา", "Our Menu"), menu_inner))
     # ติดต่อ (ครบขึ้น): ช่องทางติดต่อ + โซเชียล + ฟอร์มดักลีด
     contact_sec = ('<section class="cs-sec cs-contact" id="contact"><div class="cs-wrap cs-contact-box">'
                    '<span class="cs-eyebrow cs-c">%s</span><h2 class="cs-c">%s</h2>'
@@ -596,8 +605,9 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
                       "".join(ci), social_html, form))
 
     css = ("""<style>
-:root{--cs-ink:%s;--cs-gold:%s;--cs-cream:%s}
-.cs-site{font-family:'Sarabun','Prompt','Segoe UI',sans-serif;color:var(--cs-ink);background:#fff;line-height:1.7}
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Prompt:wght@400;500;600;700&display=swap');
+:root{--cs-ink:%s;--cs-gold:%s;--cs-cream:%s;--cs-display:'Cormorant Garamond','Prompt','Sarabun',serif}
+.cs-site{font-family:'Prompt','Sarabun','Segoe UI',sans-serif;color:var(--cs-ink);background:#fff;line-height:1.7;-webkit-font-smoothing:antialiased}
 .cs-site *{box-sizing:border-box}
 .cs-wrap{max-width:1120px;margin:0 auto;padding:0 22px}
 .cs-nav{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid #0000000f}
@@ -612,14 +622,14 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
 .cs-hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,%s00 0%%,%scc 100%%),linear-gradient(%s99,%s99)}
 .cs-hero-in{position:relative;z-index:2;padding:80px 22px;max-width:820px}
 .cs-hero .cs-eyebrow{color:#fff;opacity:.9}
-.cs-hero h1{font-size:clamp(2.2rem,6.5vw,4rem);line-height:1.05;margin:10px 0 14px;font-weight:800;letter-spacing:-.02em;text-shadow:0 2px 30px #0006}
+.cs-hero h1{font-family:var(--cs-display);font-size:clamp(2.7rem,7.2vw,4.8rem);line-height:1;margin:12px 0 16px;font-weight:700;letter-spacing:.005em;text-shadow:0 2px 34px #0007}
 .cs-hero p{font-size:clamp(1.05rem,2.4vw,1.35rem);opacity:.96;margin:0 auto 28px;max-width:600px}
 .cs-btn{display:inline-block;background:var(--cs-gold);color:#fff;font-weight:800;padding:15px 40px;border-radius:999px;text-decoration:none;font-size:1.05rem;box-shadow:0 12px 30px %s55;transition:transform .15s}
 .cs-btn:hover{transform:translateY(-2px)}
 .cs-eyebrow{display:inline-block;text-transform:uppercase;letter-spacing:.18em;font-size:.72rem;font-weight:800;color:var(--cs-gold);margin-bottom:8px}
 .cs-c{text-align:center;display:block}
 .cs-sec{padding:clamp(48px,8vw,90px) 0}
-.cs-sec h2{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:800;letter-spacing:-.02em;margin:0 0 16px}
+.cs-sec h2{font-family:var(--cs-display);font-size:clamp(1.9rem,4.4vw,2.9rem);font-weight:700;letter-spacing:.005em;margin:0 0 16px}
 .cs-about{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
 .cs-about.cs-about-solo{grid-template-columns:1fr;max-width:760px;text-align:center}
 .cs-about-txt p{color:#00000099;font-size:1.08rem;margin:0}
@@ -674,6 +684,12 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
 .cs-v3 .cs-hero-cardbox p{opacity:1;color:#00000099}
 .cs-v3 .cs-card{border-radius:24px}.cs-v3 .cs-gal img{border-radius:22px}
 @media(max-width:760px){.cs-v2 .cs-split{grid-template-columns:1fr}.cs-v2 .cs-split-img{min-height:260px;order:-1}}
+.cs-menuimgs{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:940px;margin:34px auto 0}
+.cs-menuimg{display:block;border-radius:14px;overflow:hidden;box-shadow:0 14px 40px #0000001f;transition:transform .18s,box-shadow .18s;background:#fff}
+.cs-menuimg:hover{transform:translateY(-4px);box-shadow:0 22px 54px #00000030}
+.cs-menuimg img{width:100%;height:auto;display:block}
+.cs-menuimgs + .cs-mcats{margin-top:44px}
+@media(max-width:640px){.cs-menuimgs{grid-template-columns:1fr;gap:14px}}
 .cs-mcats{display:grid;grid-template-columns:1fr 1fr;gap:36px 54px;margin-top:36px;text-align:left}
 .cs-mcat h3{font-size:1.32rem;color:var(--cs-ink);margin:0 0 2px;padding-bottom:9px;border-bottom:2px solid var(--cs-gold);display:inline-block;letter-spacing:.02em}
 .cs-mcat-note{font-size:.84rem;color:#00000088;margin:6px 0 0}

@@ -3522,9 +3522,11 @@ def _build_form_html() -> str:
             '<div class="hint">มีแค่เพจ Facebook ก็พอ — ระบบไปหาข้อมูลให้เอง</div></div>'
             '<div style="margin-bottom:13px"><label>อยากได้เว็บแบบไหน / ข้อมูลเพิ่ม</label>'
             '<textarea name="detail" rows="3" placeholder="เช่น เน้นลูกค้าต่างชาติ, ขายกาแฟ+จองโต๊ะ, โทนอบอุ่น" style="' + inp + '"></textarea></div>'
-            '<div style="margin-bottom:13px"><label>🍽️ เมนู + ราคา (ร้านอาหาร/คาเฟ่)</label>'
-            '<textarea name="menu_text" rows="5" placeholder="วางเมนูมาได้เลย 1 บรรทัด/รายการ เช่น&#10;— หมวด: Donburi&#10;Wagyu Yakiniku Don 300&#10;Katsu Don 250&#10;— หมวด: Sushi&#10;Otoro 140" style="' + inp + '"></textarea>'
-            '<div class="hint">พิมพ์ชื่อเมนูตามด้วยราคา · ขึ้นหมวดใหม่ด้วยบรรทัดที่ไม่มีราคา — ระบบจัดหน้าเมนูสวย ๆ ให้เอง (ราคาจริงล้วน)</div></div>'
+            '<div style="margin-bottom:13px"><label>🍽️ เมนู (ร้านอาหาร/คาเฟ่)</label>'
+            '<div class="hint" style="margin:3px 0 7px">วิธีง่ายสุด — <b>อัปรูปเมนู (โปสเตอร์เมนู) มาเลย</b> ระบบเอาไปโชว์เป็นหน้าเมนูให้ (หลายรูปได้)</div>'
+            '<input type="file" name="menu_photos" accept="image/*" multiple style="' + inp + '">'
+            '<div class="hint" style="margin-top:9px">หรือถ้าไม่มีรูป พิมพ์เมนู+ราคาได้ (1 บรรทัด/รายการ · ขึ้นหมวดด้วยบรรทัดไม่มีราคา):</div>'
+            '<textarea name="menu_text" rows="4" placeholder="เช่น&#10;Donburi&#10;Wagyu Yakiniku Don 300&#10;Katsu Don 250" style="' + inp + '"></textarea></div>'
             '<div style="margin-bottom:13px"><label>ภาษาเว็บหลัก</label>'
             '<select name="language" style="' + inp + '"><option value="th">ไทย</option><option value="en">อังกฤษ (เน้นต่างชาติ)</option></select></div>'
             '<div style="margin-bottom:4px"><label>📷 แนบรูปจริงเยอะ ๆ (สูงสุด 15 รูป)</label>'
@@ -3547,7 +3549,8 @@ async def submit_web_request(business_name: str = Form(""), biz_type: str = Form
                              address: str = Form(""), map_url: str = Form(""),
                              links: str = Form(""), detail: str = Form(""), language: str = Form("th"),
                              menu_text: str = Form(""),
-                             photos: list[UploadFile] = File(default=[]), _rl=Depends(rate_limit_auth)):
+                             photos: list[UploadFile] = File(default=[]),
+                             menu_photos: list[UploadFile] = File(default=[]), _rl=Depends(rate_limit_auth)):
     """ลูกค้ากรอกฟอร์มขอทำเว็บ + แนบรูป (native submit) → เข้าคิว WebRequest + เก็บรูป + แจ้ง LINE → หน้าขอบคุณ"""
     from fastapi.responses import HTMLResponse
     from app.db.models import WebRequest, UploadedImage
@@ -3575,9 +3578,24 @@ async def submit_web_request(business_name: str = Form(""), biz_type: str = Form
                 continue
             if not data or len(data) > 6_000_000:
                 continue
-            s.add(UploadedImage(web_request_id=rid, data=data, content_type=ct[:60]))
+            s.add(UploadedImage(web_request_id=rid, data=data, content_type=ct[:60], kind="gallery"))
             n_photos += 1
-        if n_photos:
+        n_menu = 0
+        for f in (menu_photos or []):                # รูปเมนู (โปสเตอร์) → โชว์เป็นหน้าเมนู
+            if n_menu >= 12:
+                break
+            ct = (getattr(f, "content_type", "") or "").lower()
+            if not ct.startswith("image/"):
+                continue
+            try:
+                mdata = await f.read()
+            except Exception:  # noqa: BLE001
+                continue
+            if not mdata or len(mdata) > 6_000_000:
+                continue
+            s.add(UploadedImage(web_request_id=rid, data=mdata, content_type=ct[:60], kind="menu"))
+            n_menu += 1
+        if n_photos or n_menu:
             await s.commit()
     try:
         await notify.send_line("🌐 คำขอทำเว็บใหม่!\nธุรกิจ: %s (%s)\nติดต่อ: %s\nลิงก์: %s\nแนบรูป: %d รูป"
@@ -3604,6 +3622,7 @@ async def serve_media(img_id: int):
 
 @app.post("/api/projects/{pid}/photos")
 async def add_project_photos(pid: int, photos: list[UploadFile] = File(default=[]),
+                             menu_photos: list[UploadFile] = File(default=[]),
                              logo: UploadFile | None = File(default=None),
                              as_hero: int = 0, user=Depends(get_current_user)):
     """แอดมิน: อัปโหลด 'รูปจริง' เพิ่มเข้าโปรเจกต์ (เช่นรูปที่แคปจาก FB ร้าน) → ต่อท้ายแกลเลอรี + re-render เว็บทันที
@@ -3635,13 +3654,31 @@ async def add_project_photos(pid: int, photos: list[UploadFile] = File(default=[
                 continue
             if not data or len(data) > 8_000_000:
                 continue
-            im = UploadedImage(project_id=pid, data=data, content_type=ct[:60])
+            im = UploadedImage(project_id=pid, data=data, content_type=ct[:60], kind="gallery")
             s.add(im); await s.flush()
             added.append(base + "/api/media/" + str(im.id))
+        menu_added: list[str] = []
+        for f in (menu_photos or []):                  # รูปโปสเตอร์เมนู → โชว์เป็นหน้าเมนู
+            if len(menu_added) >= 12:
+                break
+            ct = (getattr(f, "content_type", "") or "").lower()
+            if not ct.startswith("image/"):
+                continue
+            try:
+                mdata = await f.read()
+            except Exception:  # noqa: BLE001
+                continue
+            if not mdata or len(mdata) > 8_000_000:
+                continue
+            mim = UploadedImage(project_id=pid, data=mdata, content_type=ct[:60], kind="menu")
+            s.add(mim); await s.flush()
+            menu_added.append(base + "/api/media/" + str(mim.id))
         try:
             br = _jsonp.loads(getattr(p, "site_brief", "") or "{}")
         except Exception:  # noqa: BLE001
             br = {}
+        if menu_added:
+            br["menu_images"] = (br.get("menu_images") or []) + menu_added
         logo_url = ""
         if logo is not None:                                      # โลโก้ร้าน (แยกจากรูปทั่วไป) → หัวเว็บ + hero
             lct = (getattr(logo, "content_type", "") or "").lower()
@@ -3651,11 +3688,11 @@ async def add_project_photos(pid: int, photos: list[UploadFile] = File(default=[
                 except Exception:  # noqa: BLE001
                     ldata = b""
                 if ldata and len(ldata) <= 8_000_000:
-                    lim = UploadedImage(project_id=pid, data=ldata, content_type=lct[:60])
+                    lim = UploadedImage(project_id=pid, data=ldata, content_type=lct[:60], kind="logo")
                     s.add(lim); await s.flush()
                     logo_url = base + "/api/media/" + str(lim.id)
                     br["logo"] = logo_url
-        if not added and not logo_url:
+        if not added and not menu_added and not logo_url:
             return JSONResponse({"ok": False, "added": 0, "msg": "ไม่มีรูปที่ใช้ได้ (ต้องเป็นไฟล์รูป ≤8MB)"})
         br["photo_urls"] = (br.get("photo_urls") or []) + added   # รูปจริงต่อท้าย (ของเดิมคงไว้)
         if as_hero and added:
@@ -3667,7 +3704,8 @@ async def add_project_photos(pid: int, photos: list[UploadFile] = File(default=[
             br.get("report_token") or "", copy=br.get("copy") or {},
             hero_img=br.get("hero_img") or "", variant=var,
             blog=br.get("blog") or [], social=br.get("social") or [],
-            menu=br.get("menu") or [], menu_note=br.get("menu_note") or "", logo=br.get("logo") or "")
+            menu=br.get("menu") or [], menu_note=br.get("menu_note") or "", logo=br.get("logo") or "",
+            menu_images=br.get("menu_images") or [])
         try:
             home = _public.inject_aeo_geo(home, name=br.get("name") or p.name, home=br.get("home_url") or "",
                                           lang=("en" if str(br.get("lang") or "th").startswith("en") else "th"), brief={})
@@ -3678,7 +3716,8 @@ async def add_project_photos(pid: int, photos: list[UploadFile] = File(default=[
         await s.commit()
         total = len(br.get("photo_urls") or [])
         home_url = _public.project_public_home(p) or ""
-    return {"ok": True, "added": len(added), "logo": bool(logo_url), "total": total, "home_url": home_url, "urls": added}
+    return {"ok": True, "added": len(added), "menu_added": len(menu_added), "logo": bool(logo_url),
+            "total": total, "home_url": home_url, "urls": added}
 
 
 @app.get("/api/admin/upload/{pid}")
@@ -3715,6 +3754,8 @@ a.view{display:inline-block;margin-top:10px;color:#1657d6;font-weight:700}</styl
 <div class="drop" id="drop">🖼️ <b>ลากรูปมาวาง</b> หรือคลิกเพื่อเลือก (หลายรูปได้ · ≤8MB/รูป)</div>
 <input type="file" id="file" accept="image/*" multiple style="display:none">
 <div id="grid"></div>
+<label style="font-weight:700;font-size:14px;display:block;margin-top:6px">🍽️ รูปเมนู (โปสเตอร์เมนู) — โชว์เป็นหน้าเมนูในเว็บ</label>
+<input type="file" id="menu" accept="image/*" multiple style="display:block;margin:6px 0 2px">
 <label class="cb"><input type="checkbox" id="hero"> ใช้รูปแรกเป็นปกเว็บ (hero)</label>
 <button class="b" id="go" disabled>อัปโหลด</button>
 <div class="msg" id="msg"></div>
@@ -3725,17 +3766,19 @@ try{tok=localStorage.getItem('rp-token')||'';}catch(e){}
 var drop=document.getElementById('drop'),fi=document.getElementById('file'),grid=document.getElementById('grid'),go=document.getElementById('go'),msg=document.getElementById('msg');
 function show(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'err');}
 if(!tok){show('ยังไม่ได้ล็อกอิน — เปิดหน้านี้จากเบราว์เซอร์ที่ล็อกอิน ImVisible อยู่ (app.imvisible.tech) แล้วรีเฟรช',false);}
-var logoInp=document.getElementById('logo');
+var logoInp=document.getElementById('logo');var menuInp=document.getElementById('menu');
 function hasLogo(){return logoInp.files.length>0;}
-function render(){grid.innerHTML='';files.forEach(function(f){var d=document.createElement('div');d.style.backgroundImage="url('"+URL.createObjectURL(f)+"')";grid.appendChild(d);});go.disabled=!((files.length||hasLogo())&&tok);go.textContent='อัปโหลด'+(files.length?(' '+files.length+' รูป'):'')+(hasLogo()?(files.length?' + โลโก้':'โลโก้'):'');}
+function nMenu(){return menuInp.files.length;}
+function render(){grid.innerHTML='';files.forEach(function(f){var d=document.createElement('div');d.style.backgroundImage="url('"+URL.createObjectURL(f)+"')";grid.appendChild(d);});go.disabled=!((files.length||hasLogo()||nMenu())&&tok);go.textContent='อัปโหลด'+(files.length?(' '+files.length+' รูป'):'')+(nMenu()?(' + เมนู '+nMenu()):'')+(hasLogo()?' + โลโก้':'');}
 function add(list){for(var i=0;i<list.length;i++){if(list[i].type.indexOf('image/')===0)files.push(list[i]);}render();}
-logoInp.onchange=render;
+logoInp.onchange=render;menuInp.onchange=render;
 drop.onclick=function(){fi.click();};fi.onchange=function(){add(fi.files);};
 ['dragenter','dragover'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.add('hot');});});
 ['dragleave','drop'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.remove('hot');});});
 drop.addEventListener('drop',function(ev){add(ev.dataTransfer.files);});
-go.onclick=function(){if((!files.length&&!hasLogo())||!tok)return;go.disabled=true;go.textContent='กำลังอัปโหลด...';
+go.onclick=function(){if((!files.length&&!hasLogo()&&!nMenu())||!tok)return;go.disabled=true;go.textContent='กำลังอัปโหลด...';
 var fd=new FormData();files.forEach(function(f){fd.append('photos',f);});
+for(var mi=0;mi<menuInp.files.length;mi++)fd.append('menu_photos',menuInp.files[mi]);
 if(hasLogo())fd.append('logo',logoInp.files[0]);
 var hero=document.getElementById('hero').checked?1:0;
 fetch('/api/projects/'+PID+'/photos?as_hero='+hero,{method:'POST',headers:{'Authorization':'Bearer '+tok},body:fd})
@@ -3810,10 +3853,17 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
     async with db.session() as s:
         from app.db.models import UploadedImage, Project
         imgs = (await s.execute(select(UploadedImage).where(UploadedImage.web_request_id == req_id))).scalars().all()
-        photo_urls = []
+        photo_urls, menu_imgs, logo_u = [], [], ""
         for im in imgs:
-            im.project_id = pid
-            photo_urls.append(base + "/api/media/" + str(im.id))
+            im.project_id = pid                       # ผูกรูปเข้าโปรเจกต์ (build จะหยิบตาม kind เอง)
+            u = base + "/api/media/" + str(im.id)
+            k = (getattr(im, "kind", "gallery") or "gallery")
+            if k == "menu":
+                menu_imgs.append(u)
+            elif k == "logo":
+                logo_u = logo_u or u
+            else:
+                photo_urls.append(u)
         p = await s.get(Project, pid)
         rtoken = getattr(p, "report_token", "") if p else ""
         home_base = _public.project_public_home(p) if p else preview
@@ -3822,7 +3872,8 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
                    "phone": cr if ("@" not in cr and any(c.isdigit() for c in cr)) else "",
                    "line": cr if ("@" not in cr and not any(c.isdigit() for c in cr)) else "",
                    "address": addr_v, "map": map_v}
-        home = _public.render_client_home(name, biz_type, about, contact, photo_urls, lang, rtoken, variant=1)
+        home = _public.render_client_home(name, biz_type, about, contact, photo_urls, lang, rtoken, variant=1,
+                                          menu_images=menu_imgs, logo=logo_u)
         home = _public.inject_aeo_geo(home, name=name, home=home_base, lang=("en" if str(lang).startswith("en") else "th"), brief={})
         wr = await s.get(WebRequest, req_id)
         if p:
@@ -3879,7 +3930,8 @@ def _render_variant_from_brief(_public, p, variant: int) -> str:
         br.get("report_token") or "", copy=br.get("copy") or {},
         hero_img=br.get("hero_img") or "", variant=variant,
         blog=br.get("blog") or [], social=br.get("social") or [],
-        menu=br.get("menu") or [], menu_note=br.get("menu_note") or "", logo=br.get("logo") or "")
+        menu=br.get("menu") or [], menu_note=br.get("menu_note") or "", logo=br.get("logo") or "",
+        menu_images=br.get("menu_images") or [])
     try:
         home = _public.inject_aeo_geo(home, name=br.get("name") or p.name, home=br.get("home_url") or "",
                                       lang=("en" if str(br.get("lang") or "th").startswith("en") else "th"), brief={})
