@@ -393,9 +393,38 @@ def _cs_palette(biz_type: str, about: str) -> tuple:
     return _CS_PALETTES["default"]
 
 
+def parse_menu_text(text: str) -> list:
+    """แปลง 'เมนูดิบ' ที่ลูกค้าวางมาในบรีฟ → โครงหมวด+รายการ (no-faking: แค่จัดรูปข้อความจริงของลูกค้า)
+    - บรรทัดที่ลงท้ายด้วยราคา (ตัวเลข) = รายการ (ชื่อ + ราคา)
+    - บรรทัดที่ไม่มีราคา = หัวข้อหมวดใหม่ (เช่น 'Donburi', 'หมวด: Sushi')"""
+    import re as _re
+    if not text or not str(text).strip():
+        return []
+    price_re = _re.compile(r"^(.*?)[\s.·:_\-–—]*฿?\s*([\d][\d,]*(?:\.\d+)?)\s*(?:บาท|thb|฿|baht|\.\-|\.-)?$", _re.I)
+    cats, cur = [], None
+    for raw in str(text).splitlines():
+        line = raw.strip().strip("•*·-–—:").strip()
+        if not line:
+            continue
+        low = line.lower()
+        # ข้ามบรรทัดหมายเหตุ (service charge/vat) — ไม่ใช่รายการ/หมวด
+        if ("%" in line) and any(k in low for k in ("service", "vat", "charge", "ภาษี", "เซอร์วิส")):
+            continue
+        m = price_re.match(line)
+        if m and m.group(1).strip():
+            if cur is None:
+                cur = {"cat": "", "items": []}; cats.append(cur)
+            cur["items"].append({"name": m.group(1).strip()[:80], "price": m.group(2).strip()})
+        else:
+            head = _re.sub(r"^(หมวด|category|menu)\s*[:：]\s*", "", line, flags=_re.I).strip()
+            cur = {"cat": head[:40], "items": []}; cats.append(cur)
+    return [c for c in cats if c.get("items")]
+
+
 def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="th",
                        report_token="", copy: dict | None = None, hero_img: str = "",
-                       variant: int = 1, blog: list | None = None, social: list | None = None) -> str:
+                       variant: int = 1, blog: list | None = None, social: list | None = None,
+                       menu: list | None = None, menu_note: str = "") -> str:
     """สร้าง 'หน้าเว็บพรีเมียม' ให้ลูกค้า — template สวยขายได้ (ไม่พึ่ง IM WEB)
     ถ้ามี copy (Claude เขียน) + hero_img (Imgentic) จะสวยเต็มรูป · ไม่มีก็ fallback บรีฟดิบได้
     variant 1=Luxe (hero เต็มจอ) · 2=Modern (hero แบ่งซ้าย-ขวา) · 3=Warm (hero การ์ดซ้อน)
@@ -533,6 +562,32 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
         blog_sec = ('<section class="cs-sec cs-blog" id="blog"><div class="cs-wrap"><span class="cs-eyebrow cs-c">%s</span>'
                     '<h2 class="cs-c">%s</h2><div class="cs-blog-grid">%s</div></div></section>'
                     % (t("บทความ", "Journal"), t("เรื่องราว & บทความ", "From Our Blog"), cards))
+    # 🍽️ เมนูจริง + ราคาจริง (ร้านอาหาร) — no-faking: มาจากเมนูจริงที่ลูกค้าส่งบรีฟ/แคปมาให้
+    menu_sec = ""
+    ml = [m for m in (menu or []) if isinstance(m, dict) and m.get("items")]
+    if ml:
+        cats = ""
+        for m in ml:
+            its = [it for it in (m.get("items") or []) if isinstance(it, dict) and (it.get("name") or "").strip()]
+            if not its:
+                continue
+            rows = ""
+            for it in its:
+                nmi = _esc((it.get("name") or "").strip())
+                d = _esc((it.get("desc") or "").strip())
+                pr = (str(it.get("price")) if it.get("price") not in (None, "") else "").strip()
+                prtxt = (("฿" + pr) if pr.replace(",", "").replace(".", "").isdigit() else _esc(pr)) if pr else ""
+                rows += ('<div class="cs-mi"><div class="cs-mi-l"><span class="cs-mi-n">%s</span>%s</div>'
+                         '<span class="cs-mi-dot"></span><span class="cs-mi-p">%s</span></div>'
+                         % (nmi, ('<span class="cs-mi-d">%s</span>' % d) if d else "", prtxt))
+            cnote = _esc((m.get("note") or "").strip())
+            cats += ('<div class="cs-mcat"><h3>%s</h3>%s<div class="cs-mi-list">%s</div></div>'
+                     % (_esc((m.get("cat") or "").strip()), ('<p class="cs-mcat-note">%s</p>' % cnote) if cnote else "", rows))
+        mnote = _esc((menu_note or "").strip())
+        menu_sec = ('<section class="cs-sec cs-menu" id="menu" style="background:var(--cs-cream)"><div class="cs-wrap">'
+                    '<span class="cs-eyebrow cs-c">%s</span><h2 class="cs-c">%s</h2><div class="cs-mcats">%s</div>%s</div></section>'
+                    % (t("เมนู", "Menu"), t("เมนูแนะนำ & ราคา", "Menu & Prices"), cats,
+                       ('<p class="cs-menu-foot">%s</p>' % mnote) if mnote else ""))
     # ติดต่อ (ครบขึ้น): ช่องทางติดต่อ + โซเชียล + ฟอร์มดักลีด
     contact_sec = ('<section class="cs-sec cs-contact" id="contact"><div class="cs-wrap cs-contact-box">'
                    '<span class="cs-eyebrow cs-c">%s</span><h2 class="cs-c">%s</h2>'
@@ -616,9 +671,25 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
 .cs-v3 .cs-hero-cardbox p{opacity:1;color:#00000099}
 .cs-v3 .cs-card{border-radius:24px}.cs-v3 .cs-gal img{border-radius:22px}
 @media(max-width:760px){.cs-v2 .cs-split{grid-template-columns:1fr}.cs-v2 .cs-split-img{min-height:260px;order:-1}}
+.cs-mcats{display:grid;grid-template-columns:1fr 1fr;gap:36px 54px;margin-top:36px;text-align:left}
+.cs-mcat h3{font-size:1.32rem;color:var(--cs-ink);margin:0 0 2px;padding-bottom:9px;border-bottom:2px solid var(--cs-gold);display:inline-block;letter-spacing:.02em}
+.cs-mcat-note{font-size:.84rem;color:#00000088;margin:6px 0 0}
+.cs-mi-list{margin-top:15px;display:flex;flex-direction:column;gap:13px}
+.cs-mi{display:flex;align-items:baseline;gap:9px}
+.cs-mi-l{display:flex;flex-direction:column;min-width:0}
+.cs-mi-n{font-weight:700;color:var(--cs-ink)}
+.cs-mi-d{font-size:.81rem;color:#00000077;margin-top:2px;line-height:1.4}
+.cs-mi-dot{flex:1;border-bottom:1px dotted #0000003a;transform:translateY(-4px);min-width:16px}
+.cs-mi-p{font-weight:800;color:var(--cs-gold);white-space:nowrap}
+.cs-menu-foot{text-align:center;color:#00000080;font-size:.82rem;margin-top:32px;font-style:italic}
+.cs-nav-r{display:flex;align-items:center;gap:22px}
+.cs-nav-lnk{color:var(--cs-ink);text-decoration:none;font-weight:600;font-size:.95rem;opacity:.85}
+.cs-nav-lnk:hover{opacity:1;color:var(--cs-gold)}
+@media(max-width:760px){.cs-mcats{grid-template-columns:1fr;gap:28px}.cs-nav-lnk{display:none}}
 </style>""")
+    menu_lnk = ('<a class="cs-nav-lnk" href="#menu">%s</a>' % t("เมนู", "Menu")) if menu_sec else ""
     nav = ('<nav class="cs-nav"><div class="cs-wrap"><span class="cs-brand">%s</span>'
-           '<a class="cs-cta" href="#contact">%s</a></div></nav>' % (nm, cta))
+           '<span class="cs-nav-r">%s<a class="cs-cta" href="#contact">%s</a></span></div></nav>' % (nm, menu_lnk, cta))
     eyebrow = biz or t("ยินดีต้อนรับ", "Welcome")
     bgcss = ("url('%s')" % _esc(hero_bg)) if hero_bg else ("linear-gradient(135deg,%s,%s)" % (ink, gold))
     if variant == 2:                      # Modern — hero แบ่งซ้าย-ขวา
@@ -638,7 +709,7 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
                 '<a class="cs-btn" href="#contact">%s</a></div></header>'
                 % (bgcss, eyebrow, headline, subhead, cta))
     foot = '<footer class="cs-foot">%s · %s</footer>' % (nm, t("สร้างเว็บโดย ImVisible", "Built with ImVisible"))
-    return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + gallery + why + blog_sec + booking_sec + map_sec + contact_sec + foot + '</main>'
+    return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + menu_sec + gallery + why + blog_sec + booking_sec + map_sec + contact_sec + foot + '</main>'
 
 
 _CS_VARIANTS = [("1", "✨ Luxe", ("หรู มินิมอล · hero เต็มจอ", "Luxe · full-screen hero")),

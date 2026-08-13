@@ -3522,11 +3522,14 @@ def _build_form_html() -> str:
             '<div class="hint">มีแค่เพจ Facebook ก็พอ — ระบบไปหาข้อมูลให้เอง</div></div>'
             '<div style="margin-bottom:13px"><label>อยากได้เว็บแบบไหน / ข้อมูลเพิ่ม</label>'
             '<textarea name="detail" rows="3" placeholder="เช่น เน้นลูกค้าต่างชาติ, ขายกาแฟ+จองโต๊ะ, โทนอบอุ่น" style="' + inp + '"></textarea></div>'
+            '<div style="margin-bottom:13px"><label>🍽️ เมนู + ราคา (ร้านอาหาร/คาเฟ่)</label>'
+            '<textarea name="menu_text" rows="5" placeholder="วางเมนูมาได้เลย 1 บรรทัด/รายการ เช่น&#10;— หมวด: Donburi&#10;Wagyu Yakiniku Don 300&#10;Katsu Don 250&#10;— หมวด: Sushi&#10;Otoro 140" style="' + inp + '"></textarea>'
+            '<div class="hint">พิมพ์ชื่อเมนูตามด้วยราคา · ขึ้นหมวดใหม่ด้วยบรรทัดที่ไม่มีราคา — ระบบจัดหน้าเมนูสวย ๆ ให้เอง (ราคาจริงล้วน)</div></div>'
             '<div style="margin-bottom:13px"><label>ภาษาเว็บหลัก</label>'
             '<select name="language" style="' + inp + '"><option value="th">ไทย</option><option value="en">อังกฤษ (เน้นต่างชาติ)</option></select></div>'
-            '<div style="margin-bottom:4px"><label>📷 แนบรูป (อาหาร/ร้าน/ผลงาน — สูงสุด 6 รูป)</label>'
+            '<div style="margin-bottom:4px"><label>📷 แนบรูปจริงเยอะ ๆ (สูงสุด 15 รูป)</label>'
             '<input type="file" name="photos" accept="image/*" multiple style="' + inp + '">'
-            '<div class="hint">รูปจริงของคุณจะถูกนำไปใส่ในเว็บที่ทีมสร้างให้</div></div>'
+            '<div class="hint">ร้านอาหาร: <b>รูปเมนู/จานเด่น + หน้าร้าน + บรรยากาศในร้าน</b> ยิ่งเยอะเว็บยิ่งสวยและน่าเชื่อถือ (รูปจริงล้วน ไม่ปั้น)</div></div>'
             '<button class="b" type="submit">ส่งคำขอ — ให้ทีมสร้างแบบให้</button>'
             '<div class="hint" style="text-align:center;margin-top:12px">ส่งแล้วทีมงานจะติดต่อกลับพร้อมแบบเว็บให้ดู</div>'
             '</form></div></div></body></html>')
@@ -3543,6 +3546,7 @@ async def build_form_page():
 async def submit_web_request(business_name: str = Form(""), biz_type: str = Form(""), contact: str = Form(""),
                              address: str = Form(""), map_url: str = Form(""),
                              links: str = Form(""), detail: str = Form(""), language: str = Form("th"),
+                             menu_text: str = Form(""),
                              photos: list[UploadFile] = File(default=[]), _rl=Depends(rate_limit_auth)):
     """ลูกค้ากรอกฟอร์มขอทำเว็บ + แนบรูป (native submit) → เข้าคิว WebRequest + เก็บรูป + แจ้ง LINE → หน้าขอบคุณ"""
     from fastapi.responses import HTMLResponse
@@ -3555,12 +3559,12 @@ async def submit_web_request(business_name: str = Form(""), biz_type: str = Form
         wr = WebRequest(business_name=business_name, biz_type=(biz_type or "").strip()[:120],
                         contact=(contact or "").strip()[:255], address=(address or "").strip()[:400],
                         map_url=(map_url or "").strip()[:600], links=(links or "").strip()[:2000],
-                        detail=(detail or "").strip()[:3000],
+                        detail=(detail or "").strip()[:3000], menu_text=(menu_text or "").strip()[:6000],
                         language=("en" if language == "en" else "th"), status="new")
         s.add(wr); await s.commit(); await s.refresh(wr)
         rid = wr.id
-        for f in (photos or []):                     # เก็บรูปที่แนบ (สูงสุด 6 · ≤4MB · เฉพาะ image/*)
-            if n_photos >= 6:
+        for f in (photos or []):                     # เก็บรูปที่แนบ (สูงสุด 15 · ≤6MB · เฉพาะ image/*)
+            if n_photos >= 15:
                 break
             ct = (getattr(f, "content_type", "") or "").lower()
             if not ct.startswith("image/"):
@@ -3569,7 +3573,7 @@ async def submit_web_request(business_name: str = Form(""), biz_type: str = Form
                 data = await f.read()
             except Exception:  # noqa: BLE001
                 continue
-            if not data or len(data) > 4_000_000:
+            if not data or len(data) > 6_000_000:
                 continue
             s.add(UploadedImage(web_request_id=rid, data=data, content_type=ct[:60]))
             n_photos += 1
@@ -3596,6 +3600,132 @@ async def serve_media(img_id: int):
             raise HTTPException(404, "not found")
         data, ct = img.data, (img.content_type or "image/jpeg")
     return Response(content=data, media_type=ct, headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.post("/api/projects/{pid}/photos")
+async def add_project_photos(pid: int, photos: list[UploadFile] = File(default=[]),
+                             as_hero: int = 0, user=Depends(get_current_user)):
+    """แอดมิน: อัปโหลด 'รูปจริง' เพิ่มเข้าโปรเจกต์ (เช่นรูปที่แคปจาก FB ร้าน) → ต่อท้ายแกลเลอรี + re-render เว็บทันที
+    บอทเข้า FB ไปแคปเองไม่ได้ (FB ล็อกอินบังคับ) → คนแคปมาแล้วลากลงที่นี่ = ได้รูปจริง 100% no-faking"""
+    from fastapi.responses import JSONResponse
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import usage
+    if (await usage.user_plan(user["id"])) != "admin":
+        raise HTTPException(403, "เฉพาะแอดมิน")
+    from app.db.models import Project, UploadedImage
+    from app import public as _public
+    import json as _jsonp
+    base = (settings.app_base_url or "").rstrip("/")
+    added: list[str] = []
+    async with db.session() as s:
+        p = await s.get(Project, pid)
+        if not p:
+            raise HTTPException(404, "ไม่พบโปรเจกต์")
+        for f in (photos or []):
+            if len(added) >= 24:                       # สูงสุด 24 รูป/ครั้ง · ≤8MB · เฉพาะ image/*
+                break
+            ct = (getattr(f, "content_type", "") or "").lower()
+            if not ct.startswith("image/"):
+                continue
+            try:
+                data = await f.read()
+            except Exception:  # noqa: BLE001
+                continue
+            if not data or len(data) > 8_000_000:
+                continue
+            im = UploadedImage(project_id=pid, data=data, content_type=ct[:60])
+            s.add(im); await s.flush()
+            added.append(base + "/api/media/" + str(im.id))
+        if not added:
+            return JSONResponse({"ok": False, "added": 0, "msg": "ไม่มีรูปที่ใช้ได้ (ต้องเป็นไฟล์รูป ≤8MB)"})
+        try:
+            br = _jsonp.loads(getattr(p, "site_brief", "") or "{}")
+        except Exception:  # noqa: BLE001
+            br = {}
+        br["photo_urls"] = (br.get("photo_urls") or []) + added   # รูปจริงต่อท้าย (ของเดิมคงไว้)
+        if as_hero:
+            br["hero_img"] = added[0]                              # ตั้งรูปจริงเป็น hero (ปกเว็บ)
+        var = getattr(p, "site_variant", 0) or 1
+        home = _public.render_client_home(
+            br.get("name") or p.name, br.get("biz_type") or "", br.get("about") or "",
+            br.get("contact") or {}, br.get("photo_urls") or [], br.get("lang") or "th",
+            br.get("report_token") or "", copy=br.get("copy") or {},
+            hero_img=br.get("hero_img") or "", variant=var,
+            blog=br.get("blog") or [], social=br.get("social") or [],
+            menu=br.get("menu") or [], menu_note=br.get("menu_note") or "")
+        try:
+            home = _public.inject_aeo_geo(home, name=br.get("name") or p.name, home=br.get("home_url") or "",
+                                          lang=("en" if str(br.get("lang") or "th").startswith("en") else "th"), brief={})
+        except Exception:  # noqa: BLE001
+            pass
+        p.site_brief = _jsonp.dumps(br, ensure_ascii=False)
+        p.home_html = home
+        await s.commit()
+        total = len(br.get("photo_urls") or [])
+        home_url = _public.project_public_home(p) or ""
+    return {"ok": True, "added": len(added), "total": total, "home_url": home_url, "urls": added}
+
+
+@app.get("/api/admin/upload/{pid}")
+async def admin_upload_page(pid: int):
+    """หน้าอัปโหลดรูปจริงเข้าโปรเจกต์ — เปิดในเบราว์เซอร์ที่ล็อกอิน SPA อยู่ (ใช้ token จาก localStorage 'rp-token')"""
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(_admin_upload_html(pid), headers={"Cache-Control": "no-store"})
+
+
+def _admin_upload_html(pid: int) -> str:
+    """หน้าอัปโหลดรูป (self-contained) — อ่าน token จาก localStorage เดียวกับ SPA แล้ว POST พร้อม Bearer"""
+    return ("""<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>อัปโหลดรูปจริงเข้าเว็บ · ImVisible</title>
+<style>body{font-family:'Sarabun','Segoe UI',sans-serif;background:#f4f8fd;margin:0;color:#0f1b2d;line-height:1.6}
+.wrap{max-width:640px;margin:0 auto;padding:30px 18px}.card{background:#fff;border:1px solid #e3e9f2;border-radius:18px;padding:26px 24px;box-shadow:0 10px 34px rgba(16,28,48,.09)}
+h1{font-size:22px;margin:6px 0 2px}.sub{color:#55647c;font-size:14px;margin-bottom:18px}
+.k{display:inline-flex;gap:7px;align-items:center;font-size:12px;font-weight:800;letter-spacing:.1em;color:#0e3fa0;background:#eaf1ff;border:1px solid #e3e9f2;padding:5px 12px;border-radius:999px}
+.drop{border:2px dashed #b9c9e6;border-radius:14px;padding:30px 16px;text-align:center;color:#5a6b86;background:#fafcff;cursor:pointer;transition:.15s;margin-top:6px}
+.drop.hot{border-color:#1657d6;background:#eef4ff;color:#1657d6}.drop b{color:#1657d6}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:8px;margin-top:14px}
+#grid div{position:relative;aspect-ratio:1;border-radius:10px;background-size:cover;background-position:center;border:1px solid #e3e9f2}
+label.cb{display:flex;gap:9px;align-items:center;font-size:14px;margin-top:16px;cursor:pointer}
+.b{background:#1657d6;color:#fff;border:0;border-radius:999px;padding:13px 30px;font-size:16px;font-weight:800;cursor:pointer;width:100%;margin-top:16px;font-family:inherit}
+.b:disabled{opacity:.5;cursor:default}.msg{margin-top:14px;font-size:14px;padding:11px 14px;border-radius:10px;display:none}
+.ok{background:#e7f7ee;color:#0b7a43;display:block}.err{background:#fdecec;color:#c0392b;display:block}
+a.view{display:inline-block;margin-top:10px;color:#1657d6;font-weight:700}</style></head>
+<body><div class="wrap"><div class="card">
+<span class="k">📷 ImVisible · อัปรูปจริงเข้าเว็บ</span>
+<h1>อัปโหลดรูปจริง (โปรเจกต์ #__PID__)</h1>
+<div class="sub">ลากรูปที่แคปจาก Facebook/ถ่ายเอง ลงกล่องด้านล่าง → กดอัปโหลด → เว็บอัปเดตทันที (รูปจริง 100%)</div>
+<div class="drop" id="drop">🖼️ <b>ลากรูปมาวาง</b> หรือคลิกเพื่อเลือก (หลายรูปได้ · ≤8MB/รูป)</div>
+<input type="file" id="file" accept="image/*" multiple style="display:none">
+<div id="grid"></div>
+<label class="cb"><input type="checkbox" id="hero"> ใช้รูปแรกเป็นปกเว็บ (hero)</label>
+<button class="b" id="go" disabled>อัปโหลด</button>
+<div class="msg" id="msg"></div>
+</div></div>
+<script>
+var PID=__PID__, files=[], tok='';
+try{tok=localStorage.getItem('rp-token')||'';}catch(e){}
+var drop=document.getElementById('drop'),fi=document.getElementById('file'),grid=document.getElementById('grid'),go=document.getElementById('go'),msg=document.getElementById('msg');
+function show(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'err');}
+if(!tok){show('ยังไม่ได้ล็อกอิน — เปิดหน้านี้จากเบราว์เซอร์ที่ล็อกอิน ImVisible อยู่ (app.imvisible.tech) แล้วรีเฟรช',false);}
+function render(){grid.innerHTML='';files.forEach(function(f){var d=document.createElement('div');d.style.backgroundImage="url('"+URL.createObjectURL(f)+"')";grid.appendChild(d);});go.disabled=!(files.length&&tok);go.textContent='อัปโหลด '+(files.length||'')+' รูป';}
+function add(list){for(var i=0;i<list.length;i++){if(list[i].type.indexOf('image/')===0)files.push(list[i]);}render();}
+drop.onclick=function(){fi.click();};fi.onchange=function(){add(fi.files);};
+['dragenter','dragover'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.add('hot');});});
+['dragleave','drop'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.remove('hot');});});
+drop.addEventListener('drop',function(ev){add(ev.dataTransfer.files);});
+go.onclick=function(){if(!files.length||!tok)return;go.disabled=true;go.textContent='กำลังอัปโหลด...';
+var fd=new FormData();files.forEach(function(f){fd.append('photos',f);});
+var hero=document.getElementById('hero').checked?1:0;
+fetch('/api/projects/'+PID+'/photos?as_hero='+hero,{method:'POST',headers:{'Authorization':'Bearer '+tok},body:fd})
+.then(function(r){return r.json().then(function(j){return{s:r.status,j:j};});})
+.then(function(o){if(o.s>=200&&o.s<300&&o.j.ok){show('✅ อัปโหลดสำเร็จ '+o.j.added+' รูป (รวมในเว็บ '+o.j.total+' รูป) — เว็บอัปเดตแล้ว',true);
+if(o.j.home_url){msg.innerHTML+='<br><a class="view" href="'+o.j.home_url+'" target="_blank">เปิดดูเว็บ →</a>';}
+files=[];render();go.textContent='อัปโหลดเพิ่ม';}
+else{show('❌ '+((o.j&&(o.j.msg||o.j.detail))||('ผิดพลาด ('+o.s+')')),false);go.disabled=false;go.textContent='ลองใหม่';}})
+.catch(function(){show('❌ เชื่อมต่อไม่ได้ ลองใหม่',false);go.disabled=false;go.textContent='ลองใหม่';});};
+render();
+</script></body></html>""").replace("__PID__", str(int(pid)))
 
 
 @app.get("/api/web-requests")
@@ -3644,6 +3774,7 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
         name, links, lang = wr.business_name, wr.links or "", (wr.language or "th")
         biz_type, about, contact_raw = (wr.biz_type or ""), (wr.detail or ""), (wr.contact or "")
         addr_v, map_v = (getattr(wr, "address", "") or ""), (getattr(wr, "map_url", "") or "")
+        menu_text_v = (getattr(wr, "menu_text", "") or "")
     first = ""
     for l in _re2.split(r"[\n,]", links):
         if l.strip():
@@ -3683,7 +3814,8 @@ async def web_request_approve(req_id: int, user=Depends(get_current_user)):
     try:
         from app.worker.tasks import build_client_site
         build_client_site.delay(pid, {"name": name, "biz_type": biz_type, "about": about,
-                                      "contact": contact, "lang": lang, "links": links})
+                                      "contact": contact, "lang": lang, "links": links,
+                                      "menu_text": menu_text_v})
     except Exception:  # noqa: BLE001
         pass
     choose_url = (base + "/api/site/" + stoken) if base else ("/api/site/" + stoken)
@@ -3725,7 +3857,8 @@ def _render_variant_from_brief(_public, p, variant: int) -> str:
         br.get("contact") or {}, br.get("photo_urls") or [], br.get("lang") or "th",
         br.get("report_token") or "", copy=br.get("copy") or {},
         hero_img=br.get("hero_img") or "", variant=variant,
-        blog=br.get("blog") or [], social=br.get("social") or [])
+        blog=br.get("blog") or [], social=br.get("social") or [],
+        menu=br.get("menu") or [], menu_note=br.get("menu_note") or "")
     try:
         home = _public.inject_aeo_geo(home, name=br.get("name") or p.name, home=br.get("home_url") or "",
                                       lang=("en" if str(br.get("lang") or "th").startswith("en") else "th"), brief={})

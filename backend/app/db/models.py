@@ -317,6 +317,7 @@ class WebRequest(Base):
     map_url: Mapped[str] = mapped_column(String(600), default="")           # ลิงก์ Google Maps (ถ้ามี) → ฝังแผนที่ตรง
     links: Mapped[str] = mapped_column(Text, default="")                    # ลิงก์ที่มี (FB/เว็บเดิม/IG) — คั่นบรรทัด/comma
     detail: Mapped[str] = mapped_column(Text, default="")                   # อยากได้เว็บแบบไหน/ข้อมูลเพิ่ม
+    menu_text: Mapped[str] = mapped_column(Text, default="")                 # เมนู+ราคาดิบที่ลูกค้าวางมา → หน้าเมนูจริง (no-faking)
     language: Mapped[str] = mapped_column(String(10), default="th")         # th | en (เน้นลูกค้าต่างชาติ = en)
     status: Mapped[str] = mapped_column(String(20), default="new", index=True)   # new | approved | rejected
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), nullable=True)  # โปรเจ็คที่สร้างหลังอนุมัติ
