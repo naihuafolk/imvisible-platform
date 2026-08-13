@@ -148,7 +148,7 @@
     var used = info.used || 0;
     var opts = PACKS.map(function (pk) {
       var on = pk === current, over = used > pk;
-      return '<label class="row gap-s" style="cursor:pointer;padding:10px 12px;border:1px solid ' + (on ? 'var(--brand-500,#6366f1)' : 'var(--border,#e5e7eb)') +
+      return '<label class="row gap-s" style="cursor:pointer;padding:10px 12px;border:1px solid ' + (on ? 'var(--brand-500,#3d76f0)' : 'var(--border,#e5e7eb)') +
         ';border-radius:10px;margin-bottom:8px;background:' + (on ? 'var(--brand-50,#eef2ff)' : 'var(--card,#fff)') + '">' +
         '<input type="radio" name="pk_sel" value="' + pk + '"' + (on ? ' checked' : '') + '> ' +
         '<span class="grow"><b>แพ็ก ' + packLabel(pk) + '</b>' + (on ? ' <span class="soft small">(ปัจจุบัน)</span>' : '') + '</span>' +
@@ -310,7 +310,7 @@
   function styleChip(el) {
     var on = el.getAttribute('data-on') === '1';
     el.style.cssText = 'display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none;padding:6px 12px;margin:0 6px 6px 0;border-radius:999px;font-size:13px;' +
-      'border:1px solid ' + (on ? 'var(--brand-500,#6366f1)' : 'var(--border,#e5e7eb)') + ';' +
+      'border:1px solid ' + (on ? 'var(--brand-500,#3d76f0)' : 'var(--border,#e5e7eb)') + ';' +
       'background:' + (on ? 'var(--brand-50,#eef2ff)' : 'var(--card,#fff)') + ';color:' + (on ? 'var(--brand-700,#4338ca)' : 'inherit');
     el.innerHTML = (on ? '✓ ' : '＋ ') + esc(el.getAttribute('data-kw'));
   }

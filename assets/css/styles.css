@@ -5,16 +5,16 @@
    ============================================================ */
 
 :root {
-  /* Brand */
-  --brand-500: #6366f1;
-  --brand-600: #5b52e5;
-  --brand-700: #4f46e5;
-  --brand-800: #4338ca;
-  --brand-900: #3730a3;
+  /* Brand — professional blue (ตรงแบรนด์ ImVisible, น่าเชื่อถือ) */
+  --brand-500: #3d76f0;
+  --brand-600: #1a5fd8;
+  --brand-700: #1550b8;
+  --brand-800: #114096;
+  --brand-900: #0d3072;
   --purple-700: #6d28d9;
   --purple-600: #7c3aed;
-  --grad-start: #5b6ef5;
-  --grad-end: #17b978;
+  --grad-start: #3d76f0;
+  --grad-end: #1550b8;
 
   /* Semantic */
   --green-500: #16a34a;
@@ -35,19 +35,19 @@
   --gold-bg: #fdf0c8;
   --gold-text: #92600a;
 
-  /* Neutrals (light) */
-  --navy: #1e2749;
-  --navy-2: #22284a;
-  --bg: #f4f5fb;
+  /* Neutrals (light) — blue-grey สะอาด ดูองค์กร */
+  --navy: #16233f;
+  --navy-2: #1a2748;
+  --bg: #f3f6fc;
   --surface: #ffffff;
-  --surface-2: #faf9ff;
-  --row-alt: #f6f4fc;
-  --border: #e6e6f0;
-  --border-2: #eceaf6;
-  --text: #1f2340;
-  --text-muted: #6b7091;
-  --text-soft: #8a8fad;
-  --link: #2563eb;
+  --surface-2: #f6f9fe;
+  --row-alt: #f4f8fd;
+  --border: #e2e8f2;
+  --border-2: #e9eef7;
+  --text: #182038;
+  --text-muted: #5a6784;
+  --text-soft: #858ca8;
+  --link: #1a5fd8;
 
   --radius: 14px;
   --radius-sm: 10px;
@@ -97,7 +97,7 @@ body {
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button { font-family: inherit; cursor: pointer; }
-::selection { background: rgba(99,102,241,.22); }
+::selection { background: rgba(26,95,216,.16); }
 
 /* ---------- Layout ---------- */
 .app { display: flex; min-height: 100vh; }
@@ -167,9 +167,9 @@ button { font-family: inherit; cursor: pointer; }
 }
 .nav-item.active::before {
   content: ""; position: absolute; left: -10px; top: 22%; bottom: 22%;
-  width: 3px; border-radius: 0 3px 3px 0; background: var(--brand-600, #6366f1);
+  width: 3px; border-radius: 0 3px 3px 0; background: var(--brand-600, #1a5fd8);
 }
-[data-theme="dark"] .nav-item.active { color: #c3c1ff; }
+[data-theme="dark"] .nav-item.active { color: #b9ccff; }
 .nav-item.active .code { color: var(--brand-700); background: rgba(99,102,241,.16); }
 .nav-adv > summary.nav-section { cursor: pointer; user-select: none; }
 .nav-adv > summary.nav-section::-webkit-details-marker { display: none; }
@@ -394,7 +394,7 @@ table.tbl .muted { color: var(--text-soft); }
 /* intent columns (M1) */
 .intent-col { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--surface); }
 .intent-head { padding: 14px 16px; display: flex; align-items: center; gap: 10px; color: #fff; }
-.intent-head.rec { background: linear-gradient(120deg, #6d28d9, #8b5cf6); }
+.intent-head.rec { background: linear-gradient(120deg, #1a5fd8, #3d76f0); }
 .intent-head.prob { background: linear-gradient(120deg, #0f766e, #14b8a6); }
 .intent-head .ic { font-size: 20px; }
 .intent-head .h { font-weight: 800; font-size: 15px; }
