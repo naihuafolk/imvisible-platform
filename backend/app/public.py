@@ -424,7 +424,7 @@ def parse_menu_text(text: str) -> list:
 def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="th",
                        report_token="", copy: dict | None = None, hero_img: str = "",
                        variant: int = 1, blog: list | None = None, social: list | None = None,
-                       menu: list | None = None, menu_note: str = "") -> str:
+                       menu: list | None = None, menu_note: str = "", logo: str = "") -> str:
     """สร้าง 'หน้าเว็บพรีเมียม' ให้ลูกค้า — template สวยขายได้ (ไม่พึ่ง IM WEB)
     ถ้ามี copy (Claude เขียน) + hero_img (Imgentic) จะสวยเต็มรูป · ไม่มีก็ fallback บรีฟดิบได้
     variant 1=Luxe (hero เต็มจอ) · 2=Modern (hero แบ่งซ้าย-ขวา) · 3=Warm (hero การ์ดซ้อน)
@@ -440,7 +440,7 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
     is_food = any(k in _hay for k in ("อาหาร", "คาเฟ่", "กาแฟ", "restaurant", "cafe", "coffee",
                                       "บาร์", "bar", "bistro", "ซูชิ", "sushi", "ครัว", "bakery",
                                       "เบเกอรี", "brunch", "บรันช์", "ก๋วยเตี๋ยว", "ชาบู", "หมูกระทะ"))
-    photos = [u for u in (photo_urls or []) if u][:10]
+    photos = [u for u in (photo_urls or []) if u][:12]
     hero_bg = (hero_img or "").strip() or (photos[0] if photos else "")
 
     headline = _esc((c.get("hero_headline") or "").strip() or nm)
@@ -603,6 +603,9 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
 .cs-nav{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid #0000000f}
 .cs-nav .cs-wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
 .cs-brand{font-weight:800;font-size:1.15rem;letter-spacing:-.01em}
+.cs-logo{height:44px;width:auto;max-width:210px;object-fit:contain;display:block}
+.cs-hero-logo{height:82px;width:auto;max-width:280px;object-fit:contain;margin:0 auto 18px;display:block;filter:drop-shadow(0 6px 20px #0007)}
+.cs-v2 .cs-hero-logo{margin-left:0}
 .cs-nav a.cs-cta{background:var(--cs-gold);color:#fff;padding:9px 20px;border-radius:999px;text-decoration:none;font-weight:700;font-size:.92rem}
 .cs-hero{position:relative;min-height:78vh;display:grid;place-items:center;text-align:center;color:#fff;overflow:hidden}
 .cs-hero-bg{position:absolute;inset:0;background-size:cover;background-position:center;transform:scale(1.03)}
@@ -688,26 +691,29 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
 @media(max-width:760px){.cs-mcats{grid-template-columns:1fr;gap:28px}.cs-nav-lnk{display:none}}
 </style>""")
     menu_lnk = ('<a class="cs-nav-lnk" href="#menu">%s</a>' % t("เมนู", "Menu")) if menu_sec else ""
-    nav = ('<nav class="cs-nav"><div class="cs-wrap"><span class="cs-brand">%s</span>'
-           '<span class="cs-nav-r">%s<a class="cs-cta" href="#contact">%s</a></span></div></nav>' % (nm, menu_lnk, cta))
+    _logo = (logo or "").strip()
+    brand = ('<img class="cs-logo" src="%s" alt="%s">' % (_esc(_logo), nm)) if _logo else ('<span class="cs-brand">%s</span>' % nm)
+    hero_logo = ('<img class="cs-hero-logo" src="%s" alt="%s">' % (_esc(_logo), nm)) if _logo else ""
+    nav = ('<nav class="cs-nav"><div class="cs-wrap">%s'
+           '<span class="cs-nav-r">%s<a class="cs-cta" href="#contact">%s</a></span></div></nav>' % (brand, menu_lnk, cta))
     eyebrow = biz or t("ยินดีต้อนรับ", "Welcome")
     bgcss = ("url('%s')" % _esc(hero_bg)) if hero_bg else ("linear-gradient(135deg,%s,%s)" % (ink, gold))
     if variant == 2:                      # Modern — hero แบ่งซ้าย-ขวา
         hero = ('<header class="cs-hero"><div class="cs-wrap cs-split">'
-                '<div class="cs-split-txt"><span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
+                '<div class="cs-split-txt">%s<span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
                 '<a class="cs-btn" href="#contact">%s</a></div>'
                 '<div class="cs-split-img" style="background-image:%s"></div></div></header>'
-                % (eyebrow, headline, subhead, cta, bgcss))
+                % (hero_logo, eyebrow, headline, subhead, cta, bgcss))
     elif variant == 3:                    # Warm — hero การ์ดซ้อนบนรูป
         hero = ('<header class="cs-hero"><div class="cs-hero-bg" style="background:%s;background-size:cover;background-position:center"></div>'
-                '<div class="cs-wrap"><div class="cs-hero-cardbox"><span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
+                '<div class="cs-wrap"><div class="cs-hero-cardbox">%s<span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
                 '<a class="cs-btn" href="#contact">%s</a></div></div></header>'
-                % (bgcss, eyebrow, headline, subhead, cta))
+                % (bgcss, hero_logo, eyebrow, headline, subhead, cta))
     else:                                 # Luxe — hero เต็มจอ กลาง (default)
         hero = ('<header class="cs-hero"><div class="cs-hero-bg" style="background:%s;background-size:cover;background-position:center"></div>'
-                '<div class="cs-hero-in"><span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
+                '<div class="cs-hero-in">%s<span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
                 '<a class="cs-btn" href="#contact">%s</a></div></header>'
-                % (bgcss, eyebrow, headline, subhead, cta))
+                % (bgcss, hero_logo, eyebrow, headline, subhead, cta))
     foot = '<footer class="cs-foot">%s · %s</footer>' % (nm, t("สร้างเว็บโดย ImVisible", "Built with ImVisible"))
     return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + menu_sec + gallery + why + blog_sec + booking_sec + map_sec + contact_sec + foot + '</main>'
 

@@ -3604,6 +3604,7 @@ async def serve_media(img_id: int):
 
 @app.post("/api/projects/{pid}/photos")
 async def add_project_photos(pid: int, photos: list[UploadFile] = File(default=[]),
+                             logo: UploadFile | None = File(default=None),
                              as_hero: int = 0, user=Depends(get_current_user)):
     """แอดมิน: อัปโหลด 'รูปจริง' เพิ่มเข้าโปรเจกต์ (เช่นรูปที่แคปจาก FB ร้าน) → ต่อท้ายแกลเลอรี + re-render เว็บทันที
     บอทเข้า FB ไปแคปเองไม่ได้ (FB ล็อกอินบังคับ) → คนแคปมาแล้วลากลงที่นี่ = ได้รูปจริง 100% no-faking"""
@@ -3637,14 +3638,27 @@ async def add_project_photos(pid: int, photos: list[UploadFile] = File(default=[
             im = UploadedImage(project_id=pid, data=data, content_type=ct[:60])
             s.add(im); await s.flush()
             added.append(base + "/api/media/" + str(im.id))
-        if not added:
-            return JSONResponse({"ok": False, "added": 0, "msg": "ไม่มีรูปที่ใช้ได้ (ต้องเป็นไฟล์รูป ≤8MB)"})
         try:
             br = _jsonp.loads(getattr(p, "site_brief", "") or "{}")
         except Exception:  # noqa: BLE001
             br = {}
+        logo_url = ""
+        if logo is not None:                                      # โลโก้ร้าน (แยกจากรูปทั่วไป) → หัวเว็บ + hero
+            lct = (getattr(logo, "content_type", "") or "").lower()
+            if lct.startswith("image/"):
+                try:
+                    ldata = await logo.read()
+                except Exception:  # noqa: BLE001
+                    ldata = b""
+                if ldata and len(ldata) <= 8_000_000:
+                    lim = UploadedImage(project_id=pid, data=ldata, content_type=lct[:60])
+                    s.add(lim); await s.flush()
+                    logo_url = base + "/api/media/" + str(lim.id)
+                    br["logo"] = logo_url
+        if not added and not logo_url:
+            return JSONResponse({"ok": False, "added": 0, "msg": "ไม่มีรูปที่ใช้ได้ (ต้องเป็นไฟล์รูป ≤8MB)"})
         br["photo_urls"] = (br.get("photo_urls") or []) + added   # รูปจริงต่อท้าย (ของเดิมคงไว้)
-        if as_hero:
+        if as_hero and added:
             br["hero_img"] = added[0]                              # ตั้งรูปจริงเป็น hero (ปกเว็บ)
         var = getattr(p, "site_variant", 0) or 1
         home = _public.render_client_home(
@@ -3653,7 +3667,7 @@ async def add_project_photos(pid: int, photos: list[UploadFile] = File(default=[
             br.get("report_token") or "", copy=br.get("copy") or {},
             hero_img=br.get("hero_img") or "", variant=var,
             blog=br.get("blog") or [], social=br.get("social") or [],
-            menu=br.get("menu") or [], menu_note=br.get("menu_note") or "")
+            menu=br.get("menu") or [], menu_note=br.get("menu_note") or "", logo=br.get("logo") or "")
         try:
             home = _public.inject_aeo_geo(home, name=br.get("name") or p.name, home=br.get("home_url") or "",
                                           lang=("en" if str(br.get("lang") or "th").startswith("en") else "th"), brief={})
@@ -3664,7 +3678,7 @@ async def add_project_photos(pid: int, photos: list[UploadFile] = File(default=[
         await s.commit()
         total = len(br.get("photo_urls") or [])
         home_url = _public.project_public_home(p) or ""
-    return {"ok": True, "added": len(added), "total": total, "home_url": home_url, "urls": added}
+    return {"ok": True, "added": len(added), "logo": bool(logo_url), "total": total, "home_url": home_url, "urls": added}
 
 
 @app.get("/api/admin/upload/{pid}")
@@ -3695,6 +3709,9 @@ a.view{display:inline-block;margin-top:10px;color:#1657d6;font-weight:700}</styl
 <span class="k">📷 ImVisible · อัปรูปจริงเข้าเว็บ</span>
 <h1>อัปโหลดรูปจริง (โปรเจกต์ #__PID__)</h1>
 <div class="sub">ลากรูปที่แคปจาก Facebook/ถ่ายเอง ลงกล่องด้านล่าง → กดอัปโหลด → เว็บอัปเดตทันที (รูปจริง 100%)</div>
+<label style="font-weight:700;font-size:14px">🏷️ โลโก้ร้าน (PNG พื้นใสสวยสุด · ไม่มีก็ข้ามได้)</label>
+<input type="file" id="logo" accept="image/*" style="display:block;margin:6px 0 18px">
+<label style="font-weight:700;font-size:14px">📷 รูปร้าน — เมนู / จานเด่น / หน้าร้าน / บรรยากาศ / ผู้คน</label>
 <div class="drop" id="drop">🖼️ <b>ลากรูปมาวาง</b> หรือคลิกเพื่อเลือก (หลายรูปได้ · ≤8MB/รูป)</div>
 <input type="file" id="file" accept="image/*" multiple style="display:none">
 <div id="grid"></div>
@@ -3708,18 +3725,22 @@ try{tok=localStorage.getItem('rp-token')||'';}catch(e){}
 var drop=document.getElementById('drop'),fi=document.getElementById('file'),grid=document.getElementById('grid'),go=document.getElementById('go'),msg=document.getElementById('msg');
 function show(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'err');}
 if(!tok){show('ยังไม่ได้ล็อกอิน — เปิดหน้านี้จากเบราว์เซอร์ที่ล็อกอิน ImVisible อยู่ (app.imvisible.tech) แล้วรีเฟรช',false);}
-function render(){grid.innerHTML='';files.forEach(function(f){var d=document.createElement('div');d.style.backgroundImage="url('"+URL.createObjectURL(f)+"')";grid.appendChild(d);});go.disabled=!(files.length&&tok);go.textContent='อัปโหลด '+(files.length||'')+' รูป';}
+var logoInp=document.getElementById('logo');
+function hasLogo(){return logoInp.files.length>0;}
+function render(){grid.innerHTML='';files.forEach(function(f){var d=document.createElement('div');d.style.backgroundImage="url('"+URL.createObjectURL(f)+"')";grid.appendChild(d);});go.disabled=!((files.length||hasLogo())&&tok);go.textContent='อัปโหลด'+(files.length?(' '+files.length+' รูป'):'')+(hasLogo()?(files.length?' + โลโก้':'โลโก้'):'');}
 function add(list){for(var i=0;i<list.length;i++){if(list[i].type.indexOf('image/')===0)files.push(list[i]);}render();}
+logoInp.onchange=render;
 drop.onclick=function(){fi.click();};fi.onchange=function(){add(fi.files);};
 ['dragenter','dragover'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.add('hot');});});
 ['dragleave','drop'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.remove('hot');});});
 drop.addEventListener('drop',function(ev){add(ev.dataTransfer.files);});
-go.onclick=function(){if(!files.length||!tok)return;go.disabled=true;go.textContent='กำลังอัปโหลด...';
+go.onclick=function(){if((!files.length&&!hasLogo())||!tok)return;go.disabled=true;go.textContent='กำลังอัปโหลด...';
 var fd=new FormData();files.forEach(function(f){fd.append('photos',f);});
+if(hasLogo())fd.append('logo',logoInp.files[0]);
 var hero=document.getElementById('hero').checked?1:0;
 fetch('/api/projects/'+PID+'/photos?as_hero='+hero,{method:'POST',headers:{'Authorization':'Bearer '+tok},body:fd})
 .then(function(r){return r.json().then(function(j){return{s:r.status,j:j};});})
-.then(function(o){if(o.s>=200&&o.s<300&&o.j.ok){show('✅ อัปโหลดสำเร็จ '+o.j.added+' รูป (รวมในเว็บ '+o.j.total+' รูป) — เว็บอัปเดตแล้ว',true);
+.then(function(o){if(o.s>=200&&o.s<300&&o.j.ok){show('✅ อัปโหลดสำเร็จ '+o.j.added+' รูป'+(o.j.logo?' + โลโก้':'')+' (รวมในเว็บ '+o.j.total+' รูป) — เว็บอัปเดตแล้ว',true);
 if(o.j.home_url){msg.innerHTML+='<br><a class="view" href="'+o.j.home_url+'" target="_blank">เปิดดูเว็บ →</a>';}
 files=[];render();go.textContent='อัปโหลดเพิ่ม';}
 else{show('❌ '+((o.j&&(o.j.msg||o.j.detail))||('ผิดพลาด ('+o.s+')')),false);go.disabled=false;go.textContent='ลองใหม่';}})
@@ -3858,7 +3879,7 @@ def _render_variant_from_brief(_public, p, variant: int) -> str:
         br.get("report_token") or "", copy=br.get("copy") or {},
         hero_img=br.get("hero_img") or "", variant=variant,
         blog=br.get("blog") or [], social=br.get("social") or [],
-        menu=br.get("menu") or [], menu_note=br.get("menu_note") or "")
+        menu=br.get("menu") or [], menu_note=br.get("menu_note") or "", logo=br.get("logo") or "")
     try:
         home = _public.inject_aeo_geo(home, name=br.get("name") or p.name, home=br.get("home_url") or "",
                                       lang=("en" if str(br.get("lang") or "th").startswith("en") else "th"), brief={})

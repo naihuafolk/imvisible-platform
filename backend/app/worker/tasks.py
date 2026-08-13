@@ -1616,11 +1616,12 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
         base = (S.app_base_url or "").rstrip("/")
         imgs = (await s.execute(select(UploadedImage).where(UploadedImage.project_id == project_id))).scalars().all()
         photo_urls = [base + "/api/media/" + str(im.id) for im in imgs]
-        try:                                  # คอนเทนต์เดิม (กันทับเป็น generic ถ้า LLM ล่ม)
+        try:                                  # บรีฟเดิม (กันทับเป็น generic + คงเมนู/โลโก้ที่ใส่ไว้ ถ้า LLM ล่ม/รันซ้ำ)
             import json as _jp
-            prev_copy = (_jp.loads(getattr(p, "site_brief", "") or "{}") or {}).get("copy") or {}
+            prev_brief = _jp.loads(getattr(p, "site_brief", "") or "{}") or {}
         except Exception:  # noqa: BLE001
-            prev_copy = {}
+            prev_brief = {}
+        prev_copy = prev_brief.get("copy") or {}
         # 📝 บทความจริงที่ระบบผลิต → section บล็อกในเว็บลูกค้า (มีชีวิต + SEO/AEO)
         from app.db.models import Article
         from app import urls as _urls
@@ -1640,8 +1641,9 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
         social = [l.strip() for l in _re3.split(r"[\n,]", brief.get("links") or "")
                   if l.strip().lower().startswith("http")][:5]      # โซเชียล (FB/IG) จากลิงก์ที่ลูกค้าให้
     contact = brief.get("contact") or {}
-    menu = brief.get("menu") or []                # 🍽️ เมนูจริง+ราคาจริง (จากบรีฟ/แคปที่ลูกค้าให้) — no-faking
-    menu_note = brief.get("menu_note") or ""
+    menu = brief.get("menu") or prev_brief.get("menu") or []   # 🍽️ เมนูจริง+ราคาจริง — คงของเดิมถ้ารันซ้ำ
+    menu_note = brief.get("menu_note") or prev_brief.get("menu_note") or ""
+    logo = brief.get("logo") or prev_brief.get("logo") or ""   # 🏷️ โลโก้ร้าน — คงไว้ข้ามการ rebuild
     if not menu and (brief.get("menu_text") or "").strip():   # ลูกค้าวางเมนูดิบมา → จัดเป็นหมวด+รายการ
         try:
             menu = _public.parse_menu_text(brief.get("menu_text") or "")
@@ -1703,7 +1705,7 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
     brief_store = {"copy": copy if isinstance(copy, dict) else {}, "hero_img": hero_img,
                    "photo_urls": photo_urls, "name": name, "biz_type": biz_type, "about": about,
                    "contact": contact, "lang": lang, "report_token": rtoken, "home_url": home_url,
-                   "blog": blog, "social": social, "menu": menu, "menu_note": menu_note}
+                   "blog": blog, "social": social, "menu": menu, "menu_note": menu_note, "logo": logo}
     async with db.session() as s:
         p = await s.get(Project, project_id)
         if p:
@@ -1711,7 +1713,7 @@ async def _build_client_site(project_id: int, brief: dict) -> str:
             variant = getattr(p, "site_variant", 0) or 1        # เลือกไว้แล้วใช้อันนั้น · ไม่งั้น default 1
             home = _public.render_client_home(name, biz_type, about, contact, photo_urls, lang, rtoken,
                                               copy=brief_store["copy"], hero_img=hero_img, variant=variant,
-                                              blog=blog, social=social, menu=menu, menu_note=menu_note)
+                                              blog=blog, social=social, menu=menu, menu_note=menu_note, logo=logo)
             try:
                 home = _public.inject_aeo_geo(home, name=name, home=home_url,
                                               lang=("en" if str(lang).lower().startswith("en") else "th"), brief={})
