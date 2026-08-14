@@ -3083,6 +3083,131 @@ async def backlink_directory(project_id: int, req: BacklinkDirUpdate, user=Depen
     return {"ok": True, "dir_id": dir_id, "done": bool(req.done)}
 
 
+@app.get("/api/admin/operator-queue")
+async def operator_queue(user=Depends(get_current_user)):
+    """🎛️ ศูนย์บัญชาการทีม — รวม backlink task ของ 'ทุกลูกค้า' ในที่เดียว (must ที่ยังไม่ทำก่อน)
+    โมเดล: ลูกค้าไม่ต้องทำอะไร → ทีมเรากดจากหน้านี้ที่เดียว จัดการได้หลายร้าน · แอดมินเท่านั้น"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import usage
+    if (await usage.user_plan(user["id"])) != "admin":
+        raise HTTPException(403, "เฉพาะแอดมิน")
+    from app.connectors import backlinks
+    from app.db.models import Project
+    out = []
+    async with db.session() as s:
+        projs = (await s.execute(select(Project).order_by(Project.id))).scalars().all()
+        for p in projs:
+            try:
+                plan = backlinks.build_plan(p)
+            except Exception:  # noqa: BLE001
+                continue
+            dirs = plan.get("directories") or []
+            prog = plan.get("progress") or {"done": 0, "total": len(dirs)}
+            out.append({"id": p.id, "name": p.name or "", "domain": getattr(p, "domain", "") or "",
+                        "packet": plan.get("packet") or {}, "progress": prog, "directories": dirs})
+    def _score(x):
+        d = x["directories"]
+        must_pending = sum(1 for it in d if not it.get("done") and it.get("tier") == "must")
+        pending = x["progress"]["total"] - x["progress"]["done"]
+        return (-must_pending, -pending, x["id"])
+    out.sort(key=_score)
+    total_pending = sum(x["progress"]["total"] - x["progress"]["done"] for x in out)
+    total_done = sum(x["progress"]["done"] for x in out)
+    return {"projects": out, "total_pending": total_pending, "total_done": total_done, "n_projects": len(out)}
+
+
+@app.get("/api/admin/operator")
+async def operator_page():
+    """หน้า 'ศูนย์บัญชาการ backlink' ให้ทีมเรา — เปิดในเบราว์เซอร์ที่ล็อกอินแดชบอร์ด (ใช้ token จาก localStorage)"""
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(_operator_html(), headers={"Cache-Control": "no-store"})
+
+
+def _operator_html() -> str:
+    """หน้า operator (self-contained) — รวม backlink ทุกลูกค้า, packet พร้อมก็อป, ติ๊กเสร็จได้"""
+    return """<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>ศูนย์บัญชาการ Backlink · ImVisible</title>
+<style>body{font-family:'Sarabun','Segoe UI',sans-serif;background:#f3f6fc;margin:0;color:#182038;line-height:1.55}
+.wrap{max-width:920px;margin:0 auto;padding:26px 16px 70px}
+h1{font-size:22px;margin:4px 0 2px}.sub{color:#5a6784;font-size:14px;margin-bottom:16px}
+.k{display:inline-flex;gap:7px;font-size:12px;font-weight:800;letter-spacing:.08em;color:#114096;background:#e8f0fe;border:1px solid #dbe6f7;padding:5px 12px;border-radius:999px}
+.sum{display:flex;gap:10px;margin:14px 0 18px;flex-wrap:wrap}
+.sum .c{background:#fff;border:1px solid #e2e8f2;border-radius:12px;padding:12px 16px;flex:1;min-width:130px;box-shadow:0 2px 8px rgba(20,30,60,.05)}
+.sum .n{font-size:1.5rem;font-weight:800}.sum .l{font-size:.72rem;color:#5a6784;text-transform:uppercase;letter-spacing:.06em}
+.card{background:#fff;border:1px solid #e2e8f2;border-radius:16px;padding:18px 18px;margin-bottom:14px;box-shadow:0 4px 16px rgba(20,30,60,.06)}
+.chead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.chead h3{margin:0;font-size:1.1rem}.chead .dom{color:#5a6784;font-size:.85rem}
+.bar{flex:1;min-width:90px;height:7px;background:#eaeef7;border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:#1a5fd8}
+.prog{font-size:.8rem;font-weight:800;color:#1a5fd8;white-space:nowrap}
+.packet{background:#f6f9fe;border:1px dashed #cdddf5;border-radius:11px;padding:12px 14px;margin:12px 0;font-size:.86rem}
+.packet .row{display:flex;gap:8px;align-items:flex-start;padding:3px 0}
+.packet .lb{color:#5a6784;min-width:78px;flex:none;font-size:.78rem}
+.packet .vv{flex:1;word-break:break-word}
+.cp{margin-left:auto;font-size:.72rem;font-weight:700;color:#1a5fd8;background:#e8f0fe;border:0;border-radius:6px;padding:3px 9px;cursor:pointer}
+.todo{color:#8a5a00;font-size:.78rem;margin-top:6px}
+.tier{font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#5a6784;margin:14px 0 6px}
+.tier.must{color:#c0392b}.tier.recommend{color:#1a5fd8}.tier.niche{color:#0b7a43}
+.dir{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #eef2f8}
+.dir .info{flex:1;min-width:0}.dir .nm{font-weight:700;font-size:.92rem}.dir .nt{color:#5a6784;font-size:.76rem}
+.dir a.go{font-size:.78rem;font-weight:700;color:#1a5fd8;text-decoration:none;white-space:nowrap;border:1px solid #cdddf5;border-radius:6px;padding:5px 10px}
+.dir .df{font-size:.66rem;color:#0b7a43;font-weight:800}
+.cb{display:flex;align-items:center;gap:6px;font-size:.82rem;white-space:nowrap;cursor:pointer}
+.cb input{width:18px;height:18px}
+.done{opacity:.5}
+.msg{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#182038;color:#fff;padding:9px 18px;border-radius:999px;font-size:.85rem;opacity:0;transition:.25s;z-index:9}
+.msg.on{opacity:1}
+</style></head><body><div class="wrap">
+<span class="k">🎛️ ImVisible · ศูนย์บัญชาการ Backlink (ทีม)</span>
+<h1>งาน Backlink ทุกลูกค้า — ที่เดียวจบ</h1>
+<div class="sub">โมเดล: ลูกค้าไม่ต้องทำอะไร · ทีมเราเปิด→วาง→submit→ติ๊กเสร็จ · must (แดง) ทำก่อน คุ้มสุด</div>
+<div class="sum" id="sum"></div>
+<div id="list">กำลังโหลด…</div>
+</div><div class="msg" id="toast"></div>
+<script>
+var tok='';try{tok=localStorage.getItem('rp-token')||'';}catch(e){}
+var L=document.getElementById('list'),S=document.getElementById('sum'),T=document.getElementById('toast');
+function toast(t){T.textContent=t;T.className='msg on';setTimeout(function(){T.className='msg';},1800);}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function copy(t){navigator.clipboard.writeText(t).then(function(){toast('ก็อปแล้ว');});}
+if(!tok){L.innerHTML='<div class="card">ยังไม่ได้ล็อกอิน — เปิดหน้านี้จากเบราว์เซอร์ที่ล็อกอิน ImVisible (app.imvisible.tech) แล้วรีเฟรช</div>';}
+else load();
+function load(){
+fetch('/api/admin/operator-queue',{headers:{'Authorization':'Bearer '+tok}}).then(function(r){return r.json();}).then(render).catch(function(){L.innerHTML='<div class="card">โหลดไม่ได้</div>';});
+}
+function render(d){
+if(!d||!d.projects){L.innerHTML='<div class="card">'+((d&&d.detail)||'ไม่มีข้อมูล')+'</div>';return;}
+S.innerHTML='<div class="c"><div class="n">'+d.n_projects+'</div><div class="l">ลูกค้า</div></div>'
++'<div class="c"><div class="n" style="color:#c0392b">'+d.total_pending+'</div><div class="l">ยังไม่ทำ</div></div>'
++'<div class="c"><div class="n" style="color:#0b7a43">'+d.total_done+'</div><div class="l">ทำแล้ว</div></div>';
+L.innerHTML=d.projects.map(cardHtml).join('');
+}
+function pk(p){var k=p.packet||{};var rows=[['ชื่อ',k.name],['เว็บ',k.website],['อธิบายสั้น',k.description_short],['คำค้น',(k.keywords||[]).join(', ')]];
+var h=rows.filter(function(r){return r[1];}).map(function(r){return '<div class="row"><span class="lb">'+r[0]+'</span><span class="vv">'+esc(r[1])+'</span><button class="cp" onclick="copy(this.parentNode.querySelector(&quot;.vv&quot;).textContent)">ก็อป</button></div>';}).join('');
+if(k.todo_fields&&k.todo_fields.length)h+='<div class="todo">⚠ ทีมเติมเอง: '+k.todo_fields.join(' · ')+'</div>';
+return '<div class="packet">'+h+'</div>';}
+function cardHtml(p){
+var pct=p.progress.total?Math.round(p.progress.done/p.progress.total*100):0;
+var tiers={must:[],recommend:[],niche:[]};
+p.directories.forEach(function(x){(tiers[x.tier]||tiers.recommend).push(x);});
+var body='';['must','recommend','niche'].forEach(function(tn){if(!tiers[tn].length)return;
+var lbl={must:'ทำก่อน (คุ้มสุด)',recommend:'ควรทำ',niche:'เฉพาะธุรกิจ'}[tn];
+body+='<div class="tier '+tn+'">'+lbl+'</div>'+tiers[tn].map(function(x){return dirHtml(p.id,x);}).join('');});
+return '<div class="card"><div class="chead"><h3>'+esc(p.name)+'</h3><span class="dom">'+esc(p.domain)+'</span>'
++'<div class="bar"><i style="width:'+pct+'%"></i></div><span class="prog">'+p.progress.done+'/'+p.progress.total+'</span></div>'
++pk(p)+body+'</div>';}
+function dirHtml(pid,x){
+return '<div class="dir'+(x.done?' done':'')+'" id="d_'+pid+'_'+x.id+'"><div class="info"><div class="nm">'+esc(x.name)
++(x.dofollow?' <span class="df">dofollow</span>':'')+'</div><div class="nt">'+esc(x.note||'')+' · '+esc(x.region||'')+'</div></div>'
++'<a class="go" href="'+esc(x.url)+'" target="_blank" rel="noopener">เปิด ↗</a>'
++'<label class="cb"><input type="checkbox" '+(x.done?'checked':'')+' onchange="mark('+pid+',&quot;'+x.id+'&quot;,this.checked)"> เสร็จ</label></div>';}
+function mark(pid,did,done){
+fetch('/api/projects/'+pid+'/backlink-directory',{method:'PUT',headers:{'Authorization':'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({dir_id:did,done:done})})
+.then(function(r){return r.json();}).then(function(j){if(j.ok){toast(done?'✓ ทำแล้ว':'ยกเลิก');var el=document.getElementById('d_'+pid+'_'+did);if(el)el.className='dir'+(done?' done':'');}else toast('ผิดพลาด');})
+.catch(function(){toast('เชื่อมต่อไม่ได้');});}
+</script></body></html>"""
+
+
 @app.get("/api/projects/{project_id}/schema-pack")
 async def project_schema_pack(project_id: int, user=Depends(get_current_user)):
     """🏷️ Schema Pack — สร้าง JSON-LD (structured data) 'พร้อมก็อปวาง' ให้เว็บลูกค้า
