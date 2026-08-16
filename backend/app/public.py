@@ -443,6 +443,8 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
     nm = _esc((name or "").strip() or t("ธุรกิจของเรา", "Our Business"))
     biz = _esc((biz_type or "").strip())
     ink, gold, cream = _cs_palette(biz_type, about)
+    if variant == 1:          # สไตล์ 1 · Moonlit Luxe — คืนจันทร์ริมทะเล (พาเลตต์ประจำสไตล์ · หรู เข้ม)
+        ink, gold, cream = "#0b1a2e", "#e0a44b", "#f7f2e9"
     _hay = (biz_type + " " + about).lower()
     is_food = any(k in _hay for k in ("อาหาร", "คาเฟ่", "กาแฟ", "restaurant", "cafe", "coffee",
                                       "บาร์", "bar", "bistro", "ซูชิ", "sushi", "ครัว", "bakery",
@@ -711,6 +713,22 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
 .cs-nav-lnk{color:var(--cs-ink);text-decoration:none;font-weight:600;font-size:.95rem;opacity:.85}
 .cs-nav-lnk:hover{opacity:1;color:var(--cs-gold)}
 @media(max-width:760px){.cs-mcats{grid-template-columns:1fr;gap:28px}.cs-nav-lnk{display:none}}
+/* เส้นทองบางใต้หัวข้อ section (จังหวะพรีเมียม ทุกสไตล์) */
+.cs-sec h2.cs-c{position:relative;padding-bottom:22px}
+.cs-sec h2.cs-c::after{content:"";position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:50px;height:2px;background:var(--cs-gold)}
+/* ===== สไตล์ 1 · Moonlit Luxe — คืนจันทร์ริมทะเล (cinematic + แสงจันทร์อุ่น) ===== */
+.cs-v1 .cs-hero{min-height:86vh}
+.cs-v1 .cs-hero-bg::after{background:
+  radial-gradient(115% 78% at 80% 15%,rgba(224,164,75,.22),transparent 58%),
+  linear-gradient(180deg,rgba(11,26,46,.30) 0%,rgba(11,26,46,.10) 40%,rgba(11,26,46,.74) 80%,rgba(8,20,38,.95) 100%)}
+.cs-v1 .cs-hero h1{letter-spacing:.012em;text-shadow:0 2px 46px rgba(7,19,36,.62)}
+.cs-v1 .cs-hero .cs-eyebrow{color:#e6b45c;opacity:1}
+.cs-v1 .cs-hero p{color:rgba(244,236,214,.92)}
+.cs-v1 .cs-btn{border-radius:3px}
+.cs-v1 .cs-nav{background:rgba(11,26,46,.86);border-bottom:1px solid rgba(244,236,214,.12)}
+.cs-v1 .cs-nav .cs-brand{color:#f4ecd6}
+.cs-v1 .cs-nav-lnk{color:rgba(244,236,214,.82)}
+.cs-v1 .cs-nav-lnk:hover{color:var(--cs-gold)}
 </style>""")
     menu_lnk = ('<a class="cs-nav-lnk" href="#menu">%s</a>' % t("เมนู", "Menu")) if menu_sec else ""
     _logo = (logo or "").strip()
