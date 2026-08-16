@@ -84,6 +84,8 @@ services:
       # สำคัญ (crypto): worker ต้องใช้ JWT_SECRET เดียวกับ api ไม่งั้นถอดรหัสคีย์ลูกค้าไม่ได้
       JWT_SECRET: ${JWT_SECRET}
       APP_ENV: prod
+      # สำคัญ: worker สร้าง URL รูป (/api/media) + ลิงก์สาธารณะ — ต้องเป็นโดเมนจริง ไม่งั้น default localhost:8080 → รูปโหลดไม่ขึ้น
+      APP_BASE_URL: https://${APP_DOMAIN}
       MANAGED_BASE_DOMAIN: ${DOMAIN}
       ADMIN_EMAILS: ${ADMIN_EMAILS}
     depends_on:
