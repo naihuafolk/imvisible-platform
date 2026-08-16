@@ -30,7 +30,7 @@
 <meta name="keywords" content="รับทำเว็บไซต์, รับทำเว็บ, รับออกแบบเว็บไซต์, รับทำเซลล์เพจ, รับทำ sales page, รับทำ landing page, รับทำเว็บระบบ, สร้างเว็บด้วย AI, รับทำ SEO, รับทำ AEO, รับทำ GEO, AEO, SEO, GEO, AI SEO, Answer Engine Optimization, AI Search, ChatGPT SEO, Generative Engine Optimization, ImVisible"/>
 <meta name="robots" content="index, follow, max-image-preview:large"/>
 <meta name="author" content="ImVisible"/>
-<meta name="theme-color" content="#1a56ff" media="(prefers-color-scheme: light)"/>
+<meta name="theme-color" content="#2154cc" media="(prefers-color-scheme: light)"/>
 <meta name="theme-color" content="#0a1b3d" media="(prefers-color-scheme: dark)"/>
 <link rel="canonical" href="https://imvisible.tech/"/>
 
@@ -65,17 +65,18 @@
 
 <style>
   :root{
+    /* โทนสุขุม: น้ำเงินรอยัลลึก (ลดนีออน) + คอนทราสต์ตัวอักษรเข้มขึ้น = อ่านง่าย น่าเชื่อถือ */
     --paper:#ffffff;
-    --paper-2:#eef4ff;
-    --sand:#e3edff;
+    --paper-2:#eef1f8;
+    --sand:#e6ebf5;
     --ink:#0a1b3d;
-    --ink-soft:#3a4a6b;
-    --muted:#4f6187;
-    --line:#dce7fa;
-    --blue:#1a56ff;
-    --blue-deep:#0a2a8c;
-    --azure:#5b9bff;
-    --blue-wash:#eaf1ff;
+    --ink-soft:#33415d;
+    --muted:#465773;
+    --line:#dde4f0;
+    --blue:#2154cc;
+    --blue-deep:#152f74;
+    --azure:#6e93d8;
+    --blue-wash:#eef2fb;
     --ok:#0a7350;
     --maxw:1280px;
     --thai:'IBM Plex Sans Thai','Sarabun','Noto Sans Thai','Leelawadee UI',system-ui,sans-serif;
@@ -108,7 +109,7 @@
   /* faint blueprint column lines */
   .iv::before{
     content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
-    background:linear-gradient(90deg,rgba(26,86,255,.045) 1px,transparent 1px) 0 0/ calc(100%/12) 100%;
+    background:linear-gradient(90deg,rgba(33,84,204,.05) 1px,transparent 1px) 0 0/ calc(100%/12) 100%;
     mask:linear-gradient(180deg,#000,#000 55%,transparent);
     opacity:.7;
   }
@@ -135,7 +136,7 @@
   .brand .logo .mk{
     width:26px;height:26px;border-radius:7px;position:relative;flex:0 0 auto;
     background:conic-gradient(from 130deg,var(--azure),var(--blue),var(--blue-deep),var(--azure));
-    box-shadow:0 6px 16px -5px rgba(26,86,255,.7);
+    box-shadow:0 6px 16px -5px rgba(33,84,204,.7);
   }
   .brand .logo .mk::after{content:"";position:absolute;inset:7px;border-radius:50%;background:#fff}
   .brand .logo .mk::before{content:"";position:absolute;inset:10px;border-radius:50%;background:var(--blue);z-index:1}
@@ -153,7 +154,7 @@
     padding:12px 22px;border-radius:2px;transition:.25s;
     display:inline-flex;align-items:center;gap:9px;text-decoration:none;
   }
-  .btn-primary{background:var(--blue);color:#fff;box-shadow:0 12px 26px -12px rgba(26,86,255,.85)}
+  .btn-primary{background:var(--blue);color:#fff;box-shadow:0 12px 26px -12px rgba(33,84,204,.85)}
   .btn-primary:hover{background:var(--blue-deep);transform:translateY(-1px)}
   .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
   .btn-ghost:hover{background:var(--ink);color:#fff}
@@ -190,7 +191,7 @@
   .reveal::after{
     content:"";position:absolute;top:-4%;height:108%;width:3px;left:0;
     background:linear-gradient(180deg,transparent,var(--blue),transparent);
-    box-shadow:0 0 18px 4px rgba(26,86,255,.55);
+    box-shadow:0 0 18px 4px rgba(33,84,204,.55);
     animation:scan 1.5s cubic-bezier(.62,.03,.2,1) .35s forwards;opacity:0;
   }
   @keyframes wipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
@@ -432,9 +433,9 @@
         </h1>
         <p class="hero-sub" data-en="For Thai businesses that want customers to find them before competitors — ImVisible uses AI to write and push content so your site ranks on Google and gets recommended by AI like ChatGPT &amp; Gemini (AEO/GEO). Fully automated, every figure measurable and traceable.">สำหรับธุรกิจที่อยากให้ลูกค้าเจอก่อนคู่แข่ง — ImVisible ใช้ AI เขียนและดันคอนเทนต์ให้เว็บคุณติดอันดับ Google และถูก AI อย่าง ChatGPT, Gemini แนะนำ (AEO/GEO) อัตโนมัติ วัดผลจริง เห็นทุกตัวเลข ตรวจย้อนได้</p>
         <div class="pillars" style="display:flex;gap:9px;flex-wrap:wrap;margin:0 0 20px">
-          <span style="display:inline-flex;align-items:center;gap:7px;background:var(--paper-2,#f4f7ff);border:1px solid var(--line,#e7ecf6);border-radius:999px;padding:7px 14px;font-size:.88rem"><b style="color:#1a56ff">SEO</b> <span style="color:var(--muted,#64748b)" data-en="rank on Google">ติดอันดับ Google</span></span>
-          <span style="display:inline-flex;align-items:center;gap:7px;background:var(--paper-2,#f4f7ff);border:1px solid var(--line,#e7ecf6);border-radius:999px;padding:7px 14px;font-size:.88rem"><b style="color:#1a56ff">AEO</b> <span style="color:var(--muted,#64748b)" data-en="recommended by AI">ถูก AI แนะนำ (ChatGPT/Gemini)</span></span>
-          <span style="display:inline-flex;align-items:center;gap:7px;background:var(--paper-2,#f4f7ff);border:1px solid var(--line,#e7ecf6);border-radius:999px;padding:7px 14px;font-size:.88rem"><b style="color:#1a56ff">GEO</b> <span style="color:var(--muted,#64748b)" data-en="stand out in AI Search">เด่นใน AI Search</span></span>
+          <span style="display:inline-flex;align-items:center;gap:7px;background:var(--paper-2,#f4f7ff);border:1px solid var(--line,#e7ecf6);border-radius:999px;padding:7px 14px;font-size:.88rem"><b style="color:#2154cc">SEO</b> <span style="color:var(--muted,#64748b)" data-en="rank on Google">ติดอันดับ Google</span></span>
+          <span style="display:inline-flex;align-items:center;gap:7px;background:var(--paper-2,#f4f7ff);border:1px solid var(--line,#e7ecf6);border-radius:999px;padding:7px 14px;font-size:.88rem"><b style="color:#2154cc">AEO</b> <span style="color:var(--muted,#64748b)" data-en="recommended by AI">ถูก AI แนะนำ (ChatGPT/Gemini)</span></span>
+          <span style="display:inline-flex;align-items:center;gap:7px;background:var(--paper-2,#f4f7ff);border:1px solid var(--line,#e7ecf6);border-radius:999px;padding:7px 14px;font-size:.88rem"><b style="color:#2154cc">GEO</b> <span style="color:var(--muted,#64748b)" data-en="stand out in AI Search">เด่นใน AI Search</span></span>
         </div>
         <div class="hero-cta">
           <a href="#audit" class="btn btn-primary">
@@ -501,14 +502,14 @@
       .audit-card{max-width:860px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:20px;padding:clamp(22px,3.6vw,38px);position:relative;overflow:hidden;box-shadow:0 40px 90px -44px rgba(10,26,82,.42),0 2px 10px rgba(15,23,42,.05)}
       .audit-card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--azure),var(--blue),var(--blue-deep));z-index:3}
       .audit-card::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
-        background:linear-gradient(90deg,rgba(26,86,255,.05) 1px,transparent 1px) 0 0/44px 100%,linear-gradient(180deg,rgba(26,86,255,.05) 1px,transparent 1px) 0 0/100% 44px;
+        background:linear-gradient(90deg,rgba(33,84,204,.05) 1px,transparent 1px) 0 0/44px 100%,linear-gradient(180deg,rgba(33,84,204,.05) 1px,transparent 1px) 0 0/100% 44px;
         -webkit-mask:radial-gradient(130% 90% at 50% -10%,#000,transparent 72%);mask:radial-gradient(130% 90% at 50% -10%,#000,transparent 72%);opacity:.7}
       .audit-card>*{position:relative;z-index:1}
       .au-reg{position:absolute;top:15px;right:19px;z-index:3;font-size:.6rem;letter-spacing:.26em;text-transform:uppercase;color:var(--muted);font-weight:700;display:inline-flex;align-items:center;gap:6px}
       .au-reg::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(15,138,95,.6);animation:pulse 2.1s infinite}
 
       .au-console{display:flex;align-items:center;gap:11px;border:1.5px solid var(--line);border-radius:14px;padding:6px 6px 6px 15px;background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(10,26,82,.04)}
-      .au-console:focus-within{border-color:var(--blue);box-shadow:0 0 0 4px rgba(26,86,255,.1)}
+      .au-console:focus-within{border-color:var(--blue);box-shadow:0 0 0 4px rgba(33,84,204,.1)}
       .au-console .au-globe{flex:0 0 auto;color:var(--blue);display:grid;place-items:center;width:22px;height:22px}
       .au-console .pfx{color:var(--muted);font-weight:600;font-size:.98rem;flex:0 0 auto}
       .au-console input{flex:1;min-width:80px;border:0;outline:0;background:transparent;font-family:inherit;font-size:1.08rem;color:var(--ink);padding:12px 0}
@@ -524,8 +525,8 @@
       /* --- scanning state --- */
       .au-scan{margin-top:24px;border-top:1px solid var(--line);padding-top:24px}
       .scan-view{position:relative;height:132px;border-radius:13px;overflow:hidden;border:1px solid var(--line);background:linear-gradient(180deg,#f6faff,#fff)}
-      .scan-view .sg{position:absolute;inset:0;background:linear-gradient(90deg,rgba(26,86,255,.09) 1px,transparent 1px) 0 0/30px 100%,linear-gradient(180deg,rgba(26,86,255,.09) 1px,transparent 1px) 0 0/100% 30px}
-      .scan-view .sl{position:absolute;top:0;bottom:0;width:70px;left:-70px;background:linear-gradient(90deg,transparent,rgba(26,86,255,.14),rgba(26,86,255,.5));border-right:2px solid var(--blue);box-shadow:0 0 24px 5px rgba(26,86,255,.32);animation:scanx 1.5s cubic-bezier(.5,0,.5,1) infinite}
+      .scan-view .sg{position:absolute;inset:0;background:linear-gradient(90deg,rgba(33,84,204,.09) 1px,transparent 1px) 0 0/30px 100%,linear-gradient(180deg,rgba(33,84,204,.09) 1px,transparent 1px) 0 0/100% 30px}
+      .scan-view .sl{position:absolute;top:0;bottom:0;width:70px;left:-70px;background:linear-gradient(90deg,transparent,rgba(33,84,204,.14),rgba(33,84,204,.5));border-right:2px solid var(--blue);box-shadow:0 0 24px 5px rgba(33,84,204,.32);animation:scanx 1.5s cubic-bezier(.5,0,.5,1) infinite}
       @keyframes scanx{to{left:100%}}
       .scan-view .sh{position:absolute;left:16px;top:15px;font-size:.82rem;font-weight:700;color:var(--blue-deep);letter-spacing:.01em;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:7px}
       .scan-view .sh::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(15,138,95,.6);animation:pulse 2.1s infinite}
@@ -592,7 +593,7 @@
       .chk .cf{font-size:.82rem;color:var(--blue-deep);margin-top:9px;line-height:1.48;background:var(--blue-wash);border-radius:9px;padding:8px 11px}
       .chk .cf b{color:var(--blue)}
 
-      .au-rx{margin-top:28px;position:relative;overflow:hidden;background:linear-gradient(120deg,var(--blue-deep),var(--blue));color:#fff;border-radius:17px;padding:24px 26px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;box-shadow:0 28px 56px -26px rgba(26,86,255,.75)}
+      .au-rx{margin-top:28px;position:relative;overflow:hidden;background:linear-gradient(120deg,var(--blue-deep),var(--blue));color:#fff;border-radius:17px;padding:24px 26px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;box-shadow:0 28px 56px -26px rgba(33,84,204,.75)}
       .au-rx::after{content:"";position:absolute;right:-46px;top:-46px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.16),transparent 68%);pointer-events:none}
       .au-rx .rx-mark{flex:0 0 auto;width:48px;height:48px;border-radius:13px;background:rgba(255,255,255,.16);display:grid;place-items:center;position:relative;z-index:1}
       .au-rx .rx-txt{flex:1;min-width:230px;position:relative;z-index:1}
@@ -661,7 +662,7 @@
           <div class="au-gcol" aria-hidden="true">
             <div class="au-gauge">
               <svg width="136" height="136" viewBox="0 0 136 136">
-                <defs><linearGradient id="auGrad" x1="0" y1="0" x2="1" y2="1"><stop id="au-g0" offset="0" stop-color="#5b9bff"/><stop id="au-g1" offset="1" stop-color="#1a56ff"/></linearGradient></defs>
+                <defs><linearGradient id="auGrad" x1="0" y1="0" x2="1" y2="1"><stop id="au-g0" offset="0" stop-color="#6e93d8"/><stop id="au-g1" offset="1" stop-color="#2154cc"/></linearGradient></defs>
                 <circle cx="68" cy="68" r="58" fill="none" stroke="#e6eefc" stroke-width="12"/>
                 <circle id="au-arc" cx="68" cy="68" r="58" fill="none" stroke="url(#auGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="364.4" stroke-dashoffset="364.4" style="transition:stroke-dashoffset .85s cubic-bezier(.4,0,.2,1)"/>
               </svg>
@@ -672,7 +673,7 @@
           <div class="au-gcol" aria-hidden="true">
             <div class="au-gauge">
               <svg width="136" height="136" viewBox="0 0 136 136">
-                <defs><linearGradient id="auGrad2" x1="0" y1="0" x2="1" y2="1"><stop id="au-g0b" offset="0" stop-color="#5b9bff"/><stop id="au-g1b" offset="1" stop-color="#1a56ff"/></linearGradient></defs>
+                <defs><linearGradient id="auGrad2" x1="0" y1="0" x2="1" y2="1"><stop id="au-g0b" offset="0" stop-color="#6e93d8"/><stop id="au-g1b" offset="1" stop-color="#2154cc"/></linearGradient></defs>
                 <circle cx="68" cy="68" r="58" fill="none" stroke="#e6eefc" stroke-width="12"/>
                 <circle id="au-arc2" cx="68" cy="68" r="58" fill="none" stroke="url(#auGrad2)" stroke-width="12" stroke-linecap="round" stroke-dasharray="364.4" stroke-dashoffset="364.4" style="transition:stroke-dashoffset .85s cubic-bezier(.4,0,.2,1)"/>
               </svg>
@@ -722,8 +723,8 @@
     };
     function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
     function g(n){var el=f.querySelector('[name="'+n+'"]');return el?(el.value||'').trim():'';}
-    function col(sc){return sc>=85?'#0a7350':sc>=70?'#1a56ff':sc>=55?'#b45309':'#c0392b';}
-    function grad(sc){return sc>=85?['#34d399','#0a7350']:sc>=70?['#5b9bff','#1a56ff']:sc>=55?['#fbbf24','#d97706']:['#f87171','#c0392b'];}
+    function col(sc){return sc>=85?'#0a7350':sc>=70?'#2154cc':sc>=55?'#b45309':'#c0392b';}
+    function grad(sc){return sc>=85?['#34d399','#0a7350']:sc>=70?['#6e93d8','#2154cc']:sc>=55?['#fbbf24','#d97706']:['#f87171','#c0392b'];}
 
     var scanT=[];
     function startScan(host){
@@ -842,23 +843,23 @@
   <!-- SEO · AEO · GEO — อธิบาย 3 สนาม -->
   <section class="wrap iv-up" id="triple" style="padding:clamp(40px,6vw,74px) 0">
     <div style="text-align:center;max-width:660px;margin:0 auto 34px">
-      <div style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;font-weight:800;color:#1a56ff;margin-bottom:10px" data-en="Why all three">ทำไมต้องครบทั้ง 3</div>
+      <div style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;font-weight:800;color:#2154cc;margin-bottom:10px" data-en="Why all three">ทำไมต้องครบทั้ง 3</div>
       <h2 style="font-size:clamp(24px,4vw,35px);letter-spacing:-.02em;margin:0 0 10px;text-wrap:balance" data-en="SEO · AEO · GEO — cover every way customers find you">SEO · AEO · GEO — ครอบทุกทางที่ลูกค้าเจอคุณ</h2>
       <p class="soft" style="font-size:1.02rem;line-height:1.6;margin:0" data-en="People don't just Google anymore — they ask AI. ImVisible optimizes for all three at once, and measures each for real.">คนไม่ได้เสิร์ช Google อย่างเดียวแล้ว — เขาถาม AI ด้วย · ImVisible ดันให้ครบทั้ง 3 พร้อมกัน แล้ววัดผลจริงทุกตัว</p>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px">
       <div class="iv-svc" style="background:var(--paper,#fff);border:1px solid var(--line,#e7ecf6);border-radius:18px;padding:26px 24px">
-        <span style="display:inline-block;background:#1a56ff;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">SEO</span>
+        <span style="display:inline-block;background:#2154cc;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">SEO</span>
         <div style="font-weight:800;font-size:1.18rem;margin-bottom:7px" data-en="SEO — rank on Google">รับทำ SEO — ติดอันดับ Google</div>
         <p class="soft" style="font-size:.96rem;line-height:1.62;margin:0" data-en="Get your site onto Google's search results (the blue links) when people search for your business — they click through to you.">ทำให้เว็บคุณโผล่บนหน้าผลค้นหา Google (ลิงก์สีน้ำเงิน) เมื่อคนค้นคำที่เกี่ยวกับธุรกิจคุณ — คนคลิกเข้าเว็บ</p>
       </div>
       <div class="iv-svc" style="background:var(--paper,#fff);border:1px solid var(--line,#e7ecf6);border-radius:18px;padding:26px 24px">
-        <span style="display:inline-block;background:#1a56ff;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">AEO</span>
+        <span style="display:inline-block;background:#2154cc;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">AEO</span>
         <div style="font-weight:800;font-size:1.18rem;margin-bottom:7px" data-en="AEO — be the answer">รับทำ AEO — ถูกหยิบเป็น "คำตอบ"</div>
         <p class="soft" style="font-size:.96rem;line-height:1.62;margin:0" data-en="Get your content picked as the direct answer on Google (Featured snippet / AI Overview) — people see the answer instantly, with your name on it.">ทำให้เนื้อหาคุณถูกหยิบเป็น "คำตอบ" บน Google (Featured snippet / AI Overview) — คนเห็นคำตอบทันที พร้อมชื่อคุณ</p>
       </div>
       <div class="iv-svc" style="background:var(--paper,#fff);border:1px solid var(--line,#e7ecf6);border-radius:18px;padding:26px 24px">
-        <span style="display:inline-block;background:#1a56ff;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">GEO</span>
+        <span style="display:inline-block;background:#2154cc;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">GEO</span>
         <div style="font-weight:800;font-size:1.18rem;margin-bottom:7px" data-en="GEO — AI recommends you">รับทำ GEO — AI แนะนำคุณ</div>
         <p class="soft" style="font-size:.96rem;line-height:1.62;margin:0" data-en="Get ChatGPT · Gemini · Perplexity to name and recommend your brand when people ask — the new field competitors haven't touched yet.">ทำให้ ChatGPT · Gemini · Perplexity "เอ่ยชื่อ + แนะนำแบรนด์คุณ" เมื่อมีคนถาม — สนามใหม่ที่คู่แข่งยังไม่ทำ</p>
       </div>
@@ -869,23 +870,23 @@
   <!-- รับทำเว็บไซต์ · เซลล์เพจ · เว็บระบบ (สร้างด้วย AI · IM WEB) — พร้อม AEO/GEO ในตัว -->
   <section class="wrap iv-up" id="webbuild" style="padding:clamp(40px,6vw,74px) 0">
     <div style="text-align:center;max-width:680px;margin:0 auto 34px">
-      <div style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;font-weight:800;color:#1a56ff;margin-bottom:10px" data-en="Build + grow in one place">สร้างเว็บ + ดันอันดับ ครบในที่เดียว</div>
+      <div style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;font-weight:800;color:#2154cc;margin-bottom:10px" data-en="Build + grow in one place">สร้างเว็บ + ดันอันดับ ครบในที่เดียว</div>
       <h2 style="font-size:clamp(24px,4vw,35px);letter-spacing:-.02em;margin:0 0 10px;text-wrap:balance" data-en="Website · Sales page · Web systems — with AEO/GEO built in">รับทำเว็บไซต์ · เซลล์เพจ · เว็บระบบ — พร้อม AEO/GEO ในตัว</h2>
       <p class="soft" style="font-size:1.02rem;line-height:1.6;margin:0" data-en="We build your website with AI in minutes — schema, FAQ and answer-first structure baked in — then grow it so Google ranks you and AI recommends you, all in one system.">เราสร้างเว็บให้ด้วย AI ในไม่กี่นาที — ฝัง schema · FAQ · โครง answer-first ตั้งแต่แรก — แล้วดันต่อให้ Google ติดอันดับ + AI แนะนำ ครบในระบบเดียว</p>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px">
       <div class="iv-svc" style="background:var(--paper,#fff);border:1px solid var(--line,#e7ecf6);border-radius:18px;padding:26px 24px">
-        <span style="display:inline-block;background:#1a56ff;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">เว็บไซต์</span>
+        <span style="display:inline-block;background:#2154cc;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">เว็บไซต์</span>
         <div style="font-weight:800;font-size:1.18rem;margin-bottom:7px" data-en="Website design">รับทำเว็บไซต์</div>
         <p class="soft" style="font-size:.96rem;line-height:1.62;margin:0" data-en="Business, shop or service websites — designed by AI: beautiful, fast, mobile-ready, with SEO/AEO built in from day one.">เว็บธุรกิจ · ร้านค้า · บริการ ออกแบบด้วย AI สวย โหลดไว รองรับมือถือ พร้อม SEO/AEO ในตัวตั้งแต่วันแรก</p>
       </div>
       <div class="iv-svc" style="background:var(--paper,#fff);border:1px solid var(--line,#e7ecf6);border-radius:18px;padding:26px 24px">
-        <span style="display:inline-block;background:#1a56ff;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">เซลล์เพจ</span>
+        <span style="display:inline-block;background:#2154cc;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">เซลล์เพจ</span>
         <div style="font-weight:800;font-size:1.18rem;margin-bottom:7px" data-en="Sales / Landing page">รับทำเซลล์เพจ (Sales Page)</div>
         <p class="soft" style="font-size:.96rem;line-height:1.62;margin:0" data-en="One-page, built to convert — persuasive structure and clear CTAs, perfect for running ads and selling online.">หน้าเดียวจบ เน้นปิดการขาย — โครงสร้างชวนซื้อ + ปุ่ม CTA ชัด เหมาะยิงแอด/ขายของออนไลน์</p>
       </div>
       <div class="iv-svc" style="background:var(--paper,#fff);border:1px solid var(--line,#e7ecf6);border-radius:18px;padding:26px 24px">
-        <span style="display:inline-block;background:#1a56ff;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">เว็บระบบ</span>
+        <span style="display:inline-block;background:#2154cc;color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em;padding:5px 15px;border-radius:999px;margin-bottom:15px">เว็บระบบ</span>
         <div style="font-weight:800;font-size:1.18rem;margin-bottom:7px" data-en="Web systems">รับทำเว็บระบบ</div>
         <p class="soft" style="font-size:.96rem;line-height:1.62;margin:0" data-en="Sites with booking, membership or dashboards — grow it into a full platform for your business.">เว็บที่มีระบบจอง · สมาชิก · แดชบอร์ด — ต่อยอดเป็นแพลตฟอร์มของธุรกิจคุณได้</p>
       </div>
@@ -1032,17 +1033,17 @@
             <svg viewBox="0 0 520 150" preserveAspectRatio="none" aria-hidden="true">
               <defs>
                 <linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#1a56ff" stop-opacity="0.18"/>
-                  <stop offset="1" stop-color="#1a56ff" stop-opacity="0"/>
+                  <stop offset="0" stop-color="#2154cc" stop-opacity="0.18"/>
+                  <stop offset="1" stop-color="#2154cc" stop-opacity="0"/>
                 </linearGradient>
               </defs>
               <line x1="0" y1="30" x2="520" y2="30" stroke="#dce7fa" stroke-width="1"/>
               <line x1="0" y1="70" x2="520" y2="70" stroke="#dce7fa" stroke-width="1"/>
               <line x1="0" y1="110" x2="520" y2="110" stroke="#dce7fa" stroke-width="1"/>
               <path d="M0,18 L74,30 L148,44 L222,58 L296,80 L370,104 L444,120 L520,130 L520,150 L0,150 Z" fill="url(#gfill)"/>
-              <path d="M0,18 L74,30 L148,44 L222,58 L296,80 L370,104 L444,120 L520,130" fill="none" stroke="#1a56ff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="520" cy="130" r="5" fill="#1a56ff"/>
-              <circle cx="520" cy="130" r="9" fill="#1a56ff" fill-opacity="0.18"/>
+              <path d="M0,18 L74,30 L148,44 L222,58 L296,80 L370,104 L444,120 L520,130" fill="none" stroke="#2154cc" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="520" cy="130" r="5" fill="#2154cc"/>
+              <circle cx="520" cy="130" r="9" fill="#2154cc" fill-opacity="0.18"/>
             </svg>
           </div>
           <div class="log">
@@ -1073,9 +1074,9 @@
         <span class="pname" data-en="Starter">แพ็ก 10 คีย์</span>
         <div class="amt">10 <small data-en="keywords">คีย์เวิร์ด</small></div>
         <ul class="feats">
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Track &amp; push 10 keywords">ติดตาม + ดัน 10 คีย์เวิร์ด</span></li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Automated AEO article writing">เขียนบทความ AEO อัตโนมัติ</span></li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Ranking + AI citation reports">รายงานอันดับ + AI Citation</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2154cc" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Track &amp; push 10 keywords">ติดตาม + ดัน 10 คีย์เวิร์ด</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2154cc" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Automated AEO article writing">เขียนบทความ AEO อัตโนมัติ</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2154cc" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Ranking + AI citation reports">รายงานอันดับ + AI Citation</span></li>
         </ul>
         <a href="https://line.me/R/ti/p/%40imaiofficial" target="_blank" rel="noopener" class="btn btn-ghost" data-en="Chat on LINE">ปรึกษาทาง LINE</a>
       </div>
@@ -1095,9 +1096,9 @@
         <span class="pname" data-en="Scale / Agency">แพ็ก 50 คีย์</span>
         <div class="amt">50 <small data-en="keywords">คีย์เวิร์ด</small></div>
         <ul class="feats">
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Track &amp; push 50 keywords">ติดตาม + ดัน 50 คีย์เวิร์ด</span></li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="All ranking accelerators (PAA · Link · GSC)">ตัวเร่งอันดับครบ (PAA · Link · GSC)</span></li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56ff" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Dedicated support &amp; custom strategy">ดูแลใกล้ชิด + จัดกลยุทธ์เฉพาะ</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2154cc" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Track &amp; push 50 keywords">ติดตาม + ดัน 50 คีย์เวิร์ด</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2154cc" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="All ranking accelerators (PAA · Link · GSC)">ตัวเร่งอันดับครบ (PAA · Link · GSC)</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2154cc" stroke-width="2.4"><path d="M4 12l5 5L20 6"/></svg> <span data-en="Dedicated support &amp; custom strategy">ดูแลใกล้ชิด + จัดกลยุทธ์เฉพาะ</span></li>
         </ul>
         <a href="https://line.me/R/ti/p/%40imaiofficial" target="_blank" rel="noopener" class="btn btn-ghost" data-en="Chat on LINE">ปรึกษาทาง LINE</a>
       </div>
@@ -1117,7 +1118,7 @@
     <style>
       .lead-wrap{max-width:640px;margin:0 auto}
       .lead-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:clamp(24px,4vw,40px);position:relative;overflow:hidden;
-        box-shadow:0 30px 70px -34px rgba(26,86,255,.4),0 2px 8px rgba(15,23,42,.05)}
+        box-shadow:0 30px 70px -34px rgba(33,84,204,.4),0 2px 8px rgba(15,23,42,.05)}
       .lead-card::before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--blue),#3ce0ff)}
       .lead-form input{padding:14px 16px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:1rem;width:100%;background:#fff;color:var(--ink)}
       .lead-form input:focus{outline:2px solid var(--blue);outline-offset:1px;border-color:var(--blue)}
