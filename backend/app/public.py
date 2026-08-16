@@ -193,12 +193,18 @@ article hr{border:0;border-top:1px solid var(--line);margin:2.3em 0}
 .rcard .x{color:var(--muted);font-size:14px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .hero{padding:22px 0 32px;border-bottom:1px solid var(--line);margin-bottom:34px}
 .hero p{color:var(--muted);font-size:18px;margin:.35em 0 0;max-width:60ch}
-.card{display:flex;flex-direction:column;padding:22px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);transition:border-color .15s,transform .15s,box-shadow .15s}
+.card{display:flex;flex-direction:column;padding:0;overflow:hidden;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);transition:border-color .15s,transform .15s,box-shadow .15s}
 .card:hover{border-color:var(--blue);transform:translateY(-3px);box-shadow:0 14px 32px rgba(20,40,120,.09)}
-.card .ey{font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);margin-bottom:9px}
-.card .t{font-size:20px;font-weight:800;line-height:1.28;letter-spacing:-.01em;color:var(--ink);margin-bottom:8px}
-.card .x{color:var(--muted);font-size:15px;line-height:1.55;flex:1;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.card .mt{margin-top:14px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.card:hover .cov .thumb{transform:scale(1.05)}
+/* magazine cover: หัวข้อพาดบนรูป */
+.card .cov{position:relative;height:210px;overflow:hidden;background:linear-gradient(135deg,var(--blue),var(--blue-deep))}
+.card .cov .thumb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;margin:0;border-radius:0;transition:transform .4s cubic-bezier(.2,.6,.2,1)}
+.card .cov::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(9,19,45,0) 30%,rgba(9,19,45,.5) 62%,rgba(9,19,45,.86) 100%)}
+.card .cov-ey{position:absolute;top:13px;left:14px;z-index:2;background:rgba(33,84,204,.92);color:#fff;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 11px;border-radius:999px}
+.card .cov-t{position:absolute;left:16px;right:16px;bottom:14px;z-index:2;margin:0;color:#fff;font-size:19px;font-weight:800;line-height:1.3;letter-spacing:-.01em;text-shadow:0 2px 12px rgba(0,0,0,.55)}
+.card .cbody{padding:15px 20px 20px}
+.card .x{color:var(--muted);font-size:15px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .mt{margin-top:12px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .empty{color:var(--muted);padding:48px 0;text-align:center}
 .foot{border-top:1px solid var(--line);margin-top:58px;padding:26px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7}
 .foot a{color:var(--blue)}
@@ -1902,9 +1908,11 @@ def render_index_page(proj, arts) -> str:
     }, ensure_ascii=False)
     if arts:
         cards = "".join(
-            '<a class="card" href="%s">%s<div class="ey">%s</div><div class="t">%s</div>'
-            '<div class="x">%s</div><div class="mt">%s</div></a>'
+            '<a class="card" href="%s"><div class="cov%s">%s'
+            '<span class="cov-ey">%s</span><h3 class="cov-t">%s</h3></div>'
+            '<div class="cbody"><div class="x">%s</div><div class="mt">%s</div></div></a>'
             % (_esc(a.url or public_url_for(proj, a)),
+               ("" if getattr(a, "cover_url", "") else " nocov"),
                ('<img class="thumb" src="%s" alt="%s" loading="lazy" decoding="async" width="400" height="225">'
                 % (_esc(getattr(a, "cover_url", "") or ""), _esc(a.title)))
                if getattr(a, "cover_url", "") else "",
@@ -1993,16 +2001,29 @@ def _latest_cards(proj, arts) -> str:
     for a in arts:
         url = _esc(a.url or public_url_for(proj, a))
         cover = getattr(a, "cover_url", "") or ""
-        thumb = ('<img src="%s" alt="%s" loading="lazy" decoding="async" width="400" height="150" style="width:100%%;height:150px;object-fit:cover;display:block">'
-                 % (_esc(cover), _esc(a.title))) if cover else ""
+        cat = _esc(getattr(a, "cluster", "") or "บทความ")
+        ttl = _esc(a.title)
+        desc = _esc(_desc(a)[:96])
+        # magazine cover: รูปเป็นพื้นหลัง + เกลี่ยเงามืดล่าง + หัวข้อพาดบนรูป (คมชัด ดึงดูด)
+        if cover:
+            media = (
+                '<div style="position:relative;height:194px;overflow:hidden">'
+                '<img src="%s" alt="%s" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%%;height:100%%;object-fit:cover;display:block">'
+                '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(9,19,45,.06) 0%%,rgba(9,19,45,.30) 44%%,rgba(9,19,45,.87) 100%%)"></div>'
+                '<span style="position:absolute;top:12px;left:12px;background:rgba(33,84,204,.92);color:#fff;font-size:11px;font-weight:800;letter-spacing:.05em;padding:4px 11px;border-radius:999px">%s</span>'
+                '<h3 style="position:absolute;left:16px;right:16px;bottom:13px;margin:0;color:#fff;font-size:18px;font-weight:800;line-height:1.3;letter-spacing:-.01em;text-shadow:0 2px 12px rgba(0,0,0,.55)">%s</h3>'
+                '</div>' % (_esc(cover), ttl, cat, ttl))
+        else:
+            media = (
+                '<div style="position:relative;height:194px;background:linear-gradient(135deg,#2154cc,#152f74);overflow:hidden">'
+                '<span style="position:absolute;top:12px;left:12px;background:rgba(255,255,255,.18);color:#fff;font-size:11px;font-weight:800;letter-spacing:.05em;padding:4px 11px;border-radius:999px">%s</span>'
+                '<h3 style="position:absolute;left:16px;right:16px;bottom:13px;margin:0;color:#fff;font-size:18px;font-weight:800;line-height:1.3;letter-spacing:-.01em">%s</h3>'
+                '</div>' % (cat, ttl))
         out.append(
             '<a href="%s" style="display:block;text-decoration:none;color:inherit;border:1px solid #e5e9f2;'
-            'border-radius:14px;overflow:hidden;background:#fff;transition:transform .15s">%s'
-            '<div style="padding:14px 16px">'
-            '<div style="font-size:12px;color:#5b6ef5;font-weight:700">%s</div>'
-            '<div style="font-weight:700;margin:4px 0 5px;color:#101627;line-height:1.35">%s</div>'
-            '<div style="font-size:13px;color:#5b6478;line-height:1.5">%s</div></div></a>'
-            % (url, thumb, _esc(getattr(a, "cluster", "") or "บทความ"), _esc(a.title), _esc(_desc(a)[:110])))
+            'border-radius:14px;overflow:hidden;background:#fff;transition:transform .15s,box-shadow .15s">%s'
+            '<div style="padding:13px 16px 15px"><div style="font-size:13px;color:#5b6478;line-height:1.55">%s</div></div></a>'
+            % (url, media, desc))
     return "".join(out)
 
 
