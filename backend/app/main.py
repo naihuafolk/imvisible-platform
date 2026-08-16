@@ -2167,9 +2167,11 @@ async def project_rank_check(project_id: int, req: KeywordRequest, user=Depends(
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app import creds
+    from app.worker.tasks import _rank_match_target
     async with db.session() as s:
         proj = await _own_project(s, project_id, user)
         domain = proj.domain
+        mp = _rank_match_target(proj)   # วัด 'หน้าที่เราสร้าง' (/blog/{slug}) ไม่ใช่เว็บเก่าลูกค้า
     if not domain:
         raise HTTPException(422, "โปรเจ็คนี้ยังไม่ได้ตั้งโดเมน")
     dfs = await creds.get_creds(project_id, "dataforseo")
@@ -2177,7 +2179,7 @@ async def project_rank_check(project_id: int, req: KeywordRequest, user=Depends(
         raise HTTPException(503, "ยังไม่ได้ต่อคีย์ DataForSEO — การวัด 'อันดับ Google จริง' ต้องใช้ DataForSEO "
                                  "(เสิร์ชเอนจินอื่นให้อันดับต่างกัน จึงใช้แทนไม่ได้) · ต่อคีย์ที่ ⚙️ การตั้งค่า")
     try:
-        res = await serp.rank_check(req.keyword, domain, creds=dfs or None)
+        res = await serp.rank_check(req.keyword, domain, creds=dfs or None, match_prefix=mp)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, str(e))
     try:
@@ -2198,7 +2200,7 @@ async def project_measure_all(project_id: int, user=Depends(get_current_user)):
     if not db.enabled():
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
     from app.db.models import Project, Article
-    from app.worker.tasks import _tracked_keywords, _pack_cap
+    from app.worker.tasks import _tracked_keywords, _pack_cap, _rank_match_target
     async with db.session() as s:
         p = await s.get(Project, project_id)
         if not p or p.user_id != user["id"]:
@@ -2210,6 +2212,7 @@ async def project_measure_all(project_id: int, user=Depends(get_current_user)):
             select(Article.title).where(Article.project_id == project_id,
                                         Article.status == "published"))).scalars().all()
         kws = _tracked_keywords(p, titles, _pack_cap(p))   # คีย์ลูกค้า (topic_plan) + หัวข้อบทความ · สูงสุด=แพ็ก
+        mp = _rank_match_target(p)   # วัด 'หน้าที่เราสร้าง' ไม่ใช่เว็บเก่าลูกค้า
         pname = p.name
     if not kws:
         return {"queued": 0, "note": "ยังไม่มีคีย์เวิร์ดให้วัด — เพิ่มคีย์เวิร์ดที่หน้าจัดการโปรเจ็คก่อน"}
@@ -2223,7 +2226,7 @@ async def project_measure_all(project_id: int, user=Depends(get_current_user)):
     try:
         from app.worker.tasks import measure_rank
         for kw in kws:
-            measure_rank.delay(kw, domain, project_id)
+            measure_rank.delay(kw, domain, project_id, mp)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, "ต่อคิวไม่ได้ (worker/redis พร้อมไหม): " + str(e))
     return {"queued": len(kws), "project": pname}

@@ -337,14 +337,18 @@ def publish_article(title: str, html: str, status: str = "draft", url_path: str 
 
 
 @celery_app.task(name="app.worker.tasks.measure_rank")
-def measure_rank(keyword: str, domain: str, project_id: int | None = None) -> dict:
-    return _run(_measure_rank(keyword, domain, project_id))
+def measure_rank(keyword: str, domain: str, project_id: int | None = None,
+                 match_prefix: str | None = None) -> dict:
+    return _run(_measure_rank(keyword, domain, project_id, match_prefix))
 
 
-async def _measure_rank(keyword: str, domain: str, project_id: int | None) -> dict:
-    """รวมเป็น coroutine เดียว (event loop เดียวต่อ task) — เช็กอันดับแล้วบันทึกในลูปเดียวกัน"""
+async def _measure_rank(keyword: str, domain: str, project_id: int | None,
+                        match_prefix: str | None = None) -> dict:
+    """รวมเป็น coroutine เดียว (event loop เดียวต่อ task) — เช็กอันดับแล้วบันทึกในลูปเดียวกัน
+    match_prefix = 'หน้าที่เราสร้าง' (เช่น imvisible.tech/blog/{slug}) → วัดหน้าเราจริง ไม่ใช่เว็บเก่าลูกค้า"""
     dfs = await creds.get_creds(project_id, "dataforseo") if (project_id and db.enabled()) else {}
-    res = await serp.rank_check(keyword, domain, creds=dfs or None)   # คีย์ลูกค้าก่อน → กลาง
+    res = await serp.rank_check(keyword, domain, creds=dfs or None,
+                                match_prefix=match_prefix)   # คีย์ลูกค้าก่อน → กลาง
     if project_id and db.enabled():
         await _save_rank(project_id, res)
     return res
@@ -1967,6 +1971,23 @@ def _tracked_keywords(p, article_titles, cap: int = 50) -> list:
     return out[:cap]
 
 
+def _rank_match_target(p) -> str | None:
+    """'หน้าที่เราสร้างให้ลูกค้า' อยู่ที่ไหน = ที่ที่ต้องวัดอันดับ (ไม่ใช่เว็บเก่าลูกค้า)
+      - custom domain: คอนเทนต์อยู่บนแบรนด์เขาแล้ว → match ทั้งโดเมนนั้น
+      - managed บน /blog/{slug}: match เฉพาะ path ของโปรเจ็คนี้ (unique · ไม่ชนโปรเจ็คอื่นบน imvisible.tech)
+      - เว็บ root ของเราเอง (project 1) / เว็บจริงภายนอก: None → netloc match ตาม p.domain เดิม"""
+    from app.config import settings
+    base = (settings.managed_base_domain or "").lower().removeprefix("www.")
+    dom = (getattr(p, "domain", "") or "").lower().removeprefix("www.")
+    cd = (getattr(p, "custom_domain", "") or "").strip().lower().removeprefix("www.")
+    if cd:
+        return cd
+    slug = (getattr(p, "slug", "") or "").strip()
+    if (getattr(p, "publish_mode", "") == "managed") and slug and base and dom != base:
+        return "%s/blog/%s" % (base, slug)     # เช่น imvisible.tech/blog/boxgallerythailand
+    return None
+
+
 async def _measure_all_ranks() -> str:
     from app.db.models import Project, Article
     if not db.enabled():
@@ -1979,8 +2000,9 @@ async def _measure_all_ranks() -> str:
             titles = (await s.execute(
                 select(Article.title).where(Article.project_id == p.id,
                                             Article.status == "published"))).scalars().all()
+        mp = _rank_match_target(p)   # วัด 'หน้าที่เราสร้าง' ไม่ใช่เว็บเก่าลูกค้า
         for kw in _tracked_keywords(p, titles, _pack_cap(p)):   # คีย์ลูกค้า (topic_plan) + หัวข้อบทความ · สูงสุด = แพ็ก
-            measure_rank.delay(kw, p.domain, p.id)
+            measure_rank.delay(kw, p.domain, p.id, mp)
             n += 1
     return "queued %d rank checks across %d projects" % (n, len(projs))
 

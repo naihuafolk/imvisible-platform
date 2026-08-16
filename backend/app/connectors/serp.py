@@ -406,7 +406,8 @@ async def keyword_research(seeds, limit: int = 30, creds: dict | None = None,
 async def rank_check(keyword: str, domain: str,
                      location_code: int | None = None,
                      language_code: str | None = None,
-                     creds: dict | None = None) -> dict:
+                     creds: dict | None = None,
+                     match_prefix: str | None = None) -> dict:
     """
     ยิงคีย์เวิร์ดไปที่ Google (ผ่าน DataForSEO) แล้ว:
       - คืน top 10 (หน้า 1)
@@ -433,12 +434,21 @@ async def rank_check(keyword: str, domain: str,
                 "on_page1": False, "top10": [], "raw_status": data.get("status_message")}
 
     dom = domain.lower().removeprefix("www.")
+    # 'หน้าที่เราสร้างให้ลูกค้า' อยู่ใต้ path เฉพาะ เช่น imvisible.tech/blog/{slug}
+    # → match แบบ host+path (ไม่ใช่แค่ netloc) เพื่อวัด 'หน้าเราจริง' ไม่ชนโปรเจ็คอื่นบนโดเมนเดียวกัน
+    mp = (match_prefix or "").lower().strip()
+    mp = re.sub(r"^https?://", "", mp).removeprefix("www.").rstrip("/") or None
     organic = [it for it in items if it.get("type") == "organic"]
+
+    def _hit(it) -> bool:
+        if mp:
+            np = re.sub(r"^https?://", "", (it.get("url") or "").lower()).removeprefix("www.").rstrip("/")
+            return np == mp or np.startswith(mp + "/") or np.startswith(mp + "?") or np.startswith(mp + "#")
+        return (it.get("domain") or "").lower().removeprefix("www.") == dom
 
     our_rank = None
     for it in organic:
-        d = (it.get("domain") or "").lower().removeprefix("www.")
-        if d == dom:
+        if _hit(it):
             our_rank = it.get("rank_absolute")
             break
 
