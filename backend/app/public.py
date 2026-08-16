@@ -1939,6 +1939,35 @@ def render_sitemap(proj, arts) -> str:
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">%s</urlset>' % "".join(urls))
 
 
+def render_sitemap_index(slugs) -> str:
+    """master sitemap index บนโดเมนหลัก — รวม sitemap ของทุกโปรเจ็ค managed
+    (imvisible.tech/blog/{slug}/sitemap.xml) → ส่งให้ Google รู้จัก 'ทุกหน้า client' ในไฟล์เดียว"""
+    base = settings.managed_base_domain
+    scheme = settings.managed_scheme
+    items = "".join(
+        "<sitemap><loc>%s://%s/blog/%s/sitemap.xml</loc></sitemap>" % (scheme, base, _esc(sl))
+        for sl in slugs)
+    return ('<?xml version="1.0" encoding="UTF-8"?>'
+            '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">%s</sitemapindex>' % items)
+
+
+async def _index_slugs():
+    """slug ของทุกโปรเจ็คที่โฮสต์บน imvisible.tech/blog/{slug} + มีบทความเผยแพร่ ≥1
+    (managed เท่านั้น — โปรเจ็ค custom domain มี sitemap อยู่บนโดเมนตัวเองแล้ว)"""
+    if not db.enabled():
+        return []
+    from app.db.models import Project, Article
+    from sqlalchemy import exists
+    async with db.session() as s:
+        has_pub = exists().where((Article.project_id == Project.id) & (Article.status == "published"))
+        rows = (await s.execute(
+            select(Project.slug).where(
+                Project.slug != "",
+                (Project.custom_domain == "") | (Project.custom_domain.is_(None)),
+                has_pub).order_by(Project.id))).scalars().all()
+    return [r for r in rows if (r or "").strip()]
+
+
 def render_llms_txt(proj, arts) -> str:
     home = project_public_home(proj)
     lines = ["# %s" % (proj.name or proj.domain), "",
@@ -1987,6 +2016,14 @@ async def blog_latest(slug: str = "", n: int = 6):
         return HTMLResponse("", headers=hdr)
     arts = (await _published(proj.id))[: max(1, min(int(n or 6), 12))]
     return HTMLResponse(_latest_cards(proj, arts), headers=hdr)
+
+
+# master sitemap index — ต้องมาก่อน "/blog/{project_slug}" ไม่งั้น "sitemap-index.xml" จะถูกจับเป็น slug
+@router.get("/blog/sitemap-index.xml")
+async def blog_sitemap_master():
+    """รวม sitemap ทุก client managed ในไฟล์เดียว — ส่ง URL นี้เข้า Google Search Console
+    (อยู่ใต้ /blog/* จึงเสิร์ฟจาก api ไม่โดน WordPress ดัก · ไม่ต้องแก้ Caddy)"""
+    return Response_xml(render_sitemap_index(await _index_slugs()))
 
 
 @router.get("/blog/{project_slug}", response_class=HTMLResponse)
@@ -2046,7 +2083,10 @@ async def host_article(article_key: str, request: Request):
 
 @router.get("/sitemap.xml")
 async def host_sitemap(request: Request):
-    proj = await _project_by_host(_host(request))
+    host = _host(request)
+    if host == settings.managed_base_domain.lower():      # โดเมนหลัก → master index รวมทุก client
+        return Response_xml(render_sitemap_index(await _index_slugs()))
+    proj = await _project_by_host(host)
     if not proj:
         return PlainTextResponse("not found", status_code=404)
     return Response_xml(render_sitemap(proj, await _published(proj.id)))
@@ -2062,7 +2102,13 @@ async def host_llms(request: Request):
 
 @router.get("/robots.txt", response_class=PlainTextResponse)
 async def host_robots(request: Request):
-    proj = await _project_by_host(_host(request))
+    host = _host(request)
+    base = settings.managed_base_domain.lower()
+    if host == base:      # โดเมนหลัก → ชี้ Google ไป master sitemap ของ managed pages
+        return PlainTextResponse(
+            "User-agent: *\nAllow: /\nSitemap: %s://%s/blog/sitemap-index.xml\n"
+            % (settings.managed_scheme, base))
+    proj = await _project_by_host(host)
     if not proj:
         return PlainTextResponse("User-agent: *\nAllow: /\n")
     return PlainTextResponse(render_robots(proj))
