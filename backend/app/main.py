@@ -665,12 +665,20 @@ async def create_project(req: ProjectCreate, user=Depends(get_current_user), def
             if "://" not in u:
                 u = "https://" + u
             domain = (urlparse(u).hostname or "").removeprefix("www.")
-        if not domain:
-            raise HTTPException(422, "กรุณาระบุเว็บไซต์ (url หรือ domain)")
-        name = (req.name or "").strip() or domain
-        base_slug = project_slug_from_domain(domain)
-        custom = _clean_custom_domain(req.custom_domain)
-        pmode = _norm_publish_mode(req.publish_mode or "managed")
+        if not domain:                               # ไม่มีเว็บเดิมเลย (เช่น ร้านที่มีแค่รูป) → เราสร้าง+โฮสต์ให้
+            nm = (req.name or "").strip()
+            if not nm:
+                raise HTTPException(422, "กรุณาระบุชื่อธุรกิจ หรือเว็บไซต์ (url/domain)")
+            base_slug = project_slug_from_domain(nm) or "brand"
+            domain = base_slug                       # โดเมนเทียมจากชื่อธุรกิจ (ตัวระบุ) — เนื้อหาโฮสต์บนบล็อกที่เราสร้าง
+            name = nm
+            custom = _clean_custom_domain(req.custom_domain)
+            pmode = "managed"                        # บังคับโฮสต์บล็อกให้ (ลูกค้าไม่มีเว็บของตัวเอง)
+        else:
+            name = (req.name or "").strip() or domain
+            base_slug = project_slug_from_domain(domain)
+            custom = _clean_custom_domain(req.custom_domain)
+            pmode = _norm_publish_mode(req.publish_mode or "managed")
     pack = plans.normalize_pack(getattr(req, "keyword_pack", plans.DEFAULT_PACK))   # แพ็กคีย์ของลูกค้ารายนี้
     async with db.session() as s:
         if custom:                                   # กันโดเมนซ้ำกับโปรเจ็คอื่น (backstop = unique index)
