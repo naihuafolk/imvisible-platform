@@ -445,8 +445,12 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
     nm = _esc((name or "").strip() or t("ธุรกิจของเรา", "Our Business"))
     biz = _esc((biz_type or "").strip())
     ink, gold, cream = _cs_palette(biz_type, about)
-    if variant == 1:          # สไตล์ 1 · Moonlit Luxe — คืนจันทร์ริมทะเล (พาเลตต์ประจำสไตล์ · หรู เข้ม)
+    if variant == 1:          # สไตล์ 1 · Moonlit Luxe — คืนจันทร์ริมทะเล (หรู เข้ม)
         ink, gold, cream = "#0b1a2e", "#e0a44b", "#f7f2e9"
+    elif variant == 2:        # สไตล์ 2 · Coastal Fresh — สว่าง สดใส (teal-ink + ส้มปะการัง + สายหมอกทะเล)
+        ink, gold, cream = "#0e2f2b", "#f2603c", "#eef4f3"
+    elif variant == 3:        # สไตล์ 3 · Rustic Warm — อบอุ่นพื้นบ้าน (โกโก้ + ดินเผา + ครีม)
+        ink, gold, cream = "#2c221b", "#b5502e", "#f4e9d6"
     _hay = (biz_type + " " + about).lower()
     is_food = any(k in _hay for k in ("อาหาร", "คาเฟ่", "กาแฟ", "restaurant", "cafe", "coffee",
                                       "บาร์", "bar", "bistro", "ซูชิ", "sushi", "ครัว", "bakery",
@@ -731,6 +735,18 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
 .cs-v1 .cs-nav .cs-brand{color:#f4ecd6}
 .cs-v1 .cs-nav-lnk{color:rgba(244,236,214,.82)}
 .cs-v1 .cs-nav-lnk:hover{color:var(--cs-gold)}
+/* ===== สไตล์ 2 · Coastal Fresh — sans สะอาด สดใส ปุ่มมน ===== */
+.cs-v2{--cs-display:'Prompt','Sarabun',ui-sans-serif,'Segoe UI',system-ui,sans-serif}
+.cs-v2 .cs-hero h1,.cs-v2 .cs-sec h2{font-weight:800;letter-spacing:-.02em}
+.cs-v2 .cs-btn,.cs-v2 .cs-nav a.cs-cta{border-radius:999px}
+.cs-v2 .cs-card,.cs-v2 .cs-menuimg,.cs-v2 .cs-blog-card{border-radius:18px}
+.cs-v2 .cs-why-list li span{border-radius:8px}
+/* ===== สไตล์ 3 · Rustic Warm — slab อบอุ่น การ์ดมน ขอบครีม ===== */
+.cs-v3{--cs-display:'Rockwell','Roboto Slab','Bitter',Georgia,serif}
+.cs-v3 .cs-btn,.cs-v3 .cs-nav a.cs-cta{border-radius:11px}
+.cs-v3 .cs-card{border-radius:20px;border:1px solid #e6d5b8}
+.cs-v3 .cs-menuimg,.cs-v3 .cs-blog-card{border-radius:18px}
+.cs-v3 .cs-about-img{border-radius:22px}
 </style>""")
     menu_lnk = ('<a class="cs-nav-lnk" href="#menu">%s</a>' % t("เมนู", "Menu")) if menu_sec else ""
     _logo = (logo or "").strip()
