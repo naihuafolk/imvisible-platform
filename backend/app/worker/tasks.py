@@ -472,6 +472,91 @@ def _is_ymyl(text: str) -> bool:
     return any(k.lower() in t for k in _YMYL_TERMS)
 
 
+# ===== Content Hub · auto-backlink ขาว (แทรกลิงก์หาลูกค้าที่เกี่ยวในบทความ hub) =====
+def _esc_min(s) -> str:
+    return (str(s or "").replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def _client_public_url(c) -> str:
+    """ลิงก์ปลายทางของลูกค้า — โดเมนจริงของเขาก่อน (backlink ตรงแบรนด์) ไม่งั้น = เว็บที่เราโฮสต์"""
+    from app.config import settings as _S
+    cd = (getattr(c, "custom_domain", "") or "").strip().lower().removeprefix("www.")
+    if cd:
+        return "https://" + cd
+    dom = (getattr(c, "domain", "") or "").strip().lower().removeprefix("www.")
+    if dom and "." in dom and " " not in dom:               # โดเมนจริงภายนอก เช่น kroo8.com
+        return "https://" + dom
+    base = (_S.managed_base_domain or "imvisible.tech").strip()
+    return "%s://%s/blog/%s" % (_S.managed_scheme, base, (getattr(c, "slug", "") or "").strip())
+
+
+def _client_keywords(c) -> list:
+    """คำสัญญาณของลูกค้า ไว้จับคู่กับหัวข้อบทความ hub — ชื่อ + คีย์เวิร์ด + บริบทธุรกิจ"""
+    out = []
+    nm = (getattr(c, "name", "") or "").strip().lower()
+    if nm:
+        out.append(nm)
+    try:
+        for it in (json.loads(getattr(c, "topic_plan", "") or "[]") or []):
+            t = ((it.get("topic") if isinstance(it, dict) else str(it)) or "").strip().lower()
+            if len(t) >= 4:
+                out.append(t)
+    except Exception:  # noqa: BLE001
+        pass
+    bc = (getattr(c, "business_context", "") or "").strip().lower()
+    if bc:
+        out.append(bc[:240])                                 # บริบทธุรกิจ → ช่วยจับคู่นีช
+    return out
+
+
+def _ng(s: str, n: int = 5) -> set:
+    """character n-gram — จับคู่ภาษาไทย (ไม่มีเว้นวรรค) ได้โดยไม่ต้องพึ่ง tokenizer"""
+    s = (s or "").lower()
+    return {s[i:i + n] for i in range(len(s) - n + 1)} if len(s) >= n else ({s} if s else set())
+
+
+async def _hub_inject_links(html: str, topic: str, hub_id: int, max_links: int = 2) -> str:
+    """หาลูกค้าที่เกี่ยวกับหัวข้อบทความ → แทรกกล่อง 'บริการ & เครื่องมือที่เกี่ยวข้อง' + ลิงก์
+    (backlink ขาว: ลิงก์ในบริบทจริง · เฉพาะที่ match จริง · เว้น hub เอง · เลือกสูงสุด max_links)"""
+    if not db.enabled():
+        return html
+    from app.db.models import Project
+    hay_ng = _ng(topic) | _ng(_plain(html)[:600])            # หัวข้อ + ต้นเนื้อหา = สัญญาณว่าบทความเรื่องอะไร
+    async with db.session() as s:
+        clients = (await s.execute(
+            select(Project).where(Project.id != hub_id,
+                                  Project.active.is_(True),
+                                  Project.is_hub.is_(False)))).scalars().all()
+    scored = []
+    for c in clients:
+        ck = set()
+        for k in _client_keywords(c):
+            ck |= _ng(k)
+        score = len(hay_ng & ck)                             # จำนวน n-gram ที่ทับกัน = ความเกี่ยวของนีช
+        if score >= 3:                                       # ต้องเกี่ยวจริง (กันลิงก์มั่ว)
+            scored.append((score, c.id, c))
+    if not scored:
+        return html
+    scored.sort(key=lambda x: (-x[0], x[1]))
+    cards = ""
+    for _, _, c in scored[:max_links]:
+        url = _client_public_url(c)
+        blurb = ((getattr(c, "business_context", "") or "").strip().split("\n")[0].split("।")[0])[:110]
+        blurb = blurb or (getattr(c, "name", "") or "")
+        cards += (
+            '<a href="%s" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:inherit;'
+            'border:1px solid #e6e3db;border-radius:12px;padding:14px 16px;background:#fff;margin-top:10px">'
+            '<span style="font-weight:800;color:#16181c">%s</span>'
+            '<span style="color:#5a5c63;font-size:.94em"> — %s</span>'
+            '<span style="display:block;margin-top:4px;color:#ec4a34;font-weight:700;font-size:.86em">ไปที่เว็บไซต์ →</span></a>'
+            % (_esc_min(url), _esc_min(getattr(c, "name", "")), _esc_min(blurb)))
+    box = ('<aside style="margin:34px 0 8px;padding:18px 20px;background:#faf7f1;border:1px solid #e7e3d9;border-radius:14px">'
+           '<div style="font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;font-weight:800;color:#ec4a34;'
+           'margin-bottom:2px">บริการ &amp; เครื่องมือที่เกี่ยวข้อง</div>%s</aside>' % cards)
+    return html + box
+
+
 @celery_app.task(name="app.worker.tasks.produce_for_project")
 def produce_for_project(project_id: int, max_new: int = 1) -> dict:
     """1 โปรเจ็ค: ขุดคำถาม → เลือกหัวข้อใหม่ (กันซ้ำ) → เขียนด้วย AI →
@@ -532,6 +617,7 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
                             language=proj.language, mode=proj.mode,
                             publish_mode=getattr(proj, "publish_mode", "managed") or "managed",
                             business_context=getattr(proj, "business_context", "") or "",
+                            is_hub=bool(getattr(proj, "is_hub", False)),
                             topic_plan=getattr(proj, "topic_plan", "") or "")
         existing = set((await s.execute(
             select(Article.title).where(Article.project_id == project_id))).scalars().all())
@@ -608,6 +694,8 @@ async def _produce_for_project(project_id: int, max_new: int) -> dict:
             if video:
                 html = ('<figure class="hero-video"><video src="' + video +
                         '" controls preload="metadata" playsinline style="width:100%;border-radius:12px"></video></figure>') + html
+            if p.is_hub:                                             # 🔗 content hub → แทรกลิงก์หาลูกค้าที่เกี่ยว (auto-backlink ขาว)
+                html = await _hub_inject_links(html, topic, project_id)
             schema = gen.get("schema", "") or ""
             desc = _plain(html)[:300]
             aeo = _aeo_of(html, topic, desc, schema, cover)          # คะแนน AEO/SEO จริง (ตัวแปรจัดอันดับ)

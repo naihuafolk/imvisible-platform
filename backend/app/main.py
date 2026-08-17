@@ -3954,6 +3954,25 @@ async def web_requests_list(user=Depends(get_current_user)):
     return {"items": items, "count": len(items)}
 
 
+@app.post("/api/admin/hub/produce")
+async def admin_hub_produce(n: int = 3, user=Depends(get_current_user)):
+    """แอดมิน: สั่ง 'content hub' ผลิตบทความ n ชิ้น (ระบบแทรกลิงก์หาลูกค้าที่เกี่ยวอัตโนมัติ = auto-backlink ขาว)"""
+    if not db.enabled():
+        raise HTTPException(503, "ยังไม่ได้ตั้งค่า DATABASE_URL")
+    from app import usage
+    if (await usage.user_plan(user["id"])) != "admin":
+        raise HTTPException(403, "เฉพาะแอดมิน")
+    from app.db.models import Project
+    async with db.session() as s:
+        hub = (await s.execute(select(Project).where(Project.is_hub.is_(True)))).scalars().first()
+        if not hub:
+            raise HTTPException(404, "ยังไม่มี content hub — สร้างโปรเจ็คแล้วตั้ง is_hub=true ก่อน")
+        hid, hname = hub.id, hub.name
+    from app.worker.tasks import produce_for_project
+    produce_for_project.delay(hid, max(1, min(int(n), 10)))
+    return {"hub": hname, "queued": max(1, min(int(n), 10))}
+
+
 @app.post("/api/web-requests/{req_id}/approve")
 async def web_request_approve(req_id: int, user=Depends(get_current_user)):
     """อนุมัติคำขอ → สร้างโปรเจ็ค (ระบบค้นเว็บจากลิงก์ให้เอง) + คืนลิงก์ให้ลูกค้าดูแบบ — แอดมิน"""
