@@ -128,8 +128,8 @@ async def _related(project_id: int, exclude_id: int, n: int = 4):
 # ------------------------------------------------------------- templates ----
 _CSS = """
 *{box-sizing:border-box}
-:root{--paper:#fff;--ink:#10192b;--muted:#5a6a86;--blue:#1b3fd4;--blue-ink:#12299e;
---line:#e7ecf6;--wash:#f6f8fd;--wash2:#eef3fc;--sel:#dbe6ff;--radius:16px;--maxw:722px}
+:root{--paper:#fcfbf8;--ink:#161821;--muted:#5a6a86;--blue:#1b3fd4;--blue-ink:#12299e;
+--line:#e9e6de;--wash:#f6f5f0;--wash2:#eef3fc;--sel:#dbe6ff;--radius:16px;--maxw:722px}
 @media(prefers-color-scheme:dark){:root{--paper:#0b111f;--ink:#eef2fb;--muted:#93a3c2;--blue:#7d97ff;
 --blue-ink:#a9bcff;--line:#233150;--wash:#111a2e;--wash2:#16213a;--sel:#25325a}}
 html{-webkit-text-size-adjust:100%}
@@ -156,6 +156,8 @@ article h2{font-size:clamp(23px,3.4vw,30px);line-height:1.25;letter-spacing:-.01
 article h3{font-size:20px;line-height:1.35;margin:1.5em 0 .35em;font-weight:700;scroll-margin-top:82px}
 article p,article li{font-size:18.5px}
 article>p:first-of-type{font-size:21px;line-height:1.68}
+article>p:first-of-type::first-letter{font-size:3.15em;font-weight:800;float:left;line-height:.82;margin:.04em .11em 0 0;color:var(--blue)}
+article .note,article .callout,article aside.note{display:flex;gap:13px;background:var(--wash);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:0 13px 13px 0;padding:15px 18px;margin:1.6em 0;font-size:16.5px;line-height:1.62}
 article ul,article ol{padding-left:1.35em}article li{margin:.32em 0}
 article strong{font-weight:700}
 article a{text-decoration:underline;text-underline-offset:3px;text-decoration-color:color-mix(in srgb,var(--blue) 42%,transparent)}
@@ -919,10 +921,10 @@ def render_article_page(proj, art, related=None) -> str:
     header = "" if has_h1 else "<h1>%s</h1>" % _esc(art.title)
     # 🎯 Answer Box (TL;DR) — ก้อนคำตอบสั้นบนสุด = ส่วนที่ AI/Google หยิบไปตอบเป๊ะ (คู่กับ Speakable schema)
     _tldr = _desc(art)
-    tldr_html = ('<div class="tldr" style="background:#eef3ff;border-left:4px solid #1657d6;border-radius:0 12px 12px 0;'
-                 'padding:14px 18px;margin:2px 0 20px;font-size:1.02rem;line-height:1.65;color:#0f1b2d">'
-                 '<strong style="color:#0e3fa0">%s</strong> %s</div>'
-                 % (t("สรุปคำตอบ:", "In short:"), _esc(_tldr))) if _tldr else ""
+    tldr_html = ('<div class="tldr" style="background:var(--wash);border:1px solid var(--line);border-left:4px solid var(--blue);'
+                 'border-radius:0 14px 14px 0;padding:16px 20px;margin:8px 0 28px;font-size:1.05rem;line-height:1.7;color:var(--ink)">'
+                 '<span style="display:block;font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;font-weight:800;color:var(--blue);margin-bottom:5px">%s</span>%s</div>'
+                 % (t("สรุปคำตอบ", "In short"), _esc(_tldr))) if _tldr else ""
     cover = getattr(art, "cover_url", "") or ""
     cover_html = ('<figure class="cover"><img src="%s" alt="%s" fetchpriority="high" decoding="async" width="1200" height="675"></figure>'
                   % (_esc(cover), _esc(art.title))) if cover else ""
@@ -934,7 +936,7 @@ def render_article_page(proj, art, related=None) -> str:
         + '<main><div class="wrap">'
         + '<div class="crumb"><a href="%s">%s</a> › %s</div>' % (_esc(home), t("หน้าแรก", "Home"), _esc(cluster))
         + '<span class="eyebrow">%s</span>' % _esc(cluster)
-        + header + byline + cover_html + toc_html
+        + header + byline + cover_html + tldr_html + toc_html
         + "<article>" + body + "</article>"
         + _cta_box(proj)
         + _share_bar(canonical, art.title, en)
