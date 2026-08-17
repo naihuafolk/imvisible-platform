@@ -433,7 +433,7 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
                        report_token="", copy: dict | None = None, hero_img: str = "",
                        variant: int = 1, blog: list | None = None, social: list | None = None,
                        menu: list | None = None, menu_note: str = "", logo: str = "",
-                       menu_images: list | None = None) -> str:
+                       menu_images: list | None = None, video_url: str = "") -> str:
     """สร้าง 'หน้าเว็บพรีเมียม' ให้ลูกค้า — template สวยขายได้ (ไม่พึ่ง IM WEB)
     ถ้ามี copy (Claude เขียน) + hero_img (Imgentic) จะสวยเต็มรูป · ไม่มีก็ fallback บรีฟดิบได้
     variant 1=Luxe (hero เต็มจอ) · 2=Modern (hero แบ่งซ้าย-ขวา) · 3=Warm (hero การ์ดซ้อน)
@@ -772,8 +772,41 @@ def render_client_home(name, biz_type, about, contact: dict, photo_urls, lang="t
                 '<div class="cs-hero-in">%s<span class="cs-eyebrow">%s</span><h1>%s</h1><p>%s</p>'
                 '<a class="cs-btn" href="#contact">%s</a></div></header>'
                 % (bgcss, hero_logo, eyebrow, headline, subhead, cta))
+    # 🎥 คลิปบรรยากาศ (Facebook video embed) — ชีวิตชีวา เหมาะบาร์/ร้านอาหารมาก
+    video_sec = ""
+    vu = (video_url or "").strip()
+    if vu and "facebook.com" in vu:
+        emb = "https://www.facebook.com/plugins/video.php?href=%s&show_text=false&width=720&height=405" % _up.quote(vu, safe="")
+        video_sec = ('<section class="cs-sec" id="video" style="background:var(--cs-ink)"><div class="cs-wrap">'
+                     '<span class="cs-eyebrow cs-c" style="color:var(--cs-gold)">%s</span>'
+                     '<h2 class="cs-c" style="color:#fff">%s</h2>'
+                     '<div style="max-width:760px;margin:26px auto 0;border-radius:16px;overflow:hidden;box-shadow:0 26px 60px -30px #000">'
+                     '<div style="position:relative;padding-top:56.25%%"><iframe src="%s" '
+                     'style="position:absolute;inset:0;width:100%%;height:100%%;border:0" scrolling="no" frameborder="0" '
+                     'allowfullscreen allow="autoplay;clipboard-write;encrypted-media;picture-in-picture;web-share"></iframe>'
+                     '</div></div></div></section>'
+                     % (t("บรรยากาศ", "Atmosphere"), t("บรรยากาศร้านของเรา", "Our Vibe"), _esc(emb)))
+    # ⭐ รีวิวจริง — ลิงก์ไป Google/Facebook (no-faking: ไม่ปั้นรีวิว โชว์ CTA ไปดูของจริง)
+    reviews_sec = ""
+    g_rev = mp if (mp and mp.startswith("http")) else (("https://www.google.com/maps/search/%s" % _up.quote(addr)) if addr else "")
+    fb_rev = next((u for u in sl if "facebook" in u.lower()), "")
+    if g_rev or fb_rev:
+        btns = ""
+        if g_rev:
+            btns += ('<a class="cs-btn" href="%s" target="_blank" rel="noopener" style="background:#fbbc04;color:#1a1a1a">%s</a>'
+                     % (_esc(g_rev), t("⭐ รีวิวบน Google", "⭐ Reviews on Google")))
+        if fb_rev:
+            btns += ('<a class="cs-btn" href="%s" target="_blank" rel="noopener" style="background:#1877f2;color:#fff">%s</a>'
+                     % (_esc(fb_rev), t("📘 รีวิวบน Facebook", "📘 Reviews on Facebook")))
+        reviews_sec = ('<section class="cs-sec cs-why" id="reviews"><div class="cs-wrap" style="text-align:center;max-width:680px">'
+                       '<span class="cs-eyebrow cs-c">%s</span><h2 class="cs-c">%s</h2>'
+                       '<p style="color:#00000099;margin:8px auto 22px;max-width:46ch">%s</p>'
+                       '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">%s</div></div></section>'
+                       % (t("รีวิว", "Reviews"), t("เสียงจากลูกค้าจริง", "What Guests Say"),
+                          t("อ่านรีวิวจริงจากลูกค้าที่มาสัมผัสด้วยตัวเอง แล้วมาเป็นส่วนหนึ่งของค่ำคืนดี ๆ กับเรา",
+                            "Read real reviews from guests who've experienced it — then come make your own night with us"), btns))
     foot = '<footer class="cs-foot">%s · %s</footer>' % (nm, t("สร้างเว็บโดย ImVisible", "Built with ImVisible"))
-    return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + menu_sec + gallery + why + blog_sec + booking_sec + map_sec + contact_sec + foot + '</main>'
+    return ('<main class="cs-site cs-v%d">' % variant) + css + nav + hero + about_sec + feats + menu_sec + gallery + video_sec + why + blog_sec + booking_sec + map_sec + reviews_sec + contact_sec + foot + '</main>'
 
 
 _CS_VARIANTS = [("1", "✨ Luxe", ("หรู มินิมอล · hero เต็มจอ", "Luxe · full-screen hero")),

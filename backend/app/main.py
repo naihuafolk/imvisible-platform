@@ -4086,7 +4086,7 @@ def _render_variant_from_brief(_public, p, variant: int) -> str:
         hero_img=br.get("hero_img") or "", variant=variant,
         blog=br.get("blog") or [], social=br.get("social") or [],
         menu=br.get("menu") or [], menu_note=br.get("menu_note") or "", logo=br.get("logo") or "",
-        menu_images=br.get("menu_images") or [])
+        menu_images=br.get("menu_images") or [], video_url=br.get("video_url") or "")
     try:
         home = _public.inject_aeo_geo(home, name=br.get("name") or p.name, home=br.get("home_url") or "",
                                       lang=("en" if str(br.get("lang") or "th").startswith("en") else "th"), brief={})
